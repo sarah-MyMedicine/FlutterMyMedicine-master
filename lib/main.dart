@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:mymedicineapp/Pages/home.dart';
 import 'services/notification_service.dart';
+import 'services/api_service.dart';
+import 'services/auth_service.dart';
 import 'providers/medication_provider.dart';
 import 'providers/blood_pressure_provider.dart';
 import 'providers/blood_sugar_provider.dart';
@@ -12,13 +14,20 @@ import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  debugPrint('[main] Initializing NotificationService...');
+  debugPrint('[main] Initializing services...');
+  
+  // Initialize API Service
+  await ApiService().init();
+  debugPrint('[main] ApiService initialized');
+  
+  // Initialize Notification Service
   await NotificationService().init();
-  debugPrint('[main] NotificationService initialized successfully');
-
+  debugPrint('[main] NotificationService initialized');
+  
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => AuthService()),
         ChangeNotifierProvider(create: (_) => MedicationProvider()),
         ChangeNotifierProvider(create: (_) => BloodPressureProvider()),
         ChangeNotifierProvider(create: (_) => BloodSugarProvider()),

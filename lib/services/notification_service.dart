@@ -51,7 +51,7 @@ class NotificationService {
     );
 
     await _plugin.initialize(
-      InitializationSettings(android: android, iOS: ios),
+      settings: InitializationSettings(android: android, iOS: ios),
       // Handle tap on notification
       onDidReceiveNotificationResponse: (NotificationResponse response) async {
         try {
@@ -175,11 +175,11 @@ class NotificationService {
         
         // Attempt zonedSchedule (system scheduling)
         await _plugin.zonedSchedule(
-          id,
-          title,
-          body,
-          tzDateTime,
-          const NotificationDetails(
+          id: id,
+          title: title,
+          body: body,
+          scheduledDate: tzDateTime,
+          notificationDetails: const NotificationDetails(
             android: AndroidNotificationDetails(
               'medicine_channel',
               'Medicine reminders',
@@ -208,10 +208,10 @@ class NotificationService {
         if (e.code == 'exact_alarms_not_permitted') {
           debugPrint('[NotificationService] Retrying with inexactAllowWhileIdle for id=$id');
           await _plugin.zonedSchedule(
-            id,
-            title,
-            body,
-            tz.TZDateTime(
+            id: id,
+            title: title,
+            body: body,
+            scheduledDate: tz.TZDateTime(
               tz.local,
               scheduled.year,
               scheduled.month,
@@ -220,7 +220,7 @@ class NotificationService {
               scheduled.minute,
               scheduled.second,
             ),
-            const NotificationDetails(
+            notificationDetails: const NotificationDetails(
               android: AndroidNotificationDetails(
                 'medicine_channel',
                 'Medicine reminders',
@@ -260,7 +260,7 @@ class NotificationService {
     final List<dynamic> ids = jsonDecode(raw);
     for (final dynamic d in ids) {
       final id = d as int;
-      await _plugin.cancel(id);
+      await _plugin.cancel(id: id);
       // Cancel any active timer for this id as well
       _activeTimers[id]?.cancel();
       _activeTimers.remove(id);
@@ -288,10 +288,10 @@ class NotificationService {
       
       // Show the notification in the system tray
       await _plugin.show(
-        id,
-        title,
-        body,
-        const NotificationDetails(
+        id: id,
+        title: title,
+        body: body,
+        notificationDetails: const NotificationDetails(
           android: AndroidNotificationDetails(
             'medicine_channel',
             'Medicine reminders',
@@ -471,10 +471,10 @@ class NotificationService {
     debugPrint('[NotificationService] Sending IMMEDIATE test notification, id=$id');
     try {
       await _plugin.show(
-        id,
-        'Test Notification',
-        'Tap me to verify the dialog shows!',
-        const NotificationDetails(
+        id: id,
+        title: 'Test Notification',
+        body: 'Tap me to verify the dialog shows!',
+        notificationDetails: const NotificationDetails(
           android: AndroidNotificationDetails(
             'medicine_channel',
             'Medicine reminders',
@@ -507,7 +507,7 @@ class NotificationService {
   }
 
   Future<void> cancelById(int id, String prefix) async {
-    await _plugin.cancel(id);
+    await _plugin.cancel(id: id);
     final prefs = await SharedPreferences.getInstance();
     final key = 'notifs_$prefix';
     if (!prefs.containsKey(key)) return;
@@ -528,11 +528,11 @@ class NotificationService {
     final id = DateTime.now().millisecondsSinceEpoch & 0x7fffffff;
     final payload = jsonEncode({'prefix': prefix, 'name': title.replaceFirst('Time to take ', ''), 'dose': body, 'id': id, 'scheduled': when.millisecondsSinceEpoch});
     await _plugin.zonedSchedule(
-      id,
-      title,
-      body,
-      tz.TZDateTime.from(when, tz.local),
-      const NotificationDetails(
+      id: id,
+      title: title,
+      body: body,
+      scheduledDate: tz.TZDateTime.from(when, tz.local),
+      notificationDetails: const NotificationDetails(
         android: AndroidNotificationDetails(
           'medicine_channel',
           'Medicine reminders',
@@ -555,10 +555,10 @@ class NotificationService {
     await init();
     final id = DateTime.now().millisecondsSinceEpoch & 0x7fffffff;
     await _plugin.show(
-      id,
-      title,
-      body,
-      NotificationDetails(
+      id: id,
+      title: title,
+      body: body,
+      notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
           'health_alerts',
           'Health Alerts',
