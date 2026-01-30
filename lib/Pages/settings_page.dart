@@ -97,7 +97,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                     ),
                                     const SizedBox(height: 8),
                                     DropdownButtonFormField<PatientGender>(
-                                      value: sp.gender,
+                                      initialValue: sp.gender,
                                       items: const [
                                         DropdownMenuItem(
                                           value: PatientGender.male,
@@ -206,7 +206,7 @@ class _SettingsPageState extends State<SettingsPage> {
                               Switch(
                                 value: sp.drugKnowledgeEnabled,
                                 onChanged: (v) => sp.setDrugKnowledge(v),
-                                activeColor: Colors.teal,
+                                activeThumbColor: Colors.teal,
                               ),
                             ],
                           ),
@@ -227,7 +227,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                           const SizedBox(height: 8),
                           DropdownButtonFormField<String>(
-                            value: sp.vibrationPattern,
+                            initialValue: sp.vibrationPattern,
                             items: const [
                               DropdownMenuItem(
                                 value: 'default',

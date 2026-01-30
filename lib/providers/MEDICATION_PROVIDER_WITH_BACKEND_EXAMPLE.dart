@@ -2,6 +2,7 @@
 /// This shows how to sync with the backend server
 /// 
 /// To use this, replace the current medication_provider.dart with this version
+library;
 
 import 'package:flutter/material.dart';
 import '../services/notification_service.dart';

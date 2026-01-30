@@ -306,7 +306,7 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
               controlAffinity: ListTileControlAffinity.leading,
               activeColor: const Color(0xFFE91E7A),
             );
-          }).toList(),
+          }),
         ],
       ),
     );
@@ -526,7 +526,7 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
                 textAlign: TextAlign.right,
               ),
             );
-          }).toList(),
+          }),
         ],
       ),
     );

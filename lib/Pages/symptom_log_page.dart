@@ -398,7 +398,7 @@ class _SymptomDialogState extends State<_SymptomDialog> {
           onChanged: (v) => setState(() => _shareWithOrg = v),
           title: const Text('إبلاغ الجهات الطبية'),
           subtitle: const Text('لزيادة فرص استخدام الدواء والمساهمة في رصد الآثار الجانبية.'),
-          activeColor: const Color(0xFF57B6A8),
+          activeThumbColor: const Color(0xFF57B6A8),
           contentPadding: EdgeInsets.zero,
         ),
         RadioListTile<bool>(

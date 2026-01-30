@@ -407,7 +407,7 @@ class _SquareTile extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        '${badge}',
+                        '$badge',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 10,
