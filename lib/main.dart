@@ -24,6 +24,11 @@ void main() async {
   await NotificationService().init();
   debugPrint('[main] NotificationService initialized');
   
+  // Initialize providers
+  final settingsProvider = SettingsProvider();
+  await settingsProvider.load();
+  debugPrint('[main] Settings loaded');
+  
   runApp(
     MultiProvider(
       providers: [
@@ -31,7 +36,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => MedicationProvider()),
         ChangeNotifierProvider(create: (_) => BloodPressureProvider()),
         ChangeNotifierProvider(create: (_) => BloodSugarProvider()),
-        ChangeNotifierProvider(create: (_) => SettingsProvider()),
+        ChangeNotifierProvider.value(value: settingsProvider),
         ChangeNotifierProvider(create: (_) => AppointmentProvider()),
         ChangeNotifierProvider(create: (_) => AdherenceProvider()),
       ],
@@ -71,6 +76,12 @@ class MyApp extends StatelessWidget {
       title: 'My Medicine',
       theme: AppTheme.theme,
       home: const HomePage(),
+      builder: (context, child) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: child!,
+        );
+      },
     );
   }
 }

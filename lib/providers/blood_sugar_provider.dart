@@ -20,5 +20,19 @@ class BloodSugarProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void remove(int index) {
+    if (index >= 0 && index < _readings.length) {
+      _readings.removeAt(index);
+      notifyListeners();
+    }
+  }
+
+  void update(int index, int value) {
+    if (index >= 0 && index < _readings.length) {
+      _readings[index] = BloodSugarReading(value: value, when: _readings[index].when);
+      notifyListeners();
+    }
+  }
+
   double average() => _readings.isEmpty ? 0 : _readings.map((r) => r.value).reduce((a, b) => a + b) / _readings.length;
 }

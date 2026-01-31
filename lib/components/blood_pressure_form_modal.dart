@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 class BloodPressureFormModal extends StatefulWidget {
   final void Function(int systolic, int diastolic) onSave;
-  const BloodPressureFormModal({super.key, required this.onSave});
+  final int? initialSystolic;
+  final int? initialDiastolic;
+  const BloodPressureFormModal({super.key, required this.onSave, this.initialSystolic, this.initialDiastolic});
 
   @override
   State<BloodPressureFormModal> createState() => _BloodPressureFormModalState();
@@ -12,6 +14,17 @@ class _BloodPressureFormModalState extends State<BloodPressureFormModal> {
   final _formKey = GlobalKey<FormState>();
   final _sysCtrl = TextEditingController();
   final _diaCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialSystolic != null) {
+      _sysCtrl.text = widget.initialSystolic.toString();
+    }
+    if (widget.initialDiastolic != null) {
+      _diaCtrl.text = widget.initialDiastolic.toString();
+    }
+  }
 
   @override
   void dispose() {
@@ -31,7 +44,7 @@ class _BloodPressureFormModalState extends State<BloodPressureFormModal> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('إضافة قياس الضغط', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(widget.initialSystolic != null ? 'تعديل قياس الضغط' : 'إضافة قياس الضغط', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               Form(
                 key: _formKey,

@@ -111,13 +111,6 @@ class Footer extends StatelessWidget {
                 color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
-            IconButton(
-              onPressed: () {},
-              icon: Icon(
-                Icons.calendar_today,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
             Tooltip(
               message: 'Add',
               child: Material(

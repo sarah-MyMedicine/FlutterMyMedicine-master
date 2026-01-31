@@ -15,6 +15,7 @@ import 'adherence_log_page.dart';
 import 'puberty_stage_page.dart';
 import 'menopause_stage_page.dart';
 import 'mother_fetus_care_page.dart';
+import 'health_report_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -169,7 +170,13 @@ class HomePage extends StatelessWidget {
                               _SquareTile(
                                 icon: Icons.medical_services,
                                 label: 'تقرير صحي',
-                                onTap: () {},
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => const HealthReportPage(),
+                                    ),
+                                  );
+                                },
                               ),
 
                               _SquareTile(
@@ -248,12 +255,6 @@ class HomePage extends StatelessWidget {
                                   },
                                 ),
 
-                              // Extra tiles to fill grid
-                              _SquareTile(
-                                icon: Icons.store,
-                                label: 'المتجر',
-                                onTap: () {},
-                              ),
                               // Dynamic empty tiles based on conditional buttons
                               if (!showPubertyStage &&
                                   !showMenopauseStage &&

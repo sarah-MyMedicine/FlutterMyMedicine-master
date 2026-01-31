@@ -31,6 +31,69 @@ class BloodSugarPage extends StatelessWidget {
             child: ListTile(
               title: Text('${r.value} mg/dL'),
               subtitle: Text('${r.when}'),
+              trailing: Builder(
+                builder: (BuildContext buttonContext) {
+                  return IconButton(
+                    icon: const Icon(Icons.more_vert),
+                    onPressed: () async {
+                      final RenderBox button = buttonContext.findRenderObject() as RenderBox;
+                      final RenderBox overlay = Navigator.of(context).overlay!.context.findRenderObject() as RenderBox;
+                      final RelativeRect position = RelativeRect.fromRect(
+                        Rect.fromPoints(
+                          button.localToGlobal(Offset.zero, ancestor: overlay),
+                          button.localToGlobal(button.size.bottomRight(Offset.zero), ancestor: overlay),
+                        ),
+                        Offset.zero & overlay.size,
+                      );
+                      
+                      final String? selected = await showMenu<String>(
+                        context: context,
+                        position: position,
+                        items: [
+                          const PopupMenuItem<String>(
+                            value: 'edit',
+                            child: Row(
+                              children: [
+                                Icon(Icons.edit, size: 18),
+                                SizedBox(width: 12),
+                                Text('تعديل'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem<String>(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete, size: 18, color: Colors.red),
+                                SizedBox(width: 12),
+                                Text('حذف', style: TextStyle(color: Colors.red)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
+                      
+                      if (selected == 'edit') {
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          builder: (_) => BloodSugarFormModal(
+                            initialValue: r.value,
+                            onSave: (v) {
+                              Provider.of<BloodSugarProvider>(context, listen: false).update(i, v);
+                            },
+                          ),
+                        );
+                      } else if (selected == 'delete') {
+                        Provider.of<BloodSugarProvider>(context, listen: false).remove(i);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('تم حذف القراءة')),
+                        );
+                      }
+                    },
+                  );
+                },
+              ),
             ),
           );
         },

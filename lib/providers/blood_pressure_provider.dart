@@ -40,6 +40,20 @@ class BloodPressureProvider extends ChangeNotifier {
     }
   }
 
+  void remove(int index) {
+    if (index >= 0 && index < _readings.length) {
+      _readings.removeAt(index);
+      notifyListeners();
+    }
+  }
+
+  void update(int index, int systolic, int diastolic) {
+    if (index >= 0 && index < _readings.length) {
+      _readings[index] = BloodPressureReading(systolic: systolic, diastolic: diastolic, when: _readings[index].when);
+      notifyListeners();
+    }
+  }
+
   double averageSystolic() => _readings.isEmpty ? 0 : _readings.map((r) => r.systolic).reduce((a, b) => a + b) / _readings.length;
   double averageDiastolic() => _readings.isEmpty ? 0 : _readings.map((r) => r.diastolic).reduce((a, b) => a + b) / _readings.length;
 }

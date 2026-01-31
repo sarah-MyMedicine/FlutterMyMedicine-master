@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 class BloodSugarFormModal extends StatefulWidget {
   final void Function(int value) onSave;
-  const BloodSugarFormModal({super.key, required this.onSave});
+  final int? initialValue;
+  const BloodSugarFormModal({super.key, required this.onSave, this.initialValue});
 
   @override
   State<BloodSugarFormModal> createState() => _BloodSugarFormModalState();
@@ -11,6 +12,14 @@ class BloodSugarFormModal extends StatefulWidget {
 class _BloodSugarFormModalState extends State<BloodSugarFormModal> {
   final _formKey = GlobalKey<FormState>();
   final _valCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialValue != null) {
+      _valCtrl.text = widget.initialValue.toString();
+    }
+  }
 
   @override
   void dispose() {
@@ -29,7 +38,7 @@ class _BloodSugarFormModalState extends State<BloodSugarFormModal> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('إضافة قياس السكر', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(widget.initialValue != null ? 'تعديل قياس السكر' : 'إضافة قياس السكر', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               Form(
                 key: _formKey,

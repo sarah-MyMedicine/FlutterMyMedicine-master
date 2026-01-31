@@ -58,36 +58,52 @@ class _BloodPressurePageState extends State<BloodPressurePage> {
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   subtitle: Text(readings[i]['date']),
-                  trailing: PopupMenuButton<String>(
-                    onSelected: (value) {
-                      if (value == 'edit') {
+                  trailing: IconButton(
+                    icon: const Icon(Icons.more_vert),
+                    onPressed: () async {
+                      final RenderBox button = context.findRenderObject() as RenderBox;
+                      final RenderBox overlay = Navigator.of(context).overlay!.context.findRenderObject() as RenderBox;
+                      final RelativeRect position = RelativeRect.fromRect(
+                        Rect.fromPoints(
+                          button.localToGlobal(Offset.zero, ancestor: overlay),
+                          button.localToGlobal(button.size.bottomRight(Offset.zero), ancestor: overlay),
+                        ),
+                        Offset.zero & overlay.size,
+                      );
+                      
+                      final String? selected = await showMenu<String>(
+                        context: context,
+                        position: position,
+                        items: [
+                          const PopupMenuItem<String>(
+                            value: 'edit',
+                            child: Row(
+                              children: [
+                                Icon(Icons.edit, size: 18),
+                                SizedBox(width: 12),
+                                Text('Edit'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem<String>(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete, size: 18, color: Colors.red),
+                                SizedBox(width: 12),
+                                Text('Delete', style: TextStyle(color: Colors.red)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
+                      
+                      if (selected == 'edit') {
                         _editReading(i);
-                      } else if (value == 'delete') {
+                      } else if (selected == 'delete') {
                         _deleteReading(i);
                       }
                     },
-                    itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                      const PopupMenuItem<String>(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            Icon(Icons.edit, size: 18),
-                            SizedBox(width: 12),
-                            Text('Edit'),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuItem<String>(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete, size: 18, color: Colors.red),
-                            SizedBox(width: 12),
-                            Text('Delete', style: TextStyle(color: Colors.red)),
-                          ],
-                        ),
-                      ),
-                    ],
                   ),
                 ),
               ),
