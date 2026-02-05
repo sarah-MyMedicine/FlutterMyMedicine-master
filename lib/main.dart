@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mymedicineapp/Pages/home.dart';
+import 'package:mymedicineapp/Pages/onboarding_page.dart';
 import 'services/notification_service.dart';
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
@@ -45,14 +47,42 @@ void main() async {
   );
 }
 
-class MyApp extends StatelessWidget {
-  MyApp({super.key});
+class MyApp extends StatefulWidget {
+  const MyApp({super.key});
 
-  // This widget is the root of your application.
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  bool _isFirstTime = false;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkFirstTime();
+  }
+
+  Future<void> _checkFirstTime() async {
+    final prefs = await SharedPreferences.getInstance();
+    final onboardingCompleted = prefs.getBool('onboarding_completed') ?? false;
+    setState(() {
+      _isFirstTime = !onboardingCompleted;
+      _isLoading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const MaterialApp(
+        home: Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
     // Debug auto-add disabled: adding meds on app start has caused heavy startup activity in some environments.
     // If you need it for testing, re-enable manually and use a lightweight schedule.
     // Example to re-enable (debug only):
@@ -75,7 +105,11 @@ class MyApp extends StatelessWidget {
       navigatorKey: _navigatorKey,
       title: 'My Medicine',
       theme: AppTheme.theme,
-      home: const HomePage(),
+      home: _isFirstTime ? const OnboardingPage() : const HomePage(),
+      routes: {
+        '/home': (context) => const HomePage(),
+        '/onboarding': (context) => const OnboardingPage(),
+      },
       builder: (context, child) {
         return Directionality(
           textDirection: TextDirection.rtl,

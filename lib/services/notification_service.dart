@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -24,6 +25,13 @@ class NotificationService {
   GlobalKey<NavigatorState>? _navigatorKey;
   // Queue payloads that arrive before a Navigator/Context is ready
   final List<Map<String, dynamic>> _pendingTaps = <Map<String, dynamic>>[];
+
+  // Motivational messages for skipped medications
+  final List<String> _skippedMedicationMessages = [
+    'ندري الدواء التزام، بس مفعوله يخليك تمشي وتتونس بدون تعب! 😉',
+    'الحبايه دا تباوع عليك وتگول: اشربني هسة وخلصني! 😂',
+    'وينك يا طيب؟ اشتاقينا للالتزام مالتك، لا تخلي السلسلة تنقطع!',
+  ];
 
   void setNavigatorKey(GlobalKey<NavigatorState> key) {
     _navigatorKey = key;
@@ -411,6 +419,8 @@ class NotificationService {
                                 if (id != null && prefix != null) {
                                   await cancelById(id, prefix);
                                 }
+                                // Schedule a motivational reminder 1 hour later
+                                await _scheduleSkippedMedicationReminder(name);
                               },
                               child: const Text('تخطي'),
                             ),
@@ -548,6 +558,48 @@ class NotificationService {
       payload: payload,
     );
     return id;
+  }
+
+  /// Schedule a motivational reminder 1 hour after skipping medication
+  Future<void> _scheduleSkippedMedicationReminder(String medicationName) async {
+    await init();
+    
+    // Get a random message
+    final random = Random();
+    final message = _skippedMedicationMessages[random.nextInt(_skippedMedicationMessages.length)];
+    
+    // Schedule for 1 hour from now
+    final when = DateTime.now().add(const Duration(hours: 1));
+    final tz.TZDateTime scheduledDate = tz.TZDateTime.from(when, tz.local);
+    
+    final id = when.millisecondsSinceEpoch & 0x7fffffff;
+    
+    await _plugin.zonedSchedule(
+      id: id,
+      title: 'تذكير: $medicationName',
+      body: message,
+      scheduledDate: scheduledDate,
+      notificationDetails: NotificationDetails(
+        android: AndroidNotificationDetails(
+          'medicine_channel',
+          'Medicine reminders',
+          channelDescription: 'Reminders to take medicines',
+          importance: Importance.max,
+          priority: Priority.high,
+          playSound: true,
+          enableVibration: true,
+        ),
+        iOS: DarwinNotificationDetails(
+          sound: 'default.caf',
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
+      ),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+    );
+    
+    debugPrint('[NotificationService] Scheduled motivational reminder for $medicationName in 1 hour');
   }
 
   /// Show an immediate alert-style notification (used for health warnings)

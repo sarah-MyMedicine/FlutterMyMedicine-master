@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../providers/medication_provider.dart';
 import '../providers/adherence_provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/blood_pressure_provider.dart';
+import '../providers/blood_sugar_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:pdf/pdf.dart';
@@ -44,6 +46,8 @@ class _HealthReportPageState extends State<HealthReportPage> {
     final medicationProvider = Provider.of<MedicationProvider>(context);
     final adherenceProvider = Provider.of<AdherenceProvider>(context);
     final settingsProvider = Provider.of<SettingsProvider>(context);
+    final bloodPressureProvider = Provider.of<BloodPressureProvider>(context);
+    final bloodSugarProvider = Provider.of<BloodSugarProvider>(context);
     
     final now = DateTime.now();
     final startDate = now.subtract(Duration(days: _selectedDays));
@@ -56,6 +60,17 @@ class _HealthReportPageState extends State<HealthReportPage> {
     final takenDoses = adherenceProvider.logs
         .where((log) => log.when.isAfter(startDate) && log.taken)
         .toList();
+    
+    final bloodPressureEnabled = settingsProvider.chronicDiseases.contains('ارتفاع ضغط الدم');
+    final bloodSugarEnabled = settingsProvider.chronicDiseases.contains('السكري');
+    
+    final bloodPressureReadings = bloodPressureEnabled
+        ? bloodPressureProvider.readings.where((r) => r.when.isAfter(startDate)).toList()
+        : <BloodPressureReading>[];
+    
+    final bloodSugarReadings = bloodSugarEnabled
+        ? bloodSugarProvider.readings.where((r) => r.when.isAfter(startDate)).toList()
+        : <BloodSugarReading>[];
 
     return Scaffold(
       appBar: AppBar(
@@ -86,6 +101,8 @@ class _HealthReportPageState extends State<HealthReportPage> {
                 settingsProvider,
                 takenDoses,
                 medicationProvider,
+                bloodPressureReadings,
+                bloodSugarReadings,
                 startDate,
                 now,
               );
@@ -122,26 +139,15 @@ class _HealthReportPageState extends State<HealthReportPage> {
               ),
               const SizedBox(height: 24),
               
-              const Text(
-                'سجل الجرعات المأخوذة',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                textAlign: TextAlign.right,
+              // Chart/Table View
+              _buildHealthChart(
+                takenDoses,
+                medicationProvider,
+                bloodPressureReadings,
+                bloodSugarReadings,
+                bloodPressureEnabled,
+                bloodSugarEnabled,
               ),
-              const Divider(),
-              const SizedBox(height: 8),
-              
-              takenDoses.isEmpty
-                  ? const Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Text(
-                        'لا يوجد سجل للجرعات في هذه الفترة',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey, fontSize: 16),
-                      ),
-                    )
-                  : Column(
-                      children: _groupDosesByDate(takenDoses, medicationProvider),
-                    ),
               
               const SizedBox(height: 24),
               
@@ -164,59 +170,168 @@ class _HealthReportPageState extends State<HealthReportPage> {
     );
   }
 
-  List<Widget> _groupDosesByDate(List<AdherenceLog> doses, MedicationProvider medProvider) {
-    final Map<String, List<AdherenceLog>> groupedDoses = {};
-    final dateFormat = DateFormat('EEEE، d MMMM', 'ar');
-    final timeFormat = DateFormat('h:mm a', 'ar');
+  Widget _buildHealthChart(
+    List<AdherenceLog> takenDoses,
+    MedicationProvider medicationProvider,
+    List<BloodPressureReading> bloodPressureReadings,
+    List<BloodSugarReading> bloodSugarReadings,
+    bool bloodPressureEnabled,
+    bool bloodSugarEnabled,
+  ) {
+    // Combine all events into a single timeline
+    final Map<DateTime, Map<String, dynamic>> timeline = {};
 
-    for (var dose in doses) {
-      final dateKey = dateFormat.format(dose.when);
-      if (!groupedDoses.containsKey(dateKey)) {
-        groupedDoses[dateKey] = [];
+    // Add medication doses
+    for (var dose in takenDoses) {
+      final key = DateTime(dose.when.year, dose.when.month, dose.when.day, dose.when.hour, dose.when.minute);
+      if (!timeline.containsKey(key)) {
+        timeline[key] = {'medicines': [], 'bloodPressure': null, 'bloodSugar': null};
       }
-      groupedDoses[dateKey]!.add(dose);
+      final medication = medicationProvider.items.firstWhere(
+        (m) => m['name'] == dose.medicationName,
+        orElse: () => {'name': dose.medicationName, 'dose': dose.dose},
+      );
+      timeline[key]!['medicines'].add('${medication['name']} (${medication['dose']})');
     }
 
-    final List<Widget> widgets = [];
-    groupedDoses.forEach((date, dosesOnDate) {
-      widgets.add(
-        Padding(
-          padding: const EdgeInsets.only(top: 16, bottom: 8),
-          child: Text(
-            date,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
+    // Add blood pressure readings
+    if (bloodPressureEnabled) {
+      for (var reading in bloodPressureReadings) {
+        final key = DateTime(reading.when.year, reading.when.month, reading.when.day, reading.when.hour, reading.when.minute);
+        if (!timeline.containsKey(key)) {
+          timeline[key] = {'medicines': [], 'bloodPressure': null, 'bloodSugar': null};
+        }
+        timeline[key]!['bloodPressure'] = '${reading.systolic}/${reading.diastolic}';
+      }
+    }
+
+    // Add blood sugar readings
+    if (bloodSugarEnabled) {
+      for (var reading in bloodSugarReadings) {
+        final key = DateTime(reading.when.year, reading.when.month, reading.when.day, reading.when.hour, reading.when.minute);
+        if (!timeline.containsKey(key)) {
+          timeline[key] = {'medicines': [], 'bloodPressure': null, 'bloodSugar': null};
+        }
+        timeline[key]!['bloodSugar'] = '${reading.value}';
+      }
+    }
+
+    if (timeline.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(24),
+        child: Text(
+          'لا توجد بيانات صحية في هذه الفترة',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.grey, fontSize: 16),
         ),
       );
+    }
 
-      for (var dose in dosesOnDate) {
-        final medication = medProvider.items.firstWhere(
-          (m) => m['name'] == dose.medicationName,
-          orElse: () => {'name': dose.medicationName, 'dose': dose.dose},
-        );
-        
-        widgets.add(
-          Card(
-            margin: const EdgeInsets.only(bottom: 4),
-            child: ListTile(
-              title: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(medication['name'] ?? ''),
-                  Text(
-                    timeFormat.format(dose.when),
-                    style: const TextStyle(color: Colors.grey, fontSize: 14),
-                  ),
-                ],
-              ),
-              subtitle: Text(medication['dose'] ?? ''),
+    // Sort timeline by date
+    final sortedKeys = timeline.keys.toList()..sort((a, b) => b.compareTo(a));
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: DataTable(
+        headingRowColor: MaterialStateProperty.all(Colors.teal.shade50),
+        border: TableBorder.all(color: Colors.grey.shade300),
+        columns: [
+          const DataColumn(
+            label: Text(
+              'التاريخ والوقت',
+              style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
-        );
-      }
-    });
+          const DataColumn(
+            label: Text(
+              'الدواء المأخوذ',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          if (bloodPressureEnabled)
+            const DataColumn(
+              label: Text(
+                'ضغط الدم',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          if (bloodSugarEnabled)
+            const DataColumn(
+              label: Text(
+                'سكر الدم',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+        ],
+        rows: sortedKeys.map((dateTime) {
+          final data = timeline[dateTime]!;
+          final dateFormat = DateFormat('d MMM yyyy', 'ar');
+          final timeFormat = DateFormat('h:mm a', 'ar');
 
-    return widgets;
+          return DataRow(
+            cells: [
+              DataCell(
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      dateFormat.format(dateTime),
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                    ),
+                    Text(
+                      timeFormat.format(dateTime),
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+              ),
+              DataCell(
+                SizedBox(
+                  width: 200,
+                  child: data['medicines'].isEmpty
+                      ? const Text('-', style: TextStyle(color: Colors.grey))
+                      : Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: (data['medicines'] as List).map<Widget>((med) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 2),
+                              child: Text(
+                                med,
+                                style: const TextStyle(fontSize: 12),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                ),
+              ),
+              if (bloodPressureEnabled)
+                DataCell(
+                  Text(
+                    data['bloodPressure'] ?? '-',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: data['bloodPressure'] != null ? Colors.black : Colors.grey,
+                    ),
+                  ),
+                ),
+              if (bloodSugarEnabled)
+                DataCell(
+                  Text(
+                    data['bloodSugar'] != null ? '${data['bloodSugar']} mg/dL' : '-',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: data['bloodSugar'] != null ? Colors.black : Colors.grey,
+                    ),
+                  ),
+                ),
+            ],
+          );
+        }).toList(),
+      ),
+    );
   }
 
   Future<void> _generatePdf(
@@ -224,30 +339,61 @@ class _HealthReportPageState extends State<HealthReportPage> {
     SettingsProvider settingsProvider,
     List<AdherenceLog> takenDoses,
     MedicationProvider medicationProvider,
+    List<BloodPressureReading> bloodPressureReadings,
+    List<BloodSugarReading> bloodSugarReadings,
     DateTime startDate,
     DateTime now,
   ) async {
     final pdf = pw.Document();
     final dateFormat = DateFormat('d MMMM yyyy', 'ar');
-    final timeFormat = DateFormat('h:mm a', 'ar');
     
     final genderText = settingsProvider.gender == null 
         ? 'الجنس: غير محدد' 
         : 'الجنس: ${settingsProvider.gender == PatientGender.male ? 'ذكر' : 'أنثى'}';
+    
+    final bloodPressureEnabled = settingsProvider.chronicDiseases.contains('ارتفاع ضغط الدم');
+    final bloodSugarEnabled = settingsProvider.chronicDiseases.contains('السكري');
 
     // Load Arabic font
     final arabicFont = await PdfGoogleFonts.cairoRegular();
     final arabicFontBold = await PdfGoogleFonts.cairoBold();
 
-    // Group doses by date
-    final Map<String, List<AdherenceLog>> groupedDoses = {};
+    // Build timeline similar to UI
+    final Map<DateTime, Map<String, dynamic>> timeline = {};
+
     for (var dose in takenDoses) {
-      final dateKey = dateFormat.format(dose.when);
-      if (!groupedDoses.containsKey(dateKey)) {
-        groupedDoses[dateKey] = [];
+      final key = DateTime(dose.when.year, dose.when.month, dose.when.day, dose.when.hour, dose.when.minute);
+      if (!timeline.containsKey(key)) {
+        timeline[key] = {'medicines': [], 'bloodPressure': null, 'bloodSugar': null};
       }
-      groupedDoses[dateKey]!.add(dose);
+      final medication = medicationProvider.items.firstWhere(
+        (m) => m['name'] == dose.medicationName,
+        orElse: () => {'name': dose.medicationName, 'dose': dose.dose},
+      );
+      timeline[key]!['medicines'].add('${medication['name']} (${medication['dose']})');
     }
+
+    if (bloodPressureEnabled) {
+      for (var reading in bloodPressureReadings) {
+        final key = DateTime(reading.when.year, reading.when.month, reading.when.day, reading.when.hour, reading.when.minute);
+        if (!timeline.containsKey(key)) {
+          timeline[key] = {'medicines': [], 'bloodPressure': null, 'bloodSugar': null};
+        }
+        timeline[key]!['bloodPressure'] = '${reading.systolic}/${reading.diastolic}';
+      }
+    }
+
+    if (bloodSugarEnabled) {
+      for (var reading in bloodSugarReadings) {
+        final key = DateTime(reading.when.year, reading.when.month, reading.when.day, reading.when.hour, reading.when.minute);
+        if (!timeline.containsKey(key)) {
+          timeline[key] = {'medicines': [], 'bloodPressure': null, 'bloodSugar': null};
+        }
+        timeline[key]!['bloodSugar'] = '${reading.value}';
+      }
+    }
+
+    final sortedKeys = timeline.keys.toList()..sort((a, b) => b.compareTo(a));
 
     pdf.addPage(
       pw.MultiPage(
@@ -295,80 +441,52 @@ class _HealthReportPageState extends State<HealthReportPage> {
             ),
             pw.SizedBox(height: 24),
 
-            // Taken Doses Section
-            pw.Text(
-              'سجل الجرعات المأخوذة',
-              style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
-              textDirection: pw.TextDirection.rtl,
-            ),
-            pw.Divider(),
-            pw.SizedBox(height: 8),
-
-            if (takenDoses.isEmpty)
+            // Health Data Table
+            if (timeline.isEmpty)
               pw.Padding(
                 padding: const pw.EdgeInsets.all(24),
                 child: pw.Text(
-                  'لا يوجد سجل للجرعات في هذه الفترة',
+                  'لا توجد بيانات صحية في هذه الفترة',
                   textAlign: pw.TextAlign.center,
                   style: const pw.TextStyle(color: PdfColors.grey700, fontSize: 16),
                   textDirection: pw.TextDirection.rtl,
                 ),
               )
             else
-              ...groupedDoses.entries.expand((entry) {
-                final date = entry.key;
-                final dosesOnDate = entry.value;
-                
-                return [
-                  pw.Padding(
-                    padding: const pw.EdgeInsets.only(top: 16, bottom: 8),
-                    child: pw.Text(
-                      date,
-                      style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
-                      textDirection: pw.TextDirection.rtl,
-                    ),
-                  ),
-                  ...dosesOnDate.map((dose) {
-                    final medication = medicationProvider.items.firstWhere(
-                      (m) => m['name'] == dose.medicationName,
-                      orElse: () => {'name': dose.medicationName, 'dose': dose.dose},
-                    );
-                    
-                    return pw.Container(
-                      margin: const pw.EdgeInsets.only(bottom: 4),
-                      padding: const pw.EdgeInsets.all(8),
-                      decoration: pw.BoxDecoration(
-                        border: pw.Border.all(color: PdfColors.grey300),
-                        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
-                      ),
-                      child: pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.start,
-                        children: [
-                          pw.Row(
-                            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                            children: [
-                              pw.Text(
-                                timeFormat.format(dose.when),
-                                style: const pw.TextStyle(color: PdfColors.grey700, fontSize: 14),
-                              ),
-                              pw.Text(
-                                medication['name'] ?? '',
-                                textDirection: pw.TextDirection.rtl,
-                              ),
-                            ],
-                          ),
-                          pw.SizedBox(height: 4),
-                          pw.Text(
-                            medication['dose'] ?? '',
-                            style: const pw.TextStyle(fontSize: 12),
-                            textDirection: pw.TextDirection.rtl,
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-                ];
-              }),
+              pw.TableHelper.fromTextArray(
+                context: pdfContext,
+                border: pw.TableBorder.all(color: PdfColors.grey300),
+                headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                headerDecoration: const pw.BoxDecoration(color: PdfColors.grey200),
+                cellHeight: 30,
+                cellAlignments: {
+                  0: pw.Alignment.center,
+                  1: pw.Alignment.centerRight,
+                  if (bloodPressureEnabled) 2: pw.Alignment.center,
+                  if (bloodSugarEnabled) (bloodPressureEnabled ? 3 : 2): pw.Alignment.center,
+                },
+                headers: [
+                  'التاريخ والوقت',
+                  'الدواء المأخوذ',
+                  if (bloodPressureEnabled) 'ضغط الدم',
+                  if (bloodSugarEnabled) 'سكر الدم',
+                ],
+                data: sortedKeys.map((dateTime) {
+                  final data = timeline[dateTime]!;
+                  final dateStr = DateFormat('d MMM yyyy', 'ar').format(dateTime);
+                  final timeStr = DateFormat('h:mm a', 'ar').format(dateTime);
+                  final medicines = (data['medicines'] as List).isEmpty
+                      ? '-'
+                      : (data['medicines'] as List).join('\\n');
+
+                  return [
+                    '$dateStr\\n$timeStr',
+                    medicines,
+                    if (bloodPressureEnabled) data['bloodPressure'] ?? '-',
+                    if (bloodSugarEnabled) data['bloodSugar'] != null ? '${data['bloodSugar']} mg/dL' : '-',
+                  ];
+                }).toList(),
+              ),
 
             pw.SizedBox(height: 24),
 
