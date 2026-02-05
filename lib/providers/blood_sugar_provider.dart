@@ -8,10 +8,7 @@ class BloodSugarReading {
 }
 
 class BloodSugarProvider extends ChangeNotifier {
-  final List<BloodSugarReading> _readings = [
-    BloodSugarReading(value: 95, when: DateTime.now().subtract(const Duration(days: 0))),
-    BloodSugarReading(value: 110, when: DateTime.now().subtract(const Duration(days: 1))),
-  ];
+  final List<BloodSugarReading> _readings = [];
 
   List<BloodSugarReading> get readings => List.unmodifiable(_readings);
 

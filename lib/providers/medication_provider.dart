@@ -4,10 +4,7 @@ import '../services/notification_service.dart';
 class MedicationProvider extends ChangeNotifier {
   // Each item may include an optional imagePath (local file path to a photo)
   // We also store a prefix id so we can cancel scheduled notifications when removing
-  final List<Map<String, String?>> _items = [
-    {'name': 'Aspirin', 'dose': '100 mg', 'imagePath': null, 'intervalHours': '24', 'startTime': '08:00', 'notifPrefix': 'sample_1'},
-    {'name': 'Metformin', 'dose': '500 mg', 'imagePath': null, 'intervalHours': '12', 'startTime': '09:00', 'notifPrefix': 'sample_2'},
-  ];
+  final List<Map<String, String?>> _items = [];
 
   List<Map<String, String?>> get items => List.unmodifiable(_items);
 

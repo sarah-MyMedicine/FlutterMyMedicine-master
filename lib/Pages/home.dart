@@ -16,6 +16,7 @@ import 'puberty_stage_page.dart';
 import 'menopause_stage_page.dart';
 import 'mother_fetus_care_page.dart';
 import 'health_report_page.dart';
+import 'lab_results_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -182,7 +183,13 @@ class HomePage extends StatelessWidget {
                               _SquareTile(
                                 icon: Icons.vaccines,
                                 label: 'نتائج المختبر',
-                                onTap: () {},
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => const LabResultsPage(),
+                                    ),
+                                  );
+                                },
                               ),
                               _SquareTile(
                                 icon: Icons.access_time,

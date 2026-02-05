@@ -11,10 +11,7 @@ class BloodPressureReading {
 }
 
 class BloodPressureProvider extends ChangeNotifier {
-  final List<BloodPressureReading> _readings = [
-    BloodPressureReading(systolic: 120, diastolic: 80, when: DateTime.now().subtract(const Duration(days: 0))),
-    BloodPressureReading(systolic: 118, diastolic: 78, when: DateTime.now().subtract(const Duration(days: 1))),
-  ];
+  final List<BloodPressureReading> _readings = [];
 
   List<BloodPressureReading> get readings => List.unmodifiable(_readings);
 
