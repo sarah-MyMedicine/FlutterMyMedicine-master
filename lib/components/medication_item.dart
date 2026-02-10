@@ -44,7 +44,7 @@ class MedicationItem extends StatelessWidget {
                 child: Icon(Icons.medication, color: Theme.of(context).colorScheme.secondary),
               ),
         title: Text(name, style: Theme.of(context).textTheme.titleLarge),
-        subtitle: Text('$dose · every ${intervalHours ?? '24'}h${startTime != null ? ' · $startTime' : ''}', style: Theme.of(context).textTheme.bodyMedium),
+        subtitle: Text('$dose · كل ${intervalHours ?? '24'} ساعة${startTime != null ? ' · $startTime' : ''}', style: Theme.of(context).textTheme.bodyMedium),
         trailing: PopupMenuButton<String>(
           onSelected: (value) {
             if (value == 'edit') {
@@ -60,7 +60,7 @@ class MedicationItem extends StatelessWidget {
                 children: [
                   Icon(Icons.edit, size: 18),
                   SizedBox(width: 12),
-                  Text('Edit'),
+                  Text('تعديل'),
                 ],
               ),
             ),
@@ -70,7 +70,7 @@ class MedicationItem extends StatelessWidget {
                 children: [
                   Icon(Icons.delete, size: 18, color: Colors.red),
                   SizedBox(width: 12),
-                  Text('Delete', style: TextStyle(color: Colors.red)),
+                  Text('حذف', style: TextStyle(color: Colors.red)),
                 ],
               ),
             ),

@@ -184,36 +184,6 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Drug Knowledge Section
-                      _buildSection(
-                        title: 'المعارف الدوائية',
-                        icon: Icons.info_outline,
-                        iconColor: Colors.blue,
-                        children: [
-                          const Text(
-                            'هذه الخاصية تعرض معلومات مفصلة عن الأدوية المضافة، بما في ذلك التحذيرات والتفاعلات الدوائية.',
-                            style: TextStyle(fontSize: 13, color: Colors.grey),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              const Expanded(
-                                child: Text(
-                                  'تفعيل المعارف الدوائية',
-                                  style: TextStyle(fontSize: 14),
-                                ),
-                              ),
-                              Switch(
-                                value: sp.drugKnowledgeEnabled,
-                                onChanged: (v) => sp.setDrugKnowledge(v),
-                                activeThumbColor: Colors.teal,
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
                       // Notification Settings Section
                       _buildSection(
                         title: 'إعدادات الإشعارات',

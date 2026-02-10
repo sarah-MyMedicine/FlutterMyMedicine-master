@@ -39,7 +39,6 @@ dependencies:
   google_mlkit_text_recognition: ^0.15.0
   flutter_local_notifications: ^20.0.0
   timezone: ^0.10.1
-  flutter_native_timezone: ^2.0.0
   shared_preferences: ^2.0.0
   http: ^1.1.0
   dio: ^5.4.0
@@ -47,10 +46,6 @@ dependencies:
   pdf: ^3.11.1
   printing: ^5.13.4
   path_provider: ^2.1.5
-
-dependency_overrides:
-  flutter_native_timezone:
-    path: packages/flutter_native_timezone
 
 dev_dependencies:
   flutter_test:

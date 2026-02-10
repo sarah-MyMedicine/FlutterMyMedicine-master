@@ -7,7 +7,6 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_native_timezone/flutter_native_timezone.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -43,12 +42,12 @@ class NotificationService {
     if (_initialized) return;
     tz.initializeTimeZones();
 
-    // Set the local timezone from the platform so scheduled times are correct
+    // Set the local timezone - fallback to UTC if not found
     try {
-      final String localTz = await FlutterNativeTimezone.getLocalTimezone();
-      tz.setLocalLocation(tz.getLocation(localTz));
+      tz.setLocalLocation(tz.getLocation('Asia/Baghdad'));
     } catch (_) {
-      // If timezone lookup fails, the default timezone will be used (UTC); continue safely.
+      // If timezone lookup fails, use UTC
+      tz.setLocalLocation(tz.UTC);
     }
 
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -151,9 +150,11 @@ class NotificationService {
     for (var i = 0; i < occurrences; i++) {
       final scheduled = firstOccurrence.add(Duration(hours: intervalHours * i));
       final now = DateTime.now();
-      debugPrint('[NotificationService] Occurrence $i: scheduled=$scheduled, now=$now, isBefore=${scheduled.isBefore(now)}');
-      if (scheduled.isBefore(now)) {
-        debugPrint('[NotificationService] Skipping occurrence $i (in the past)');
+      // Add a 5-second safety buffer to ensure the scheduled time is sufficiently in the future
+      final minimumFutureTime = now.add(const Duration(seconds: 5));
+      debugPrint('[NotificationService] Occurrence $i: scheduled=$scheduled, now=$now, minimumFutureTime=$minimumFutureTime');
+      if (scheduled.isBefore(minimumFutureTime)) {
+        debugPrint('[NotificationService] Skipping occurrence $i (too close to now or in the past)');
         continue;
       }
       final id = _idFor(prefix, i + 1);
@@ -162,7 +163,7 @@ class NotificationService {
 
       final payload = jsonEncode({
         'prefix': prefix,
-        'name': title.replaceFirst('Time to take ', ''),
+        'name': title.replaceFirst('موعد تناول ', ''),
         'dose': body,
         'id': id,
         'scheduled': scheduled.millisecondsSinceEpoch,
@@ -180,6 +181,13 @@ class NotificationService {
           scheduled.second,
         );
         debugPrint('[NotificationService] Converted to TZDateTime: $tzDateTime (system TZ: ${tz.local})');
+        
+        // Final safety check: ensure the TZDateTime is in the future
+        final nowTz = tz.TZDateTime.now(tz.local);
+        if (tzDateTime.isBefore(nowTz) || tzDateTime.isAtSameMomentAs(nowTz)) {
+          debugPrint('[NotificationService] TZDateTime is not in the future, skipping id=$id');
+          continue;
+        }
         
         // Attempt zonedSchedule (system scheduling)
         await _plugin.zonedSchedule(
@@ -434,7 +442,7 @@ class NotificationService {
                                 // Snooze for 15 minutes
                                 if (prefix != null) {
                                   final when = DateTime.now().add(const Duration(minutes: 15));
-                                  await scheduleOneOff(prefix: prefix, title: 'Time to take $name', body: dose, when: when);
+                                  await scheduleOneOff(prefix: prefix, title: 'موعد تناول $name', body: dose, when: when);
                                 }
                               },
                               child: const Text('غفوة (15)'),
@@ -535,13 +543,30 @@ class NotificationService {
     required DateTime when,
   }) async {
     await init();
+    
+    // Ensure the scheduled time is in the future with a 5-second buffer
+    final now = DateTime.now();
+    final minimumFutureTime = now.add(const Duration(seconds: 5));
+    if (when.isBefore(minimumFutureTime)) {
+      debugPrint('[NotificationService] scheduleOneOff: scheduled time is too close or in the past, adjusting to minimum future time');
+      when = minimumFutureTime;
+    }
+    
     final id = DateTime.now().millisecondsSinceEpoch & 0x7fffffff;
-    final payload = jsonEncode({'prefix': prefix, 'name': title.replaceFirst('Time to take ', ''), 'dose': body, 'id': id, 'scheduled': when.millisecondsSinceEpoch});
+    final payload = jsonEncode({'prefix': prefix, 'name': title.replaceFirst('موعد تناول ', ''), 'dose': body, 'id': id, 'scheduled': when.millisecondsSinceEpoch});
+    
+    final tzDateTime = tz.TZDateTime.from(when, tz.local);
+    final nowTz = tz.TZDateTime.now(tz.local);
+    if (tzDateTime.isBefore(nowTz) || tzDateTime.isAtSameMomentAs(nowTz)) {
+      debugPrint('[NotificationService] scheduleOneOff: TZDateTime is not in the future, skipping');
+      return id;
+    }
+    
     await _plugin.zonedSchedule(
       id: id,
       title: title,
       body: body,
-      scheduledDate: tz.TZDateTime.from(when, tz.local),
+      scheduledDate: tzDateTime,
       notificationDetails: const NotificationDetails(
         android: AndroidNotificationDetails(
           'medicine_channel',
@@ -568,9 +593,17 @@ class NotificationService {
     final random = Random();
     final message = _skippedMedicationMessages[random.nextInt(_skippedMedicationMessages.length)];
     
-    // Schedule for 1 hour from now
-    final when = DateTime.now().add(const Duration(hours: 1));
+    // Schedule for 1 hour from now (ensure it's in the future)
+    final now = DateTime.now();
+    final when = now.add(const Duration(hours: 1, seconds: 5));
     final tz.TZDateTime scheduledDate = tz.TZDateTime.from(when, tz.local);
+    
+    // Final safety check
+    final nowTz = tz.TZDateTime.now(tz.local);
+    if (scheduledDate.isBefore(nowTz) || scheduledDate.isAtSameMomentAs(nowTz)) {
+      debugPrint('[NotificationService] _scheduleSkippedMedicationReminder: scheduled time is not in the future, skipping');
+      return;
+    }
     
     final id = when.millisecondsSinceEpoch & 0x7fffffff;
     

@@ -233,7 +233,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: DataTable(
-        headingRowColor: MaterialStateProperty.all(Colors.teal.shade50),
+        headingRowColor: WidgetStateProperty.all(Colors.teal.shade50),
         border: TableBorder.all(color: Colors.grey.shade300),
         columns: [
           const DataColumn(

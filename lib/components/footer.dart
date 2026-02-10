@@ -149,7 +149,14 @@ class Footer extends StatelessWidget {
               ),
             ),
             IconButton(
-              onPressed: () {},
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('قريبا', textAlign: TextAlign.center),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
               icon: Icon(
                 Icons.shopping_cart,
                 color: Theme.of(context).colorScheme.onSurface,

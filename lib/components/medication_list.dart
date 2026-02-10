@@ -35,7 +35,7 @@ class MedicationList extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Medications', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold))
+              const Text('الأدوية', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold))
             ],
           ),
         ),
@@ -75,19 +75,19 @@ class MedicationList extends StatelessWidget {
                   showDialog(
                     context: context,
                     builder: (ctx) => AlertDialog(
-                      title: const Text('Delete Medication?'),
-                      content: Text('Are you sure you want to delete ${item['name']}?'),
+                      title: const Text('حذف الدواء؟'),
+                      content: Text('هل أنت متأكد من حذف ${item['name']}؟'),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(ctx),
-                          child: const Text('Cancel'),
+                          child: const Text('إلغاء'),
                         ),
                         TextButton(
                           onPressed: () {
                             Navigator.pop(ctx);
                             provider.removeAt(i);
                           },
-                          child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                          child: const Text('حذف', style: TextStyle(color: Colors.red)),
                         ),
                       ],
                     ),

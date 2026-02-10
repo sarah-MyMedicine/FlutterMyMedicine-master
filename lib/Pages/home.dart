@@ -40,22 +40,31 @@ class HomePage extends StatelessWidget {
                   child: Column(
                     children: [
                       // Top info banner (green)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 14,
-                        ),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF1EBEA6), Color(0xFF05B3A7)],
+                      GestureDetector(
+                        onTap: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('قريبا', textAlign: TextAlign.center),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
                           ),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(color: Colors.black12, blurRadius: 6),
-                          ],
-                        ),
-                        child: Row(
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF1EBEA6), Color(0xFF05B3A7)],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(color: Colors.black12, blurRadius: 6),
+                            ],
+                          ),
+                          child: Row(
                           children: [
                             Expanded(
                               child: Column(
@@ -85,6 +94,7 @@ class HomePage extends StatelessWidget {
                             ),
                           ],
                         ),
+                      ),
                       ),
                       const SizedBox(height: 20),
 

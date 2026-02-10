@@ -83,7 +83,7 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text(
-              'Add Medication',
+              'إضافة دواء',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
@@ -99,7 +99,7 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                       fit: BoxFit.cover,
                     ),
                     const SizedBox(width: 8),
-                    const Text('Photo found — confirm details below'),
+                    const Text('تم العثور على الصورة - أكد التفاصيل أدناه'),
                   ],
                 ),
               ),
@@ -109,27 +109,27 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                 children: [
                   TextFormField(
                     controller: _nameController,
-                    decoration: const InputDecoration(labelText: 'Name'),
+                    decoration: const InputDecoration(labelText: 'الاسم'),
                     validator: (v) =>
-                        (v == null || v.isEmpty) ? 'Enter a name' : null,
+                        (v == null || v.isEmpty) ? 'أدخل الاسم' : null,
                   ),
                   TextFormField(
                     controller: _doseController,
-                    decoration: const InputDecoration(labelText: 'Dose'),
+                    decoration: const InputDecoration(labelText: 'الجرعة'),
                     validator: (v) =>
-                        (v == null || v.isEmpty) ? 'Enter a dose' : null,
+                        (v == null || v.isEmpty) ? 'أدخل الجرعة' : null,
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<int>(
-                    decoration: const InputDecoration(labelText: 'Interval (hours)'),
+                    decoration: const InputDecoration(labelText: 'الفترة (ساعات)'),
                     initialValue: _intervalHours,
-                    validator: (v) => (v == null) ? 'Select interval' : null,
+                    validator: (v) => (v == null) ? 'اختر الفترة' : null,
                     style: const TextStyle(color: Colors.black),
                     dropdownColor: Colors.white,
                     items: List.generate(24, (i) => i + 1)
                         .map((v) => DropdownMenuItem(
                               value: v,
-                              child: Text(v == 1 ? 'Every 1 hour' : 'Every $v hours', style: const TextStyle(color: Colors.black)),
+                              child: Text(v == 1 ? 'كل ساعة' : 'كل $v ساعات', style: const TextStyle(color: Colors.black)),
                             ))
                         .toList(),
                     onChanged: (v) => setState(() => _intervalHours = v),
@@ -140,7 +140,7 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                       Expanded(
                         child: FormField<TimeOfDay>(
                           initialValue: _startTime,
-                          validator: (v) => v == null ? 'Select time' : null,
+                          validator: (v) => v == null ? 'اختر الوقت' : null,
                           builder: (state) {
                             return InkWell(
                               onTap: () async {
@@ -157,8 +157,8 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                               },
 
                               child: InputDecorator(
-                                decoration: InputDecoration(labelText: 'First intake time', errorText: state.errorText),
-                                child: Text(_startTime != null ? _startTime!.format(context) : 'Select time', style: TextStyle(color: _startTime != null ? Colors.black : Colors.black54)),
+                                decoration: InputDecoration(labelText: 'وقت أول جرعة', errorText: state.errorText),
+                                child: Text(_startTime != null ? _startTime!.format(context) : 'اختر الوقت', style: TextStyle(color: _startTime != null ? Colors.black : Colors.black54)),
                               ),
                             );
                           },
@@ -185,8 +185,8 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                                 }
                               },
                               child: InputDecorator(
-                                decoration: InputDecoration(labelText: 'First intake date (optional)'),
-                                child: Text(_startDate != null ? '${_startDate!.year}-${_startDate!.month.toString().padLeft(2, '0')}-${_startDate!.day.toString().padLeft(2, '0')}' : 'Select date', style: TextStyle(color: _startDate != null ? Colors.black : Colors.black54)),
+                                decoration: InputDecoration(labelText: 'تاريخ أول جرعة (اختياري)'),
+                                child: Text(_startDate != null ? '${_startDate!.year}-${_startDate!.month.toString().padLeft(2, '0')}-${_startDate!.day.toString().padLeft(2, '0')}' : 'اختر التاريخ', style: TextStyle(color: _startDate != null ? Colors.black : Colors.black54)),
                               ),
                             );
                           },
@@ -224,7 +224,7 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                   // If frequency/time wasn't selected, validators show messages.
                 }
               },
-              child: const Text('Save'),
+              child: const Text('حفظ'),
             ),
           ],
         ),

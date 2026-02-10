@@ -99,7 +99,7 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
                   children: [
                     _buildTabButton('ملخص الحمل', 0),
                     _buildTabButton('حركة الجنين', 1),
-                    _buildTabButton('الصحية', 2),
+                    _buildTabButton('حقيبة الولادة', 2),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -131,37 +131,6 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
           // Content area
           Expanded(child: _buildTabContent()),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {},
-        backgroundColor: const Color(0xFF5DABA8),
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: BottomAppBar(
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 8,
-        child: SizedBox(
-          height: 60,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              const SizedBox(width: 40),
-              TextButton(
-                onPressed: () {},
-                child: const Text(
-                  'الاعدادات',
-                  style: TextStyle(color: Color(0xFF5DABA8)),
-                ),
-              ),
-              const SizedBox(width: 40),
-              const Text(
-                'إضافة دواء',
-                style: TextStyle(color: Color(0xFF5DABA8)),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -522,32 +491,14 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
               ),
             ),
             const SizedBox(height: 16),
-            // Mother care recommendations
-            _buildHealthSection('للأم 🍼', [
-              'روب يوم مريح (مفضل للراحة)',
-              'ملابس داخلية قطنية',
-              'فوط صحية (حجم كبير)',
-              'حمالات صدر للرضاعة',
-              'أدوات العناية الشخصية (فرشاة، شامبو...)',
-              'ملابس الخروج من المستشفى',
-            ]),
+            // Mother care checklist
+            _buildChecklistSection('للأم 🍼', _motherChecklist),
             const SizedBox(height: 16),
-            // Child care recommendations
-            _buildHealthSection('للطفل 👶', [
-              'ملابس داخلية (الوِعي) عدد 3',
-              'أطقم خارجية كاملة عدد 3',
-              'قبعات وجوارب وقفازات',
-              'بطانية ناعمة',
-              'حقاضات مقاس مواليد جديد',
-              'مناديل مبللة (Wipes)',
-            ]),
+            // Child care checklist
+            _buildChecklistSection('للطفل 👶', _childChecklist),
             const SizedBox(height: 16),
-            // Documents
-            _buildHealthSection('أوراق ومستندات 📋', [
-              'بطاقة الهوية / الإقامة',
-              'بطاقة التأمين',
-              'ملف متابعة الحمل والتحاليل',
-            ]),
+            // Documents checklist
+            _buildChecklistSection('أوراق ومستندات 📋', _suppliesChecklist),
             const SizedBox(height: 80),
           ],
         ),

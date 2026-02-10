@@ -14,7 +14,7 @@ class Header extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'My Medicine',
+              'دوائي',
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: Theme.of(context).colorScheme.onPrimary),
             ),
           ),

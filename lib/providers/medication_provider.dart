@@ -58,8 +58,8 @@ class MedicationProvider extends ChangeNotifier {
             debugPrint('[MedicationProvider.add] About to schedule ${intervalHours}h recurring notifications starting at $firstDue');
             await NotificationService().scheduleRepeatedOccurrences(
               prefix: prefix,
-              title: 'Time to take $name',
-              body: '$dose · every ${intervalHours}h',
+              title: 'موعد تناول $name',
+              body: '$dose · كل ${intervalHours} ساعة',
               firstOccurrence: firstDue,
               intervalHours: intervalHours,
               occurrences: 30,
@@ -96,8 +96,8 @@ class MedicationProvider extends ChangeNotifier {
     final first = now.add(Duration(hours: interval));
     await NotificationService().scheduleRepeatedOccurrences(
       prefix: prefix,
-      title: 'Time to take ${item['name']}',
-      body: '${item['dose']} · every ${interval}h',
+      title: 'موعد تناول ${item['name']}',
+      body: '${item['dose']} · كل ${interval} ساعة',
       firstOccurrence: first,
       intervalHours: interval,
       occurrences: 30,
