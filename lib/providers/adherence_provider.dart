@@ -95,4 +95,95 @@ class AdherenceProvider extends ChangeNotifier {
     await _saveToPrefs();
     notifyListeners();
   }
+
+  /// Calculate adherence score for a specific medication
+  /// Returns percentage (0-100) based on doses taken vs expected
+  double calculateMedicationAdherence({
+    required String medicationName,
+    required int intervalHours,
+    DateTime? startDate,
+    int daysToCheck = 30,
+  }) {
+    final now = DateTime.now();
+    final checkFrom = now.subtract(Duration(days: daysToCheck));
+    
+    // Use startDate if medication started recently
+    final effectiveStartDate = startDate != null && startDate.isAfter(checkFrom)
+        ? startDate
+        : checkFrom;
+    
+    // Calculate expected doses
+    final hoursSinceStart = now.difference(effectiveStartDate).inHours;
+    final expectedDoses = (hoursSinceStart / intervalHours).floor();
+    
+    if (expectedDoses <= 0) return 100.0; // New medication, no doses expected yet
+    
+    // Count actual doses taken
+    final takenDoses = _logs.where((log) {
+      return log.medicationName == medicationName &&
+          log.taken &&
+          log.when.isAfter(effectiveStartDate);
+    }).length;
+    
+    // Calculate percentage, cap at 100%
+    final score = (takenDoses / expectedDoses) * 100;
+    return score > 100 ? 100.0 : score;
+  }
+
+  /// Calculate overall adherence score across all medications
+  /// medications: List of maps with 'name', 'intervalHours', and optional 'startDate'
+  double calculateOverallAdherence(List<Map<String, dynamic>> medications, {int daysToCheck = 30}) {
+    if (medications.isEmpty) return 100.0;
+    
+    double totalScore = 0.0;
+    int validMedications = 0;
+    
+    for (final med in medications) {
+      final name = med['name'] as String?;
+      final intervalStr = med['intervalHours'] as String?;
+      final startDateStr = med['startDate'] as String?;
+      
+      if (name == null || intervalStr == null) continue;
+      
+      final intervalHours = int.tryParse(intervalStr) ?? 24;
+      final startDate = startDateStr != null ? DateTime.tryParse(startDateStr) : null;
+      
+      final score = calculateMedicationAdherence(
+        medicationName: name,
+        intervalHours: intervalHours,
+        startDate: startDate,
+        daysToCheck: daysToCheck,
+      );
+      
+      totalScore += score;
+      validMedications++;
+    }
+    
+    return validMedications > 0 ? totalScore / validMedications : 100.0;
+  }
+
+  /// Get adherence data for all medications
+  Map<String, double> getMedicationAdherenceScores(List<Map<String, dynamic>> medications, {int daysToCheck = 30}) {
+    final scores = <String, double>{};
+    
+    for (final med in medications) {
+      final name = med['name'] as String?;
+      final intervalStr = med['intervalHours'] as String?;
+      final startDateStr = med['startDate'] as String?;
+      
+      if (name == null || intervalStr == null) continue;
+      
+      final intervalHours = int.tryParse(intervalStr) ?? 24;
+      final startDate = startDateStr != null ? DateTime.tryParse(startDateStr) : null;
+      
+      scores[name] = calculateMedicationAdherence(
+        medicationName: name,
+        intervalHours: intervalHours,
+        startDate: startDate,
+        daysToCheck: daysToCheck,
+      );
+    }
+    
+    return scores;
+  }
 }

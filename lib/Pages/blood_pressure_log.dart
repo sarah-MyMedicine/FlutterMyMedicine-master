@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/blood_pressure_provider.dart';
+import '../providers/settings_provider.dart';
 import '../components/blood_pressure_form_modal.dart';
 import '../components/blood_pressure_report_modal.dart';
 
@@ -10,6 +11,7 @@ class BloodPressurePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<BloodPressureProvider>(context);
+    final settingsProvider = Provider.of<SettingsProvider>(context);
 
     return Scaffold(
       appBar: AppBar(title: const Text('سجل الضغط'), actions: [
@@ -20,12 +22,32 @@ class BloodPressurePage extends StatelessWidget {
                 builder: (_) => Directionality(textDirection: TextDirection.rtl, child: BloodPressureReportModal(avgSys: provider.averageSystolic(), avgDia: provider.averageDiastolic())),
               );
             },
-            icon: const Icon(Icons.bar_chart))
+            icon: const Icon(Icons.bar_chart)),
       ]),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(12),
-        itemCount: provider.readings.length,
-        itemBuilder: (context, i) {
+      body: Column(
+        children: [
+          // Target Blood Pressure Card
+          Card(
+            margin: const EdgeInsets.all(12),
+            color: Colors.red.shade50,
+            child: ListTile(
+              leading: const Icon(Icons.favorite, color: Colors.red),
+              title: const Text('الهدف لضغط الدم', style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text('${settingsProvider.targetSystolic}/${settingsProvider.targetDiastolic}'),
+              trailing: IconButton(
+                icon: const Icon(Icons.edit),
+                onPressed: () {
+                  _showTargetDialog(context, settingsProvider);
+                },
+              ),
+            ),
+          ),
+          // Readings List
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(12),
+              itemCount: provider.readings.length,
+              itemBuilder: (context, i) {
           final r = provider.readings[i];
           return Card(
             child: ListTile(
@@ -98,18 +120,74 @@ class BloodPressurePage extends StatelessWidget {
             ),
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton(
+      ),          ),
+        ],
+      ),      floatingActionButton: FloatingActionButton(
         onPressed: () {
           showModalBottomSheet(
             context: context,
             isScrollControlled: true,
             builder: (_) => BloodPressureFormModal(onSave: (sys, dia) {
-              Provider.of<BloodPressureProvider>(context, listen: false).add(sys, dia);
+              Provider.of<BloodPressureProvider>(context, listen: false).add(
+                sys, 
+                dia,
+                targetSystolic: settingsProvider.targetSystolic,
+                targetDiastolic: settingsProvider.targetDiastolic,
+              );
             }),
           );
         },
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  void _showTargetDialog(BuildContext context, SettingsProvider settingsProvider) {
+    final sysController = TextEditingController(text: settingsProvider.targetSystolic.toString());
+    final diaController = TextEditingController(text: settingsProvider.targetDiastolic.toString());
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('تحديد الهدف لضغط الدم'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: sysController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'الضغط الانقباضي المستهدف',
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: diaController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'الضغط الانبساطي المستهدف',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final sys = int.tryParse(sysController.text);
+              final dia = int.tryParse(diaController.text);
+              if (sys != null && dia != null) {
+                settingsProvider.setTargetSystolic(sys);
+                settingsProvider.setTargetDiastolic(dia);
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('حفظ'),
+          ),
+        ],
       ),
     );
   }

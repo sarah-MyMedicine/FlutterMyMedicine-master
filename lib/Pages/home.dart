@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/medication_provider.dart';
+import '../providers/adherence_provider.dart';
 import '../providers/settings_provider.dart';
 import '../components/header.dart';
 import '../components/footer.dart';
@@ -306,6 +307,131 @@ class HomePage extends StatelessWidget {
                         ),
                       ),
 
+                      const SizedBox(height: 20),
+                      
+                      // Overall Adherence Score Card
+                      Consumer2<MedicationProvider, AdherenceProvider>(
+                        builder: (context, medProvider, adherenceProvider, _) {
+                          final medications = medProvider.items;
+                          
+                          // Only show if there are medications
+                          if (medications.isEmpty) {
+                            return const SizedBox.shrink();
+                          }
+                          
+                          // Prepare medication data for calculation
+                          final medData = medications.map((item) {
+                            DateTime? startDate;
+                            if (item['startDate'] != null) {
+                              try {
+                                startDate = DateTime.parse(item['startDate']!);
+                              } catch (e) {
+                                startDate = null;
+                              }
+                            }
+                            
+                            return {
+                              'name': item['name'] ?? '',
+                              'intervalHours': int.tryParse(item['intervalHours'] ?? '24') ?? 24,
+                              'startDate': startDate,
+                            };
+                          }).toList();
+                          
+                          // Calculate overall adherence
+                          final overallScore = adherenceProvider.calculateOverallAdherence(medData, daysToCheck: 30);
+                          
+                          // Determine color based on score
+                          Color scoreColor;
+                          IconData scoreIcon;
+                          String scoreMessage;
+                          if (overallScore >= 80) {
+                            scoreColor = Colors.green;
+                            scoreIcon = Icons.check_circle;
+                            scoreMessage = 'ممتاز! استمر في الالتزام';
+                          } else if (overallScore >= 60) {
+                            scoreColor = Colors.orange;
+                            scoreIcon = Icons.warning;
+                            scoreMessage = 'جيد، يمكنك تحسين الالتزام';
+                          } else {
+                            scoreColor = Colors.red;
+                            scoreIcon = Icons.error;
+                            scoreMessage = 'يحتاج لتحسين';
+                          }
+                          
+                          return Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  scoreColor.withOpacity(0.8),
+                                  scoreColor.withOpacity(0.6)
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black12,
+                                  blurRadius: 6,
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  scoreIcon,
+                                  size: 48,
+                                  color: Colors.white,
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'نسبة الالتزام بالأدوية',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        scoreMessage,
+                                        style: const TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Column(
+                                  children: [
+                                    Text(
+                                      '${overallScore.toStringAsFixed(0)}%',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 32,
+                                      ),
+                                    ),
+                                    const Text(
+                                      'آخر 30 يوم',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+
                       const SizedBox(height: 28),
                       // A short summary card or other content can go here
                       const AdBanner(),
@@ -340,6 +466,7 @@ class HomePage extends StatelessWidget {
                         intervalHours,
                         startTime,
                         startDate,
+                        chronicDisease,
                       }) {
                         Provider.of<MedicationProvider>(ctx, listen: false).add(
                           name,
@@ -348,6 +475,7 @@ class HomePage extends StatelessWidget {
                           intervalHours: intervalHours ?? 24,
                           startTime: startTime,
                           startDate: startDate,
+                          chronicDisease: chronicDisease,
                         );
                       },
                 ),

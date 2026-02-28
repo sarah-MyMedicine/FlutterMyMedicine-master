@@ -8,9 +8,9 @@ class MedicationProvider extends ChangeNotifier {
 
   List<Map<String, String?>> get items => List.unmodifiable(_items);
 
-  void add(String name, String dose, {String? imagePath, int intervalHours = 24, String? startTime, String? startDate}) async {
+  void add(String name, String dose, {String? imagePath, int intervalHours = 24, String? startTime, String? startDate, String? chronicDisease}) async {
     final prefix = DateTime.now().millisecondsSinceEpoch.toString();
-    debugPrint('[MedicationProvider.add] Adding medication: $name, dose: $dose, interval: $intervalHours hours, startTime: $startTime, startDate: $startDate');
+    debugPrint('[MedicationProvider.add] Adding medication: $name, dose: $dose, interval: $intervalHours hours, startTime: $startTime, startDate: $startDate, chronicDisease: $chronicDisease');
 
     _items.add({
       'name': name,
@@ -19,6 +19,7 @@ class MedicationProvider extends ChangeNotifier {
       'intervalHours': intervalHours.toString(),
       'startTime': startTime,
       'startDate': startDate,
+      'chronicDisease': chronicDisease,
       'notifPrefix': prefix,
     });
 
@@ -120,8 +121,8 @@ class MedicationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateAt(int index, String name, String dose, {String? imagePath, int intervalHours = 24, String? startTime, String? startDate}) {
-    _items[index] = {'name': name, 'dose': dose, 'imagePath': imagePath, 'intervalHours': intervalHours.toString(), 'startTime': startTime, 'startDate': startDate};
+  void updateAt(int index, String name, String dose, {String? imagePath, int intervalHours = 24, String? startTime, String? startDate, String? chronicDisease}) {
+    _items[index] = {'name': name, 'dose': dose, 'imagePath': imagePath, 'intervalHours': intervalHours.toString(), 'startTime': startTime, 'startDate': startDate, 'chronicDisease': chronicDisease};
     notifyListeners();
   }
 }

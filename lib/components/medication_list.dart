@@ -51,6 +51,8 @@ class MedicationList extends StatelessWidget {
                 imagePath: item['imagePath'],
                 intervalHours: item['intervalHours'],
                 startTime: item['startTime'],
+                startDate: item['startDate'],
+                chronicDisease: item['chronicDisease'],
                 onTap: () => _showInfo(context, item),
                 onEdit: () {
                   Navigator.pop(context);
@@ -64,8 +66,9 @@ class MedicationList extends StatelessWidget {
                       initialIntervalHours: int.tryParse(item['intervalHours'] ?? '24') ?? 24,
                       initialStartTime: item['startTime'],
                       initialStartDate: item['startDate'],
-                      onSave: (name, dose, {imagePath, intervalHours, startTime, startDate}) {
-                        provider.updateAt(i, name, dose, imagePath: imagePath, intervalHours: intervalHours ?? 24, startTime: startTime, startDate: startDate);
+                      initialChronicDisease: item['chronicDisease'],
+                      onSave: (name, dose, {imagePath, intervalHours, startTime, startDate, chronicDisease}) {
+                        provider.updateAt(i, name, dose, imagePath: imagePath, intervalHours: intervalHours ?? 24, startTime: startTime, startDate: startDate, chronicDisease: chronicDisease);
                       },
                     ),
                   );

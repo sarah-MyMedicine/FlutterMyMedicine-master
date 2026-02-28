@@ -506,68 +506,6 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
     );
   }
 
-  Widget _buildHealthSection(String title, List<String> items) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          // Section header
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
-              color: Color(0xFFF3E5F5),
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  '0/6',
-                  style: TextStyle(
-                    color: Color(0xFFE91E7A),
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // List items
-          ...items.map((item) {
-            return ListTile(
-              leading: Container(
-                width: 20,
-                height: 20,
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-              title: Text(
-                item,
-                style: const TextStyle(fontSize: 14),
-                textAlign: TextAlign.right,
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
   String _getMonthName(int month) {
     const months = [
       'يناير',

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/blood_sugar_provider.dart';
+import '../providers/settings_provider.dart';
 import '../components/blood_sugar_form_modal.dart';
 import '../components/blood_sugar_report_modal.dart';
 
@@ -10,6 +11,7 @@ class BloodSugarPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<BloodSugarProvider>(context);
+    final settingsProvider = Provider.of<SettingsProvider>(context);
 
     return Scaffold(
       appBar: AppBar(title: const Text('سجل السكر'), actions: [
@@ -20,12 +22,32 @@ class BloodSugarPage extends StatelessWidget {
                 builder: (_) => Directionality(textDirection: TextDirection.rtl, child: BloodSugarReportModal(avg: provider.average())),
               );
             },
-            icon: const Icon(Icons.bar_chart))
+            icon: const Icon(Icons.bar_chart)),
       ]),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(12),
-        itemCount: provider.readings.length,
-        itemBuilder: (context, i) {
+      body: Column(
+        children: [
+          // Target Blood Sugar Card
+          Card(
+            margin: const EdgeInsets.all(12),
+            color: Colors.orange.shade50,
+            child: ListTile(
+              leading: const Icon(Icons.water_drop, color: Colors.orange),
+              title: const Text('الهدف لسكر الدم', style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text('${settingsProvider.targetBloodSugar} mg/dL'),
+              trailing: IconButton(
+                icon: const Icon(Icons.edit),
+                onPressed: () {
+                  _showTargetDialog(context, settingsProvider);
+                },
+              ),
+            ),
+          ),
+          // Readings List
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(12),
+              itemCount: provider.readings.length,
+              itemBuilder: (context, i) {
           final r = provider.readings[i];
           return Card(
             child: ListTile(
@@ -97,18 +119,56 @@ class BloodSugarPage extends StatelessWidget {
             ),
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton(
+      ),          ),
+        ],
+      ),      floatingActionButton: FloatingActionButton(
         onPressed: () {
           showModalBottomSheet(
             context: context,
             isScrollControlled: true,
             builder: (_) => BloodSugarFormModal(onSave: (v) {
-              Provider.of<BloodSugarProvider>(context, listen: false).add(v);
+              Provider.of<BloodSugarProvider>(context, listen: false).add(
+                v,
+                targetBloodSugar: settingsProvider.targetBloodSugar,
+              );
             }),
           );
         },
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  void _showTargetDialog(BuildContext context, SettingsProvider settingsProvider) {
+    final controller = TextEditingController(text: settingsProvider.targetBloodSugar.toString());
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('تحديد الهدف لسكر الدم'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'سكر الدم المستهدف (mg/dL)',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final value = int.tryParse(controller.text);
+              if (value != null) {
+                settingsProvider.setTargetBloodSugar(value);
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('حفظ'),
+          ),
+        ],
       ),
     );
   }

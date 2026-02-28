@@ -40,6 +40,16 @@ android {
             isShrinkResources = false
         }
     }
+    
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+        doNotStrip("*/armeabi-v7a/*.so")
+        doNotStrip("*/arm64-v8a/*.so")
+        doNotStrip("*/x86/*.so")
+        doNotStrip("*/x86_64/*.so")
+    }
 
     dependencies {
         coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")

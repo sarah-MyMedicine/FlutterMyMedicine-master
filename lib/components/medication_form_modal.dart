@@ -2,14 +2,15 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 class MedicationFormModal extends StatefulWidget {
-  // onSave supports optional named params for imagePath, intervalHours, startTime, and startDate
-  final void Function(String name, String dose, {String? imagePath, int? intervalHours, String? startTime, String? startDate}) onSave;
+  // onSave supports optional named params for imagePath, intervalHours, startTime, startDate, and chronicDisease
+  final void Function(String name, String dose, {String? imagePath, int? intervalHours, String? startTime, String? startDate, String? chronicDisease}) onSave;
   final String? initialName;
   final String? initialDose;
   final String? initialImagePath;
   final int? initialIntervalHours;
   final String? initialStartTime;
   final String? initialStartDate; // ISO date string e.g. YYYY-MM-DD
+  final String? initialChronicDisease;
 
   const MedicationFormModal({
     super.key,
@@ -20,6 +21,7 @@ class MedicationFormModal extends StatefulWidget {
     this.initialIntervalHours,
     this.initialStartTime,
     this.initialStartDate,
+    this.initialChronicDisease,
   });
 
   @override
@@ -34,6 +36,7 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
   int? _intervalHours;
   TimeOfDay? _startTime;
   DateTime? _startDate;
+  String? _chronicDisease;
 
   @override
   void initState() {
@@ -42,6 +45,7 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
     _doseController = TextEditingController(text: widget.initialDose ?? '');
     _imagePath = widget.initialImagePath;
     _intervalHours = widget.initialIntervalHours; // null means user must choose
+    _chronicDisease = widget.initialChronicDisease;
 
     // parse initial start time if provided (expects 'HH:mm')
     if (widget.initialStartTime != null) {
@@ -194,6 +198,22 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(labelText: 'مرض مزمن (اختياري)'),
+                    value: _chronicDisease,
+                    style: const TextStyle(color: Colors.black),
+                    dropdownColor: Colors.white,
+                    items: <DropdownMenuItem<String>>[
+                      const DropdownMenuItem<String>(
+                        value: null,
+                        child: Text('لا يوجد', style: TextStyle(color: Colors.black54)),
+                      ),
+                      ...['ارتفاع ضغط الدم', 'السكري', 'ارتفاع الكوليستيرول / الدهون الثلاثية', 'قصور القلب', 'أمراض الكلى', 'أمراض الكبد', 'الصرع', 'الباركنسون', 'السرطان']
+                        .map((v) => DropdownMenuItem<String>(value: v, child: Text(v, style: const TextStyle(color: Colors.black)))),
+                    ],
+                    onChanged: (v) => setState(() => _chronicDisease = v),
+                  ),
                 ],
               ),
             ),
@@ -217,6 +237,7 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                     intervalHours: _intervalHours,
                     startTime: startTimeStr,
                     startDate: startDateStr,
+                    chronicDisease: _chronicDisease,
                   );
 
                   Navigator.of(context).pop();

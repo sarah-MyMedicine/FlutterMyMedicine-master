@@ -13,6 +13,9 @@ class SettingsProvider extends ChangeNotifier {
   List<String> _chronicDiseases = [];
   bool _drugKnowledgeEnabled = false;
   String _vibrationPattern = 'default';
+  int _targetSystolic = 120;
+  int _targetDiastolic = 80;
+  int _targetBloodSugar = 100;
 
   String get name => _name;
   int? get age => _age;
@@ -23,6 +26,9 @@ class SettingsProvider extends ChangeNotifier {
   List<String> get chronicDiseases => List.unmodifiable(_chronicDiseases);
   bool get drugKnowledgeEnabled => _drugKnowledgeEnabled;
   String get vibrationPattern => _vibrationPattern;
+  int get targetSystolic => _targetSystolic;
+  int get targetDiastolic => _targetDiastolic;
+  int get targetBloodSugar => _targetBloodSugar;
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -47,6 +53,10 @@ class SettingsProvider extends ChangeNotifier {
     if (diseases != null) {
       _chronicDiseases = diseases;
     }
+    
+    _targetSystolic = prefs.getInt('settings_target_systolic') ?? 120;
+    _targetDiastolic = prefs.getInt('settings_target_diastolic') ?? 80;
+    _targetBloodSugar = prefs.getInt('settings_target_blood_sugar') ?? 100;
     
     notifyListeners();
   }
@@ -110,9 +120,18 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   Future<void> toggleChronicDisease(String disease) async {
+    const noDiseases = 'لا توجد أمراض مزمنة';
+    
     if (_chronicDiseases.contains(disease)) {
       _chronicDiseases.remove(disease);
     } else {
+      // If selecting "no chronic diseases", clear all other diseases
+      if (disease == noDiseases) {
+        _chronicDiseases.clear();
+      } else {
+        // If selecting a disease, remove "no chronic diseases" option
+        _chronicDiseases.remove(noDiseases);
+      }
       _chronicDiseases.add(disease);
     }
     final prefs = await SharedPreferences.getInstance();
@@ -131,6 +150,27 @@ class SettingsProvider extends ChangeNotifier {
     _vibrationPattern = v;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('settings_vibration', v);
+    notifyListeners();
+  }
+
+  Future<void> setTargetSystolic(int v) async {
+    _targetSystolic = v;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('settings_target_systolic', v);
+    notifyListeners();
+  }
+
+  Future<void> setTargetDiastolic(int v) async {
+    _targetDiastolic = v;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('settings_target_diastolic', v);
+    notifyListeners();
+  }
+
+  Future<void> setTargetBloodSugar(int v) async {
+    _targetBloodSugar = v;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('settings_target_blood_sugar', v);
     notifyListeners();
   }
 }

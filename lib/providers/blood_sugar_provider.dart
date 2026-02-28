@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/notification_service.dart';
 
 class BloodSugarReading {
   final int value;
@@ -12,9 +13,32 @@ class BloodSugarProvider extends ChangeNotifier {
 
   List<BloodSugarReading> get readings => List.unmodifiable(_readings);
 
-  void add(int value, [DateTime? when]) {
+  void add(int value, {int? targetBloodSugar, DateTime? when}) {
     _readings.insert(0, BloodSugarReading(value: value, when: when));
     notifyListeners();
+    
+    // Use custom target if provided, otherwise use default value
+    final target = targetBloodSugar ?? 100;
+    
+    // Alert if ±2 from target
+    final bool tooHigh = value > target + 2;
+    final bool tooLow = value < target - 2;
+    
+    if (tooHigh) {
+      try {
+        NotificationService().showAlertNotification(
+          title: 'تنبيه سكر الدم',
+          body: 'سكر دمك أعلى من الهدف المحدد ($target mg/dL)',
+        );
+      } catch (_) {}
+    } else if (tooLow) {
+      try {
+        NotificationService().showAlertNotification(
+          title: 'تنبيه سكر الدم',
+          body: 'سكر دمك أقل من الهدف المحدد ($target mg/dL)',
+        );
+      } catch (_) {}
+    }
   }
 
   void remove(int index) {

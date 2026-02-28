@@ -29,13 +29,28 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   void _nextPage() {
+    // Validate chronic disease selection on page 2 (third page)
+    if (_currentPage == 2) {
+      final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+      if (settingsProvider.chronicDiseases.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('الرجاء تحديد حالة صحية واحدة على الأقل'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        return;
+      }
+      _completeOnboarding();
+      return;
+    }
+    
     if (_currentPage < 2) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
-    } else {
-      _completeOnboarding();
     }
   }
 
@@ -79,13 +94,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     content:
                         '📱 تذكير ذكي بمواعيد ادويتك وما تدوخ بالوقت، إحنا نذكرك بالدقيقة والثانية.\n\n👨‍👩‍👧‍👦 أهلك وياك: تكدر تخلي عائلتك يشاركونك الالتزام ويطمنون عليك.\n\n🔒 خصوصية فول: بياناتك مشفرة ومحد يشوفها غيرك، يعني مأمن تماماً.\n\n📊 تقارير سهلة: بضغطة زر وحدة، سوي تقرير لضغطك وسكرك وشوفه لطبيبك.',
                   ),
-                  _buildPage(
-                    icon: Icons.rocket_launch,
-                    iconColor: Colors.blue,
-                    title: 'هسة شنو المطلوب منك؟',
-                    content:
-                        'بس افتح التطبيق، ضيف ادويتك ومواعيد اخذها، وخلي الباقي علينا.\n\nإذا عندك أي سؤال أو استفسار، إحنا موجودين بالخدمة بأي وقت.\n\nدمت بصحة وعافية،\nفريق تطبيق دوائي 🌸',
-                  ),
+                  _buildChronicDiseasePage(),
                 ],
               ),
             ),
@@ -202,6 +211,86 @@ class _OnboardingPageState extends State<OnboardingPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildChronicDiseasePage() {
+    return Consumer<SettingsProvider>(
+      builder: (context, sp, _) {
+        final diseases = [
+          'ارتفاع ضغط الدم',
+          'السكري',
+          'ارتفاع الكوليستيرول / الدهون الثلاثية',
+          'قصور القلب',
+          'أمراض الكلى',
+          'أمراض الكبد',
+          'الصرع',
+          'الباركنسون',
+          'السرطان',
+          'لا توجد أمراض مزمنة',
+        ];
+
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              children: [
+                const SizedBox(height: 40),
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.favorite,
+                    size: 60,
+                    color: Colors.red,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'الأمراض المزمنة',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'يرجى تحديد حالة صحية واحدة على الأقل',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                Expanded(
+                  child: ListView(
+                    children: diseases.map((disease) {
+                      return CheckboxListTile(
+                        value: sp.chronicDiseases.contains(disease),
+                        onChanged: (v) => sp.toggleChronicDisease(disease),
+                        title: Text(
+                          disease,
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                        controlAffinity: ListTileControlAffinity.leading,
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                        activeColor: Colors.teal,
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

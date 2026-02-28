@@ -510,6 +510,7 @@ class _SettingsPageState extends State<SettingsPage> {
       'الصرع',
       'الباركنسون',
       'السرطان',
+      'لا توجد أمراض مزمنة',
     ];
 
     return diseases.map((disease) {

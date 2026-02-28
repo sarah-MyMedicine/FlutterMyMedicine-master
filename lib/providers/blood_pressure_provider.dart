@@ -15,24 +15,34 @@ class BloodPressureProvider extends ChangeNotifier {
 
   List<BloodPressureReading> get readings => List.unmodifiable(_readings);
 
-  void add(int sys, int dia, [DateTime? when]) {
+  void add(int sys, int dia, {int? targetSystolic, int? targetDiastolic, DateTime? when}) {
     _readings.insert(0, BloodPressureReading(systolic: sys, diastolic: dia, when: when));
     notifyListeners();
 
-    // Alert if outside normal range: systolic 115-125, diastolic 75-85
-    final bool sysHigh = sys > 125;
-    final bool sysLow = sys < 115;
-    final bool diaHigh = dia > 85;
-    final bool diaLow = dia < 75;
+    // Use custom targets if provided, otherwise use default values
+    final targetSys = targetSystolic ?? 120;
+    final targetDia = targetDiastolic ?? 80;
+    
+    // Alert if ±2 from target
+    final bool sysHigh = sys > targetSys + 2;
+    final bool sysLow = sys < targetSys - 2;
+    final bool diaHigh = dia > targetDia + 2;
+    final bool diaLow = dia < targetDia - 2;
 
     if (sysHigh || diaHigh) {
       // Fire an immediate health alert
       try {
-        NotificationService().showAlertNotification(title: 'Blood Pressure Alert', body: 'Your blood pressure is too high');
+        NotificationService().showAlertNotification(
+          title: 'تنبيه ضغط الدم', 
+          body: 'ضغط دمك أعلى من الهدف المحدد (${targetSys}/${targetDia})',
+        );
       } catch (_) {}
     } else if (sysLow || diaLow) {
       try {
-        NotificationService().showAlertNotification(title: 'Blood Pressure Alert', body: 'Your blood pressure is too low');
+        NotificationService().showAlertNotification(
+          title: 'تنبيه ضغط الدم', 
+          body: 'ضغط دمك أقل من الهدف المحدد (${targetSys}/${targetDia})',
+        );
       } catch (_) {}
     }
   }
