@@ -16,6 +16,7 @@ class SettingsProvider extends ChangeNotifier {
   int _targetSystolic = 120;
   int _targetDiastolic = 80;
   int _targetBloodSugar = 100;
+  String _language = 'ar'; // 'ar' for Arabic, 'en' for English
 
   String get name => _name;
   int? get age => _age;
@@ -29,6 +30,7 @@ class SettingsProvider extends ChangeNotifier {
   int get targetSystolic => _targetSystolic;
   int get targetDiastolic => _targetDiastolic;
   int get targetBloodSugar => _targetBloodSugar;
+  String get language => _language;
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -57,6 +59,7 @@ class SettingsProvider extends ChangeNotifier {
     _targetSystolic = prefs.getInt('settings_target_systolic') ?? 120;
     _targetDiastolic = prefs.getInt('settings_target_diastolic') ?? 80;
     _targetBloodSugar = prefs.getInt('settings_target_blood_sugar') ?? 100;
+    _language = prefs.getString('settings_language') ?? 'ar';
     
     notifyListeners();
   }
@@ -171,6 +174,13 @@ class SettingsProvider extends ChangeNotifier {
     _targetBloodSugar = v;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('settings_target_blood_sugar', v);
+    notifyListeners();
+  }
+
+  Future<void> setLanguage(String lang) async {
+    _language = lang;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('settings_language', lang);
     notifyListeners();
   }
 }

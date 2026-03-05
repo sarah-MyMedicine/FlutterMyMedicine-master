@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/settings_provider.dart';
+import '../utils/translations.dart';
 
 class SymptomLogPage extends StatefulWidget {
   const SymptomLogPage({super.key});
@@ -12,80 +15,89 @@ class _SymptomLogPageState extends State<SymptomLogPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF6F8F8),
-        appBar: AppBar(
-          backgroundColor: const Color(0xFF57B6A8),
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
-          ),
-          title: const Text(
-            'سجل الأعراض',
-            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
-          ),
-          centerTitle: true,
-          actions: const [
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8),
-              child: Icon(Icons.shield_outlined, color: Colors.white),
-            ),
-            Padding(
-              padding: EdgeInsets.only(right: 12),
-              child: Icon(Icons.location_on_outlined, color: Colors.white),
-            ),
-          ],
-        ),
-        body: Column(
-          children: [
-            const SizedBox(height: 16),
-            Center(
-              child: ElevatedButton.icon(
-                onPressed: _openNewEntryDialog,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF57B6A8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                  elevation: 0,
-                ),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('تسجيل عرض', style: TextStyle(fontSize: 14)),
+    return Consumer<SettingsProvider>(
+      builder: (context, sp, child) {
+        final lang = sp.language;
+        
+        return Directionality(
+          textDirection: lang == 'ar' ? TextDirection.rtl : TextDirection.ltr,
+          child: Scaffold(
+            backgroundColor: const Color(0xFFF6F8F8),
+            appBar: AppBar(
+              backgroundColor: const Color(0xFF57B6A8),
+              elevation: 0,
+              leading: IconButton(
+                icon: Icon(lang == 'ar' ? Icons.arrow_back : Icons.arrow_forward, color: Colors.white),
+                onPressed: () => Navigator.pop(context),
               ),
+              title: Text(
+                AppTranslations.translate('symptom_log_title', lang),
+                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+              ),
+              centerTitle: true,
+              actions: const [
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Icon(Icons.shield_outlined, color: Colors.white),
+                ),
+                Padding(
+                  padding: EdgeInsets.only(right: 12),
+                  child: Icon(Icons.location_on_outlined, color: Colors.white),
+                ),
+              ],
             ),
-            const SizedBox(height: 36),
-            if (_entries.isEmpty) _buildEmptyState() else _buildList(),
-          ],
-        ),
-      ),
+            body: Column(
+              children: [
+                const SizedBox(height: 16),
+                Center(
+                  child: ElevatedButton.icon(
+                    onPressed: () => _openNewEntryDialog(lang),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF57B6A8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                      elevation: 0,
+                    ),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: Text(
+                      AppTranslations.translate('record_symptom', lang),
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 36),
+                if (_entries.isEmpty) _buildEmptyState(lang) else _buildList(lang),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(String lang) {
     return Expanded(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: const [
-          SizedBox(height: 12),
-          Icon(Icons.warning_amber_rounded, color: Color(0xFFBDBDBD), size: 30),
-          SizedBox(height: 12),
+        children: [
+          const SizedBox(height: 12),
+          const Icon(Icons.warning_amber_rounded, color: Color(0xFFBDBDBD), size: 30),
+          const SizedBox(height: 12),
           Text(
-            'لا توجد أعراض مسجلة',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF525252)),
+            AppTranslations.translate('no_symptoms_recorded', lang),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF525252)),
           ),
-          SizedBox(height: 6),
+          const SizedBox(height: 6),
           Text(
-            "انقر على زر 'تسجيل عرض' لبدء المتابعة.",
-            style: TextStyle(fontSize: 13, color: Color(0xFF7B7B7B)),
+            AppTranslations.translate('click_to_start_tracking', lang),
+            style: const TextStyle(fontSize: 13, color: Color(0xFF7B7B7B)),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildList() {
+  Widget _buildList(String lang) {
     return Expanded(
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -148,11 +160,12 @@ class _SymptomLogPageState extends State<SymptomLogPage> {
     );
   }
 
-  void _openNewEntryDialog() {
+  void _openNewEntryDialog(String lang) {
     showDialog(
       context: context,
       barrierDismissible: true,
       builder: (_) => _SymptomDialog(
+        lang: lang,
         onSave: (entry) {
           setState(() => _entries.add(entry));
         },
@@ -162,8 +175,9 @@ class _SymptomLogPageState extends State<SymptomLogPage> {
 }
 
 class _SymptomDialog extends StatefulWidget {
+  final String lang;
   final void Function(_SymptomEntry entry) onSave;
-  const _SymptomDialog({required this.onSave});
+  const _SymptomDialog({required this.lang, required this.onSave});
 
   @override
   State<_SymptomDialog> createState() => _SymptomDialogState();
@@ -173,14 +187,21 @@ class _SymptomDialogState extends State<_SymptomDialog> {
   final _symptomCtrl = TextEditingController();
   final _drugCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
-  String _severity = 'متوسط';
-  final Map<String, bool> _riskFactors = {
-    'مدخن': false,
-    'لديه حساسية': false,
-    'أمراض الكبد': false,
-  };
+  late String _severity;
+  late Map<String, bool> _riskFactors;
   bool _shareWithOrg = false;
   bool _keepPrivate = true;
+  
+  @override
+  void initState() {
+    super.initState();
+    _severity = AppTranslations.translate('moderate', widget.lang);
+    _riskFactors = {
+      AppTranslations.translate('smoker', widget.lang): false,
+      AppTranslations.translate('has_allergies', widget.lang): false,
+      AppTranslations.translate('liver_disease', widget.lang): false,
+    };
+  }
 
   @override
   void dispose() {
@@ -192,6 +213,8 @@ class _SymptomDialogState extends State<_SymptomDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final lang = widget.lang;
+    
     return Dialog(
       insetPadding: const EdgeInsets.all(16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -213,37 +236,61 @@ class _SymptomDialogState extends State<_SymptomDialog> {
                 ),
               ),
               const SizedBox(height: 12),
-              const Center(
+              Center(
                 child: Text(
-                  'تسجيل عرض جديد',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  AppTranslations.translate('record_new_symptom', lang),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
               const SizedBox(height: 16),
-              _buildTextField('العرض', 'مثال: صداع، غثيان، ألم في المفاصل...', _symptomCtrl),
+              _buildTextField(
+                AppTranslations.translate('symptom', lang),
+                AppTranslations.translate('symptom_example', lang),
+                _symptomCtrl,
+                lang,
+              ),
               const SizedBox(height: 12),
-              _buildTextField('الدواء المحتمل المسبب (اختياري)', 'اختر من قائمة أدويتك --', _drugCtrl, hasDropdown: true),
+              _buildTextField(
+                AppTranslations.translate('potential_drug_cause', lang),
+                AppTranslations.translate('choose_from_medications', lang),
+                _drugCtrl,
+                lang,
+                hasDropdown: true,
+              ),
               const SizedBox(height: 12),
-              const Text('الحدة', style: TextStyle(fontWeight: FontWeight.w600)),
+              Text(
+                AppTranslations.translate('severity', lang),
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
               const SizedBox(height: 8),
-              _buildSeveritySelector(),
+              _buildSeveritySelector(lang),
               const SizedBox(height: 12),
-              const Text('حالات صحية / عوامل خطورة', style: TextStyle(fontWeight: FontWeight.w600)),
+              Text(
+                AppTranslations.translate('health_conditions_risk', lang),
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
               const SizedBox(height: 8),
               _buildRiskFactors(),
               const SizedBox(height: 12),
-              _buildMultilineField('ملاحظات إضافية', 'وصف إضافي للحالة...', _notesCtrl),
+              _buildMultilineField(
+                AppTranslations.translate('additional_notes', lang),
+                AppTranslations.translate('additional_description', lang),
+                _notesCtrl,
+              ),
               const SizedBox(height: 12),
-              const Text('خيارات المشاركة والخصوصية', style: TextStyle(fontWeight: FontWeight.w600)),
+              Text(
+                AppTranslations.translate('sharing_privacy_options', lang),
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
               const SizedBox(height: 8),
-              _buildShareOptions(),
+              _buildShareOptions(lang),
               const SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('إلغاء'),
+                      child: Text(AppTranslations.translate('cancel', lang)),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -256,15 +303,17 @@ class _SymptomDialogState extends State<_SymptomDialog> {
                       onPressed: () {
                         widget.onSave(
                           _SymptomEntry(
-                            title: _symptomCtrl.text.isEmpty ? 'عرض بدون اسم' : _symptomCtrl.text,
+                            title: _symptomCtrl.text.isEmpty 
+                              ? AppTranslations.translate('symptom_without_name', lang)
+                              : _symptomCtrl.text,
                             notes: _notesCtrl.text,
                             severity: _severity,
-                            dateLabel: 'اليوم',
+                            dateLabel: AppTranslations.translate('today', lang),
                           ),
                         );
                         Navigator.pop(context);
                       },
-                      child: const Text('حفظ'),
+                      child: Text(AppTranslations.translate('save', lang)),
                     ),
                   ),
                 ],
@@ -276,7 +325,7 @@ class _SymptomDialogState extends State<_SymptomDialog> {
     );
   }
 
-  Widget _buildTextField(String label, String hint, TextEditingController controller, {bool hasDropdown = false}) {
+  Widget _buildTextField(String label, String hint, TextEditingController controller, String lang, {bool hasDropdown = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -299,7 +348,8 @@ class _SymptomDialogState extends State<_SymptomDialog> {
             ),
             if (hasDropdown)
               Positioned(
-                right: 8,
+                right: lang == 'ar' ? null : 8,
+                left: lang == 'ar' ? 8 : null,
                 top: 8,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -308,7 +358,10 @@ class _SymptomDialogState extends State<_SymptomDialog> {
                     border: Border.all(color: Colors.grey.shade300),
                     color: Colors.grey.shade50,
                   ),
-                  child: const Text('سهم', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  child: Text(
+                    AppTranslations.translate('arrow', lang),
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
                 ),
               ),
           ],
@@ -341,8 +394,12 @@ class _SymptomDialogState extends State<_SymptomDialog> {
     );
   }
 
-  Widget _buildSeveritySelector() {
-    final options = ['خفيف', 'متوسط', 'شديد'];
+  Widget _buildSeveritySelector(String lang) {
+    final options = [
+      AppTranslations.translate('mild', lang),
+      AppTranslations.translate('moderate', lang),
+      AppTranslations.translate('severe', lang),
+    ];
     return Row(
       children: options.map((opt) {
         final selected = _severity == opt;
@@ -390,14 +447,14 @@ class _SymptomDialogState extends State<_SymptomDialog> {
     );
   }
 
-  Widget _buildShareOptions() {
+  Widget _buildShareOptions(String lang) {
     return Column(
       children: [
         SwitchListTile(
           value: _shareWithOrg,
           onChanged: (v) => setState(() => _shareWithOrg = v),
-          title: const Text('إبلاغ الجهات الطبية'),
-          subtitle: const Text('لزيادة فرص استخدام الدواء والمساهمة في رصد الآثار الجانبية.'),
+          title: Text(AppTranslations.translate('notify_medical_authorities', lang)),
+          subtitle: Text(AppTranslations.translate('notify_medical_desc', lang)),
           activeThumbColor: const Color(0xFF57B6A8),
           contentPadding: EdgeInsets.zero,
         ),
@@ -405,16 +462,16 @@ class _SymptomDialogState extends State<_SymptomDialog> {
           value: true,
           groupValue: _keepPrivate,
           onChanged: (_) => setState(() => _keepPrivate = true),
-          title: const Text('أود حفظها لدي فقط'),
-          subtitle: const Text('حفظ في سجلي الشخصي فقط دون مشاركة'),
+          title: Text(AppTranslations.translate('keep_personal_only', lang)),
+          subtitle: Text(AppTranslations.translate('save_personal_desc', lang)),
           contentPadding: EdgeInsets.zero,
         ),
         RadioListTile<bool>(
           value: false,
           groupValue: _keepPrivate,
           onChanged: (_) => setState(() => _keepPrivate = false),
-          title: const Text('موافق على مشاركتها'),
-          subtitle: const Text('السماح بمشاركة العرض مع الجهات الطبية عند الحاجة'),
+          title: Text(AppTranslations.translate('agree_to_share', lang)),
+          subtitle: Text(AppTranslations.translate('agree_share_desc', lang)),
           contentPadding: EdgeInsets.zero,
         ),
       ],

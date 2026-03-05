@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mymedicineapp/Pages/home.dart';
 import 'package:mymedicineapp/Pages/onboarding_page.dart';
+import 'package:mymedicineapp/Pages/language_selection_page.dart';
 import 'services/notification_service.dart';
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
@@ -57,6 +58,7 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   bool _isFirstTime = false;
+  bool _isLanguageSelected = false;
   bool _isLoading = true;
 
   @override
@@ -67,8 +69,10 @@ class _MyAppState extends State<MyApp> {
 
   Future<void> _checkFirstTime() async {
     final prefs = await SharedPreferences.getInstance();
+    final languageSelected = prefs.getBool('language_selected') ?? false;
     final onboardingCompleted = prefs.getBool('onboarding_completed') ?? false;
     setState(() {
+      _isLanguageSelected = languageSelected;
       _isFirstTime = !onboardingCompleted;
       _isLoading = false;
     });
@@ -101,19 +105,34 @@ class _MyAppState extends State<MyApp> {
     // Provide the navigatorKey early so taps can be flushed ASAP
     NotificationService().setNavigatorKey(_navigatorKey);
 
+    Widget getInitialPage() {
+      if (!_isLanguageSelected) {
+        return const LanguageSelectionPage();
+      } else if (_isFirstTime) {
+        return const OnboardingPage();
+      } else {
+        return const HomePage();
+      }
+    }
+
     return MaterialApp(
       navigatorKey: _navigatorKey,
       title: 'My Medicine',
       theme: AppTheme.theme,
-      home: _isFirstTime ? const OnboardingPage() : const HomePage(),
+      home: getInitialPage(),
       routes: {
         '/home': (context) => const HomePage(),
         '/onboarding': (context) => const OnboardingPage(),
+        '/language': (context) => const LanguageSelectionPage(),
       },
       builder: (context, child) {
-        return Directionality(
-          textDirection: TextDirection.rtl,
-          child: child!,
+        return Consumer<SettingsProvider>(
+          builder: (context, settings, _) {
+            return Directionality(
+              textDirection: settings.language == 'ar' ? TextDirection.rtl : TextDirection.ltr,
+              child: child!,
+            );
+          },
         );
       },
     );

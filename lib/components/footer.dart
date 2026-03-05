@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../components/medication_form_modal.dart';
 import '../providers/medication_provider.dart';
+import '../providers/settings_provider.dart';
 import '../services/ocr_service.dart';
 import '../Pages/settings_page.dart';
+import '../utils/translations.dart';
 
 class Footer extends StatelessWidget {
   const Footer({super.key});
@@ -98,85 +100,94 @@ class Footer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BottomAppBar(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            IconButton(
-              onPressed: () {},
-              icon: Icon(
-                Icons.home,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-            Tooltip(
-              message: 'Add',
-              child: Material(
-                color: Colors.transparent,
-                shape: const CircleBorder(),
-                child: InkWell(
-                  onTap: () {
-                    debugPrint('Footer: + tapped');
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Opening add options...')));
-                    _showAddOptions(context);
-                  },
+    return Consumer<SettingsProvider>(
+      builder: (context, sp, child) {
+        final lang = sp.language;
+        
+        return BottomAppBar(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  onPressed: () {},
+                  icon: Icon(
+                    Icons.home,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+                Tooltip(
+                  message: 'Add',
+                  child: Material(
+                    color: Colors.transparent,
+                    shape: const CircleBorder(),
+                    child: InkWell(
+                      onTap: () {
+                        debugPrint('Footer: + tapped');
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Opening add options...')));
+                        _showAddOptions(context);
+                      },
 
-                  customBorder: const CircleBorder(),
-                  child: Padding(
-                    padding: const EdgeInsets.all(6.0),
-                    child: Container(
-                      width: 64,
-                      height: 64,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.primary.withAlpha(89),
-                            blurRadius: 8,
+                      customBorder: const CircleBorder(),
+                      child: Padding(
+                        padding: const EdgeInsets.all(6.0),
+                        child: Container(
+                          width: 64,
+                          height: 64,
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.primary.withAlpha(89),
+                                blurRadius: 8,
+                              ),
+                            ],
+                            border: Border.all(color: Colors.white, width: 4),
                           ),
-                        ],
-                        border: Border.all(color: Colors.white, width: 4),
+                          child: const Icon(Icons.add, color: Colors.white),
+                        ),
                       ),
-                      child: const Icon(Icons.add, color: Colors.white),
                     ),
                   ),
                 ),
-              ),
-            ),
-            IconButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('قريبا', textAlign: TextAlign.center),
-                    duration: Duration(seconds: 2),
+                IconButton(
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          AppTranslations.translate('coming_soon', lang),
+                          textAlign: TextAlign.center,
+                        ),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                  icon: Icon(
+                    Icons.shopping_cart,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
-                );
-              },
-              icon: Icon(
-                Icons.shopping_cart,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
+                ),
+                IconButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const SettingsPage()),
+                    );
+                  },
+                  icon: Icon(
+                    Icons.person,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                  tooltip: 'اعداداتي',
+                ),
+              ],
             ),
-            IconButton(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const SettingsPage()),
-                );
-              },
-              icon: Icon(
-                Icons.person,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-              tooltip: 'اعداداتي',
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

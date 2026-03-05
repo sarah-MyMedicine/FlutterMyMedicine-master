@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/settings_provider.dart';
+import '../utils/translations.dart';
 
 class MenopauseStageInfoPage extends StatefulWidget {
   const MenopauseStageInfoPage({super.key});
@@ -14,101 +17,109 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFE8F5F3),
-      appBar: AppBar(
-        title: const Text(
-          'مرحلة سن الأمل',
-          style: TextStyle(color: Colors.white, fontSize: 18),
-        ),
-        backgroundColor: const Color(0xFF5DABA8),
-        iconTheme: const IconThemeData(color: Colors.white),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_forward),
-          onPressed: () => Navigator.pop(context),
-        ),
-        actions: [
-          IconButton(icon: const Icon(Icons.favorite_border), onPressed: () {}),
-          IconButton(
-            icon: const Icon(Icons.location_on_outlined),
-            onPressed: () {},
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Header card with tabs
-          Container(
-            margin: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFD946A6), Color(0xFFEC4899)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+    return Consumer<SettingsProvider>(
+      builder: (context, sp, child) {
+        final lang = sp.language;
+        return Directionality(
+          textDirection: lang == 'ar' ? TextDirection.rtl : TextDirection.ltr,
+          child: Scaffold(
+            backgroundColor: const Color(0xFFE8F5F3),
+            appBar: AppBar(
+              title: Text(
+                AppTranslations.translate('menopause_stage_title', lang),
+                style: const TextStyle(color: Colors.white, fontSize: 18),
               ),
-              borderRadius: BorderRadius.circular(16),
+              backgroundColor: const Color(0xFF5DABA8),
+              iconTheme: const IconThemeData(color: Colors.white),
+              leading: IconButton(
+                icon: Icon(lang == 'ar' ? Icons.arrow_forward : Icons.arrow_back),
+                onPressed: () => Navigator.pop(context),
+              ),
+              actions: [
+                IconButton(icon: const Icon(Icons.favorite_border), onPressed: () {}),
+                IconButton(
+                  icon: const Icon(Icons.location_on_outlined),
+                  onPressed: () {},
+                ),
+              ],
             ),
-            child: Column(
+            body: Column(
               children: [
-                const SizedBox(height: 16),
-                const Icon(Icons.favorite, color: Colors.white, size: 40),
-                const SizedBox(height: 8),
-                const Text(
-                  'مرحلة سن الأمل',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                // Header card with tabs
+                Container(
+                  margin: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFD946A6), Color(0xFFEC4899)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                ),
-                const Text(
-                  'معك في كل خطوة من رحلتك',
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
-                ),
-                const SizedBox(height: 16),
-                // Tab buttons
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  child: Column(
                     children: [
-                      _buildTabButton('متابعة الأعراض', 0),
-                      _buildTabButton('صحة وراحة', 1),
-                      _buildTabButton('معلومات وهرمونات', 2),
-                      _buildTabButton('تغذية', 3),
+                      const SizedBox(height: 16),
+                      const Icon(Icons.favorite, color: Colors.white, size: 40),
+                      const SizedBox(height: 8),
+                      Text(
+                        AppTranslations.translate('menopause_stage_title', lang),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        AppTranslations.translate('with_you_every_step', lang),
+                        style: const TextStyle(color: Colors.white70, fontSize: 14),
+                      ),
+                      const SizedBox(height: 16),
+                      // Tab buttons
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _buildTabButton(AppTranslations.translate('symptom_tracking', lang), 0),
+                            _buildTabButton(AppTranslations.translate('health_comfort', lang), 1),
+                            _buildTabButton(AppTranslations.translate('info_hormones', lang), 2),
+                            _buildTabButton(AppTranslations.translate('nutrition', lang), 3),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Progress indicator
+                      Container(
+                        height: 4,
+                        margin: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.white30,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                        child: Align(
+                          alignment: lang == 'ar' ? Alignment.centerRight : Alignment.centerLeft,
+                          child: FractionallySizedBox(
+                            widthFactor: 0.25,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
                     ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                // Progress indicator
-                Container(
-                  height: 4,
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white30,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: FractionallySizedBox(
-                      widthFactor: 0.25,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
+                // Content area
+                Expanded(child: _buildTabContent()),
               ],
             ),
           ),
-          // Content area
-          Expanded(child: _buildTabContent()),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -154,6 +165,9 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
   }
 
   Widget _buildSymptomTrackingTab() {
+    final sp = Provider.of<SettingsProvider>(context, listen: false);
+    final lang = sp.language;
+    
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -166,45 +180,57 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+              child: Column(
+                crossAxisAlignment: lang == 'ar' ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'متابعة الأعراض اليومية',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.right,
+                    AppTranslations.translate('daily_symptom_tracking', lang),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    textAlign: lang == 'ar' ? TextAlign.right : TextAlign.left,
                   ),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                   Text(
-                    'سجلي أعراضك اليومية لمساعدتك على فهم نمط الأعراض بشكل أفضل.',
-                    style: TextStyle(fontSize: 14, color: Colors.grey),
-                    textAlign: TextAlign.right,
+                    AppTranslations.translate('log_daily_symptoms', lang),
+                    style: const TextStyle(fontSize: 14, color: Colors.grey),
+                    textAlign: lang == 'ar' ? TextAlign.right : TextAlign.left,
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 24),
             // Hot flashes counter
-            _buildSymptomCounter('🔥 عداد الهبات الساخنة (اليوم)', _hotflashCount, () {
-              setState(() => _hotflashCount++);
-            }, () {
-              setState(() {
-                if (_hotflashCount > 0) _hotflashCount--;
-              });
-            }, () {
-              setState(() => _hotflashCount = 0);
-            }),
+            _buildSymptomCounter(
+              AppTranslations.translate('hot_flashes_counter_today', lang),
+              _hotflashCount,
+              () {
+                setState(() => _hotflashCount++);
+              },
+              () {
+                setState(() {
+                  if (_hotflashCount > 0) _hotflashCount--;
+                });
+              },
+              () {
+                setState(() => _hotflashCount = 0);
+              },
+            ),
             const SizedBox(height: 20),
             // Night sweats counter
-            _buildSymptomCounter('💦 عداد التعرق الليلي (الليلة)', _nightSweatsCount, () {
-              setState(() => _nightSweatsCount++);
-            }, () {
-              setState(() {
-                if (_nightSweatsCount > 0) _nightSweatsCount--;
-              });
-            }, () {
-              setState(() => _nightSweatsCount = 0);
-            }),
+            _buildSymptomCounter(
+              AppTranslations.translate('night_sweats_counter_tonight', lang),
+              _nightSweatsCount,
+              () {
+                setState(() => _nightSweatsCount++);
+              },
+              () {
+                setState(() {
+                  if (_nightSweatsCount > 0) _nightSweatsCount--;
+                });
+              },
+              () {
+                setState(() => _nightSweatsCount = 0);
+              },
+            ),
             const SizedBox(height: 24),
             // Health tips section
             Container(
@@ -215,27 +241,28 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
                 border: Border.all(color: const Color(0xFFD84315), width: 1),
               ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+                crossAxisAlignment: lang == 'ar' ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Icon(Icons.lightbulb_outline, color: Color(0xFFD84315), size: 24),
+                      if (lang == 'en') const Icon(Icons.lightbulb_outline, color: Color(0xFFD84315), size: 24),
                       Text(
-                        '💡 نصائح مفيدة',
-                        style: TextStyle(
+                        AppTranslations.translate('useful_tips', lang),
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFFD84315),
                         ),
                       ),
+                      if (lang == 'ar') const Icon(Icons.lightbulb_outline, color: Color(0xFFD84315), size: 24),
                     ],
                   ),
                   const SizedBox(height: 12),
-                  _buildTipItem('البقاء رطبة: اشربي الماء بكثرة خلال اليوم'),
-                  _buildTipItem('الملابس الخفيفة: اختاري ملابس قطنية فضفاضة'),
-                  _buildTipItem('تجنبي المحفزات: قللي الكافيين والتوابل الحارة'),
-                  _buildTipItem('النوم المريح: حاولي النوم في غرفة باردة'),
+                  _buildTipItem(AppTranslations.translate('stay_hydrated', lang)),
+                  _buildTipItem(AppTranslations.translate('light_clothing', lang)),
+                  _buildTipItem(AppTranslations.translate('avoid_triggers', lang)),
+                  _buildTipItem(AppTranslations.translate('comfortable_sleep', lang)),
                 ],
               ),
             ),
@@ -253,6 +280,9 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
     VoidCallback onDecrement,
     VoidCallback onReset,
   ) {
+    final sp = Provider.of<SettingsProvider>(context, listen: false);
+    final lang = sp.language;
+    
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -328,9 +358,9 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
           const SizedBox(height: 8),
           TextButton(
             onPressed: onReset,
-            child: const Text(
-              '↻ إعادة تعيين',
-              style: TextStyle(color: Colors.grey),
+            child: Text(
+              AppTranslations.translate('reset_counter', lang),
+              style: const TextStyle(color: Colors.grey),
             ),
           ),
         ],
@@ -339,18 +369,20 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
   }
 
   Widget _buildTipItem(String tip) {
+    final sp = Provider.of<SettingsProvider>(context, listen: false);
+    final lang = sp.language;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
-        textDirection: TextDirection.rtl,
+        textDirection: lang == 'ar' ? TextDirection.rtl : TextDirection.ltr,
         children: [
           const Text('• ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           Expanded(
             child: Text(
               tip,
               style: const TextStyle(fontSize: 13, height: 1.5, color: Color(0xFF333333)),
-              textAlign: TextAlign.right,
+              textAlign: lang == 'ar' ? TextAlign.right : TextAlign.left,
             ),
           ),
         ],
@@ -359,6 +391,9 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
   }
 
   Widget _buildHealthComfortTab() {
+    final sp = Provider.of<SettingsProvider>(context, listen: false);
+    final lang = sp.language;
+    
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -372,16 +407,16 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: const Color(0xFF2196F3), width: 1),
               ),
-              child: const Row(
-                textDirection: TextDirection.rtl,
+              child: Row(
+                textDirection: lang == 'ar' ? TextDirection.rtl : TextDirection.ltr,
                 children: [
-                  Icon(Icons.info_outline, color: Color(0xFF2196F3)),
-                  SizedBox(width: 8),
+                  const Icon(Icons.info_outline, color: Color(0xFF2196F3)),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'اعتني بنفسك وتقبلي هذه المرحلة من حياتك',
-                      style: TextStyle(color: Color(0xFF2196F3), fontSize: 13),
-                      textAlign: TextAlign.right,
+                      AppTranslations.translate('take_care_accept_stage', lang),
+                      style: const TextStyle(color: Color(0xFF2196F3), fontSize: 13),
+                      textAlign: lang == 'ar' ? TextAlign.right : TextAlign.left,
                     ),
                   ),
                 ],
@@ -389,24 +424,24 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
             ),
             const SizedBox(height: 20),
             _buildInfoCard(
-              '⚙️ إدارة الأعراض',
-              'هناك عدة طرق للتعامل مع أعراض سن الأمل وتحسين جودة الحياة خلال هذه المرحلة.',
+              AppTranslations.translate('symptom_management', lang),
+              AppTranslations.translate('symptom_management_desc', lang),
               benefitsList: [
-                'ممارسة التمارين المنتظمة',
-                'الحصول على قسط كافٍ من النوم',
-                'تقنيات الاسترخاء والتأمل',
-                'دعم الأسرة والأصدقاء',
+                AppTranslations.translate('regular_exercise', lang),
+                AppTranslations.translate('adequate_sleep', lang),
+                AppTranslations.translate('relaxation_meditation', lang),
+                AppTranslations.translate('family_support', lang),
               ],
             ),
             const SizedBox(height: 16),
             _buildInfoCard(
-              '🏃‍♀️ النشاط البدني',
-              'التمارين المنتظمة تساعد في تحسين الصحة العامة والعقلية.',
+              AppTranslations.translate('physical_activity', lang),
+              AppTranslations.translate('physical_activity_desc', lang),
               benefitsList: [
-                'تحسين صحة القلب والأوعية الدموية',
-                'تقوية العظام والعضلات',
-                'تحسين المزاج والنوم',
-                'السيطرة على الوزن',
+                AppTranslations.translate('improve_heart_health', lang),
+                AppTranslations.translate('strengthen_bones_muscles', lang),
+                AppTranslations.translate('improve_mood_sleep', lang),
+                AppTranslations.translate('weight_control', lang),
               ],
             ),
             const SizedBox(height: 80),
@@ -417,27 +452,29 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
   }
 
   Widget _buildInformationTab() {
+    final sp = Provider.of<SettingsProvider>(context, listen: false);
+    final lang = sp.language;
+    
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         child: Column(
           children: [
             _buildInfoCard(
-              '💊 الهرمونات والعلاج الهرموني',
-              'العلاج الهرموني يمكن أن يساعد في تخفيف الأعراض المرتبطة بسن الأمل.',
-              subtitle: 'ملاحظة مهمة',
-              subContent:
-                  'تحدثي مع طبيبك قبل بدء أي علاج هرموني لفهم الفوائد والمخاطر المحتملة.',
+              AppTranslations.translate('hormones_hrt', lang),
+              AppTranslations.translate('hormones_hrt_desc', lang),
+              subtitle: AppTranslations.translate('important_note', lang),
+              subContent: AppTranslations.translate('important_note_desc', lang),
               benefitsList: [
-                'تقليل الهبات الساخنة والتعرق الليلي',
-                'تحسين جودة النوم والمزاج',
-                'تقليل الجفاف وتحسين صحة الجلد',
-                'دعم صحة العظام',
+                AppTranslations.translate('reduce_hot_flashes', lang),
+                AppTranslations.translate('improve_sleep_mood', lang),
+                AppTranslations.translate('reduce_dryness', lang),
+                AppTranslations.translate('support_bone_health', lang),
               ],
               consultList: [
-                'ما إذا كان العلاج الهرموني مناسباً لك',
-                'أي تأثيرات جانبية محتملة',
-                'الجرعات والمدة المناسبة للعلاج',
+                AppTranslations.translate('hrt_suitable', lang),
+                AppTranslations.translate('potential_side_effects', lang),
+                AppTranslations.translate('dosage_duration', lang),
               ],
             ),
             const SizedBox(height: 80),
@@ -448,6 +485,9 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
   }
 
   Widget _buildNutritionTab() {
+    final sp = Provider.of<SettingsProvider>(context, listen: false);
+    final lang = sp.language;
+    
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -460,19 +500,19 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+              child: Column(
+                crossAxisAlignment: lang == 'ar' ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '🍽️ التغذية والصحة',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.right,
+                    AppTranslations.translate('nutrition_health', lang),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    textAlign: lang == 'ar' ? TextAlign.right : TextAlign.left,
                   ),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                   Text(
-                    'التغذية السليمة تلعب دوراً مهماً في صحتك خلال هذه المرحلة',
-                    style: TextStyle(fontSize: 14, color: Colors.grey),
-                    textAlign: TextAlign.right,
+                    AppTranslations.translate('nutrition_health_desc', lang),
+                    style: const TextStyle(fontSize: 14, color: Colors.grey),
+                    textAlign: lang == 'ar' ? TextAlign.right : TextAlign.left,
                   ),
                 ],
               ),
@@ -480,45 +520,45 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
             const SizedBox(height: 24),
             // Calcium and Magnesium section
             _buildNutritionSection(
-              '🥛 الكالسيوم والماغنيسيوم',
+              AppTranslations.translate('calcium_magnesium', lang),
               ['🥛', '🧀', '🥦', '🥕', '🍌', '🌰'],
               [
-                'اللبن والجبن',
-                'الخضروات الورقية',
-                'المكسرات',
-                'الأسماك',
-                'الحبوب الكاملة',
-                'البذور'
+                AppTranslations.translate('milk_cheese', lang),
+                AppTranslations.translate('leafy_vegetables', lang),
+                AppTranslations.translate('nuts', lang),
+                AppTranslations.translate('fish', lang),
+                AppTranslations.translate('whole_grains', lang),
+                AppTranslations.translate('seeds', lang)
               ],
               const Color(0xFF4CAF50),
             ),
             const SizedBox(height: 16),
             // Phytoestrogen section
             _buildNutritionSection(
-              '🌿 الاستروجين النباتي',
+              AppTranslations.translate('phytoestrogen', lang),
               ['🫘', '🌾', '🥬', '🍎', '🥔', '🫐'],
               [
-                'الفول والعدس',
-                'منتجات الصويا',
-                'البذور',
-                'الفواكه',
-                'الحبوب الكاملة',
-                'المكسرات'
+                AppTranslations.translate('beans_lentils', lang),
+                AppTranslations.translate('soy_products', lang),
+                AppTranslations.translate('seeds', lang),
+                AppTranslations.translate('fruits', lang),
+                AppTranslations.translate('whole_grains', lang),
+                AppTranslations.translate('nuts', lang)
               ],
               const Color(0xFF8BC34A),
             ),
             const SizedBox(height: 16),
             // Heart health section
             _buildNutritionSection(
-              '❤️ قلبي معافى',
+              AppTranslations.translate('healthy_heart', lang),
               ['🐟', '🫒', '🥗', '❤️', '🍇', '🥑'],
               [
-                'الأسماك الدهنية',
-                'الزيوت الصحية',
-                'الخضروات',
-                'الفواكه',
-                'المكسرات',
-                'البذور'
+                AppTranslations.translate('fatty_fish', lang),
+                AppTranslations.translate('healthy_oils', lang),
+                AppTranslations.translate('vegetables', lang),
+                AppTranslations.translate('fruits', lang),
+                AppTranslations.translate('nuts', lang),
+                AppTranslations.translate('seeds', lang)
               ],
               const Color(0xFFE91E63),
             ),
@@ -535,6 +575,9 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
     List<String> labels,
     Color accentColor,
   ) {
+    final sp = Provider.of<SettingsProvider>(context, listen: false);
+    final lang = sp.language;
+    
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -543,7 +586,7 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
         border: Border.all(color: accentColor.withOpacity(0.3), width: 2),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment: lang == 'ar' ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
           Text(
             title,
@@ -552,7 +595,7 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
               fontWeight: FontWeight.bold,
               color: accentColor,
             ),
-            textAlign: TextAlign.right,
+            textAlign: lang == 'ar' ? TextAlign.right : TextAlign.left,
           ),
           const SizedBox(height: 16),
           GridView.builder(
@@ -608,6 +651,9 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
     List<String>? benefitsList,
     List<String>? consultList,
   }) {
+    final sp = Provider.of<SettingsProvider>(context, listen: false);
+    final lang = sp.language;
+    
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -615,7 +661,7 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment: lang == 'ar' ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
           Text(
             title,
@@ -623,7 +669,7 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
-            textAlign: TextAlign.right,
+            textAlign: lang == 'ar' ? TextAlign.right : TextAlign.left,
           ),
           const SizedBox(height: 12),
           Text(
@@ -644,12 +690,12 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+                crossAxisAlignment: lang == 'ar' ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Icon(Icons.error_outline, color: Color(0xFF1976D2), size: 20),
+                      if (lang == 'en') const Icon(Icons.error_outline, color: Color(0xFF1976D2), size: 20),
                       Text(
                         subtitle,
                         style: const TextStyle(
@@ -658,6 +704,7 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
                           color: Color(0xFF1976D2),
                         ),
                       ),
+                      if (lang == 'ar') const Icon(Icons.error_outline, color: Color(0xFF1976D2), size: 20),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -676,21 +723,21 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
           ],
           if (benefitsList != null) ...[
             const SizedBox(height: 16),
-            const Text(
-              'الفوائد:',
-              style: TextStyle(
+            Text(
+              AppTranslations.translate('benefits', lang),
+              style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
                 color: Colors.black87,
               ),
-              textAlign: TextAlign.right,
+              textAlign: lang == 'ar' ? TextAlign.right : TextAlign.left,
             ),
             const SizedBox(height: 8),
             ...benefitsList.map((benefit) => Padding(
                   padding: const EdgeInsets.only(bottom: 6, right: 8),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    textDirection: TextDirection.rtl,
+                    textDirection: lang == 'ar' ? TextDirection.rtl : TextDirection.ltr,
                     children: [
                       const Text('• ', style: TextStyle(fontSize: 16)),
                       Expanded(
@@ -709,21 +756,21 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
           ],
           if (consultList != null) ...[
             const SizedBox(height: 16),
-            const Text(
-              'استشيري طبيبتك:',
-              style: TextStyle(
+            Text(
+              AppTranslations.translate('consult_doctor', lang),
+              style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
                 color: Colors.black87,
               ),
-              textAlign: TextAlign.right,
+              textAlign: lang == 'ar' ? TextAlign.right : TextAlign.left,
             ),
             const SizedBox(height: 8),
             ...consultList.map((item) => Padding(
                   padding: const EdgeInsets.only(bottom: 6, right: 8),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    textDirection: TextDirection.rtl,
+                    textDirection: lang == 'ar' ? TextDirection.rtl : TextDirection.ltr,
                     children: [
                       const Text('• ', style: TextStyle(fontSize: 16)),
                       Expanded(

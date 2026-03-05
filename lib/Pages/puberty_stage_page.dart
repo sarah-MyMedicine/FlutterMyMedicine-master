@@ -1,32 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/settings_provider.dart';
+import '../utils/translations.dart';
 
 class PubertyStageInfoPage extends StatelessWidget {
   const PubertyStageInfoPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('مرحلة البلوغ'),
-          backgroundColor: const Color(0xFF1EBEA6),
-          foregroundColor: Colors.white,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_forward),
-            onPressed: () => Navigator.pop(context),
-          ),
-          actions: [
-            IconButton(icon: const Icon(Icons.shield_outlined), onPressed: () {}),
-            IconButton(icon: const Icon(Icons.location_on_outlined), onPressed: () {}),
-          ],
-        ),
-        backgroundColor: const Color(0xFFF5F5F5),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+    return Consumer<SettingsProvider>(
+      builder: (context, sp, child) {
+        final lang = sp.language;
+        return Directionality(
+          textDirection: lang == 'ar' ? TextDirection.rtl : TextDirection.ltr,
+          child: Scaffold(
+            appBar: AppBar(
+              title: Text(AppTranslations.translate('puberty_stage', lang)),
+              backgroundColor: const Color(0xFF1EBEA6),
+              foregroundColor: Colors.white,
+              leading: IconButton(
+                icon: Icon(lang == 'ar' ? Icons.arrow_forward : Icons.arrow_back),
+                onPressed: () => Navigator.pop(context),
+              ),
+              actions: [
+                IconButton(icon: const Icon(Icons.shield_outlined), onPressed: () {}),
+                IconButton(icon: const Icon(Icons.location_on_outlined), onPressed: () {}),
+              ],
+            ),
+            backgroundColor: const Color(0xFFF5F5F5),
+            body: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
               // Header section with butterfly
               Container(
                 padding: const EdgeInsets.all(24),
@@ -42,26 +48,28 @@ class PubertyStageInfoPage extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Expanded(
+                        Expanded(
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment: lang == 'ar' ? CrossAxisAlignment.start : CrossAxisAlignment.end,
                             children: [
                               Text(
-                                'مرحلة البلوغ: زهرة العمر',
-                                style: TextStyle(
+                                AppTranslations.translate('puberty_bloom', lang),
+                                style: const TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFFD81B60),
                                 ),
+                                textAlign: lang == 'ar' ? TextAlign.left : TextAlign.right,
                               ),
-                              SizedBox(height: 8),
+                              const SizedBox(height: 8),
                               Text(
-                                'خطواتك الأولى نحو الأنوثة والنضج',
-                                style: TextStyle(
+                                AppTranslations.translate('first_steps_womanhood', lang),
+                                style: const TextStyle(
                                   fontSize: 14,
                                   color: Color(0xFFD81B60),
                                   fontWeight: FontWeight.w500,
                                 ),
+                                textAlign: lang == 'ar' ? TextAlign.left : TextAlign.right,
                               ),
                             ],
                           ),
@@ -74,9 +82,9 @@ class PubertyStageInfoPage extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    const Text(
-                      'مرحلة البلوغ هي فترة انتقالية طبيعية وجميلة تحدث فيها تغيرات جسدية ونفسية. هذه التغيرات دليل على أن جسمك ينمو ويصبح أكثر نضجاً. وتفسير هذه التغيرات يساعدك على فهم جسدك بشكل أفضل، مما يمنعك من الشعور بالقلق. كل ما تمرين به هو جزء من رحلتك لتصبحي شابة واثقة.',
-                      style: TextStyle(
+                    Text(
+                      AppTranslations.translate('puberty_natural_transition', lang),
+                      style: const TextStyle(
                         fontSize: 14,
                         height: 1.6,
                         color: Colors.black87,
@@ -90,47 +98,53 @@ class PubertyStageInfoPage extends StatelessWidget {
 
               // Personal hygiene section
               _buildInfoCard(
+                context,
+                lang,
                 icon: Icons.self_improvement,
                 iconColor: const Color(0xFF42A5F5),
-                title: 'النظافة الشخصية والعناية بالجسم',
-                content:
-                    'مع تغير الهرمونات، قد تلاحظين زيادة في التعرق أو ظهور حب الشباب. الاهتمام بالنظافة ليس فقط للصحة، بل لتعزز بثقتك بنفسك.',
-                subtitle: 'روتين يومي مقترح:',
+                title: AppTranslations.translate('personal_hygiene', lang),
+                content: AppTranslations.translate('personal_hygiene_desc', lang),
+                subtitle: AppTranslations.translate('daily_routine_suggested', lang),
                 bulletPoints: [
-                  'الاستحمام اليومي بالماء والصابون اللطيف',
-                  'استخدام مزيل عرق طبيعي وآمن',
-                  'تبديل الملابس الداخلية يومياً واختيار الأنواع القطنية',
+                  AppTranslations.translate('daily_shower', lang),
+                  AppTranslations.translate('use_deodorant', lang),
+                  AppTranslations.translate('change_underwear', lang),
                 ],
               ),
               const SizedBox(height: 16),
 
               // Nutrition section
               _buildInfoCard(
+                context,
+                lang,
                 icon: Icons.restaurant,
                 iconColor: const Color(0xFFEC407A),
-                title: 'الدورة الشهرية واستخدام الفوط الصحية',
-                content:
-                    'الدورة الشهرية هي علامة صحة وتحمل العناية الصحيحة خلالها ه.ذه الأيام تعدمل من الالتهابات وتشعرك بالراحة.',
-                subtitle: 'قواعد ذهبية لاستخدام الفوط الصحية:',
+                title: AppTranslations.translate('menstrual_cycle_care', lang),
+                content: AppTranslations.translate('menstrual_cycle_desc', lang),
+                subtitle: AppTranslations.translate('golden_rules', lang),
                 bulletPoints: [
-                  'التغيير المستمر: يجب تغيير الفوطة الصحية كل 4 أو 6 ساعات كحد أقصى، حتى لو لم تكن ممتلئة، لمنع نمو البكتيريا والروائح الكريهة.',
-                  'النظافة عند التغيير: اغسلي يديك جيداً قبل وبعد تغيير الفوطة. عند التنظيف، امسحي دائماً من الأمام إلى الخلف (وليس العكس) لمنع انتقال الجراثيم.',
-                  'اختيار النوع المناسب: اختاري فوطاً مطنية وناعمة لتجنب الحساسية. واستخدمي الحجم المناسب لغزارة الدورة (نوط لليلة للنوم وحماية طويلة).',
+                  AppTranslations.translate('regular_change', lang),
+                  AppTranslations.translate('hygiene_during_change', lang),
+                  AppTranslations.translate('choose_right_type', lang),
                 ],
               ),
               const SizedBox(height: 16),
 
               // Tips section
-              _buildTipsCard(),
+              _buildTipsCard(context, lang),
               const SizedBox(height: 24),
-            ],
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildInfoCard({
+  Widget _buildInfoCard(
+    BuildContext context,
+    String lang, {
     required IconData icon,
     required Color iconColor,
     required String title,
@@ -167,6 +181,7 @@ class PubertyStageInfoPage extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                     color: Color(0xFFD81B60),
                   ),
+                  textAlign: lang == 'ar' ? TextAlign.right : TextAlign.left,
                 ),
               ),
             ],
@@ -190,7 +205,7 @@ class PubertyStageInfoPage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: lang == 'ar' ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                 children: [
                   Text(
                     subtitle,
@@ -199,6 +214,7 @@ class PubertyStageInfoPage extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                       color: Colors.black87,
                     ),
+                    textAlign: lang == 'ar' ? TextAlign.right : TextAlign.left,
                   ),
                   if (bulletPoints != null) ...[
                     const SizedBox(height: 12),
@@ -231,7 +247,7 @@ class PubertyStageInfoPage extends StatelessWidget {
     );
   }
 
-  Widget _buildTipsCard() {
+  Widget _buildTipsCard(BuildContext context, String lang) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -266,17 +282,17 @@ class PubertyStageInfoPage extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          _buildTipItem('💖', 'أحبي شكلك الحديث وتقبلي التغيرات، فهي تجعل منك شخصاً مميزاً!'),
+          _buildTipItem(context, lang, '💖', AppTranslations.translate('love_new_appearance', lang)),
           const SizedBox(height: 12),
-          _buildTipItem('💖', 'لا تقارني نفسك بالأخريات. كل ما تمرين به هو جزء من رحلتك.'),
+          _buildTipItem(context, lang, '💖', AppTranslations.translate('dont_compare', lang)),
           const SizedBox(height: 12),
-          _buildTipItem('💖', 'تحدثي مع والديك أو أخناك الكبير عن أي تساؤلات، فلا حرج في العلم والصحة.'),
+          _buildTipItem(context, lang, '💖', AppTranslations.translate('talk_to_family', lang)),
         ],
       ),
     );
   }
 
-  Widget _buildTipItem(String emoji, String text) {
+  Widget _buildTipItem(BuildContext context, String lang, String emoji, String text) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

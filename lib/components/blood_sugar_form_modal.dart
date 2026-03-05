@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/settings_provider.dart';
+import '../utils/translations.dart';
 
 class BloodSugarFormModal extends StatefulWidget {
   final void Function(int value) onSave;
@@ -29,39 +32,55 @@ class _BloodSugarFormModalState extends State<BloodSugarFormModal> {
 
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Padding(
-        padding: MediaQuery.of(context).viewInsets,
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(widget.initialValue != null ? 'تعديل قياس السكر' : 'إضافة قياس السكر', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Form(
-                key: _formKey,
-                child: TextFormField(
-                  controller: _valCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'mg/dL'),
-                  validator: (v) => (v == null || int.tryParse(v) == null) ? 'أدخل رقماً' : null,
-                ),
+    return Consumer<SettingsProvider>(
+      builder: (context, sp, _) {
+        final lang = sp.language;
+        
+        return Directionality(
+          textDirection: lang == 'ar' ? TextDirection.rtl : TextDirection.ltr,
+          child: Padding(
+            padding: MediaQuery.of(context).viewInsets,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    widget.initialValue != null 
+                      ? AppTranslations.translate('edit_bs_reading', lang)
+                      : AppTranslations.translate('add_bs_reading', lang),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
+                  ),
+                  const SizedBox(height: 8),
+                  Form(
+                    key: _formKey,
+                    child: TextFormField(
+                      controller: _valCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: AppTranslations.translate('mgdl', lang)
+                      ),
+                      validator: (v) => (v == null || int.tryParse(v) == null) 
+                        ? AppTranslations.translate('enter_number', lang) 
+                        : null,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: () {
+                      if (_formKey.currentState?.validate() ?? false) {
+                        widget.onSave(int.parse(_valCtrl.text.trim()));
+                        Navigator.of(context).pop();
+                      }
+                    },
+                    child: Text(AppTranslations.translate('save', lang))
+                  )
+                ],
               ),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                  onPressed: () {
-                    if (_formKey.currentState?.validate() ?? false) {
-                      widget.onSave(int.parse(_valCtrl.text.trim()));
-                      Navigator.of(context).pop();
-                    }
-                  },
-                  child: const Text('حفظ'))
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

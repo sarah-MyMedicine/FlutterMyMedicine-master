@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/settings_provider.dart';
+import '../utils/translations.dart';
 
 class BloodPressureReportModal extends StatelessWidget {
   final double avgSys;
@@ -7,26 +10,38 @@ class BloodPressureReportModal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Padding(
-        padding: MediaQuery.of(context).viewInsets,
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text('تقرير ضغط الدم', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              Text('متوسط الانقباضي: ${avgSys.toStringAsFixed(1)}'),
-              Text('متوسط الانبساطي: ${avgDia.toStringAsFixed(1)}'),
-              const SizedBox(height: 12),
-              ElevatedButton(onPressed: () => Navigator.of(context).pop(), child: const Text('إغلاق'))
-            ],
+    return Consumer<SettingsProvider>(
+      builder: (context, sp, child) {
+        final lang = sp.language;
+        
+        return Directionality(
+          textDirection: lang == 'ar' ? TextDirection.rtl : TextDirection.ltr,
+          child: Padding(
+            padding: MediaQuery.of(context).viewInsets,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    AppTranslations.translate('bp_report_title', lang),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  Text('${AppTranslations.translate('average_systolic', lang)}: ${avgSys.toStringAsFixed(1)}'),
+                  Text('${AppTranslations.translate('average_diastolic', lang)}: ${avgDia.toStringAsFixed(1)}'),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text(AppTranslations.translate('close', lang)),
+                  )
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

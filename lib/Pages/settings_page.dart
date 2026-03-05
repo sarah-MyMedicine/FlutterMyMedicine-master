@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/settings_provider.dart';
+import '../utils/translations.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -40,19 +41,20 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: Colors.grey[50],
-        appBar: AppBar(
-          title: const Text('الاعدادات'),
-          centerTitle: true,
-          backgroundColor: Colors.white,
-          elevation: 1,
-        ),
-        body: Consumer<SettingsProvider>(
-          builder: (context, sp, _) {
-            return Column(
+    return Consumer<SettingsProvider>(
+      builder: (context, sp, _) {
+        final lang = sp.language;
+        return Directionality(
+          textDirection: lang == 'ar' ? TextDirection.rtl : TextDirection.ltr,
+          child: Scaffold(
+            backgroundColor: Colors.grey[50],
+            appBar: AppBar(
+              title: Text(AppTranslations.translate('settings', lang)),
+              centerTitle: true,
+              backgroundColor: Colors.white,
+              elevation: 1,
+            ),
+            body: Column(
               children: [
                 Expanded(
                   child: ListView(
@@ -60,12 +62,13 @@ class _SettingsPageState extends State<SettingsPage> {
                     children: [
                       // Personal Profile Section
                       _buildSection(
-                        title: 'الملف الشخصي',
+                        lang: lang,
+                        title: AppTranslations.translate('personal_profile', lang),
                         children: [
                           _buildTextField(
-                            label: 'الاسم',
+                            label: AppTranslations.translate('name', lang),
                             controller: _nameCtrl,
-                            hint: 'زائر',
+                            hint: AppTranslations.translate('visitor', lang),
                             onChanged: (v) => sp.setName(v),
                           ),
                           const SizedBox(height: 12),
@@ -73,7 +76,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             children: [
                               Expanded(
                                 child: _buildTextField(
-                                  label: 'العمر',
+                                  label: AppTranslations.translate('age', lang),
                                   controller: _ageCtrl,
                                   hint: '',
                                   keyboardType: TextInputType.number,
@@ -88,9 +91,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text(
-                                      'الجنس',
-                                      style: TextStyle(
+                                    Text(
+                                      AppTranslations.translate('gender', lang),
+                                      style: const TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w500,
                                       ),
@@ -98,14 +101,14 @@ class _SettingsPageState extends State<SettingsPage> {
                                     const SizedBox(height: 8),
                                     DropdownButtonFormField<PatientGender>(
                                       initialValue: sp.gender,
-                                      items: const [
+                                      items: [
                                         DropdownMenuItem(
                                           value: PatientGender.male,
-                                          child: Text('ذكر'),
+                                          child: Text(AppTranslations.translate('male', lang)),
                                         ),
                                         DropdownMenuItem(
                                           value: PatientGender.female,
-                                          child: Text('أنثى'),
+                                          child: Text(AppTranslations.translate('female', lang)),
                                         ),
                                       ],
                                       onChanged: (v) => sp.setGender(v),
@@ -137,7 +140,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             children: [
                               Expanded(
                                 child: _buildTextField(
-                                  label: 'البلد',
+                                  label: AppTranslations.translate('country', lang),
                                   controller: _countryCtrl,
                                   hint: '',
                                   onChanged: (v) => sp.setCountry(v),
@@ -146,7 +149,7 @@ class _SettingsPageState extends State<SettingsPage> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: _buildTextField(
-                                  label: 'المحافظة',
+                                  label: AppTranslations.translate('province', lang),
                                   controller: _provinceCtrl,
                                   hint: '',
                                   onChanged: (v) => sp.setProvince(v),
@@ -155,9 +158,9 @@ class _SettingsPageState extends State<SettingsPage> {
                             ],
                           ),
                           const SizedBox(height: 16),
-                          const Text(
-                            'لون التطبيق (التيمة)',
-                            style: TextStyle(
+                          Text(
+                            AppTranslations.translate('app_theme', lang),
+                            style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
                             ),
@@ -170,26 +173,28 @@ class _SettingsPageState extends State<SettingsPage> {
 
                       // Chronic Diseases Section
                       _buildSection(
-                        title: 'الأمراض المزمنة',
+                        lang: lang,
+                        title: AppTranslations.translate('chronic_diseases', lang),
                         icon: Icons.favorite,
                         iconColor: Colors.red,
                         children: [
-                          const Text(
-                            'في حال كان المريض يعاني من أي من الأمراض المزمنة التالية، يرجى تحديدها:',
-                            style: TextStyle(fontSize: 13, color: Colors.grey),
+                          Text(
+                            AppTranslations.translate('chronic_diseases_desc', lang),
+                            style: const TextStyle(fontSize: 13, color: Colors.grey),
                           ),
                           const SizedBox(height: 12),
-                          ..._buildChronicDiseaseCheckboxes(sp),
+                          ..._buildChronicDiseaseCheckboxes(sp, lang),
                         ],
                       ),
                       const SizedBox(height: 16),
 
                       // Notification Settings Section
                       _buildSection(
-                        title: 'إعدادات الإشعارات',
+                        lang: lang,
+                        title: AppTranslations.translate('notification_settings', lang),
                         children: [
-                          const Text(
-                            'نمط الاهتزاز',
+                          Text(
+                            AppTranslations.translate('vibration_pattern', lang),
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
@@ -198,18 +203,18 @@ class _SettingsPageState extends State<SettingsPage> {
                           const SizedBox(height: 8),
                           DropdownButtonFormField<String>(
                             initialValue: sp.vibrationPattern,
-                            items: const [
+                            items: [
                               DropdownMenuItem(
                                 value: 'default',
-                                child: Text('الافتراضي'),
+                                child: Text(AppTranslations.translate('default', lang)),
                               ),
                               DropdownMenuItem(
                                 value: 'short',
-                                child: Text('قصير'),
+                                child: Text(AppTranslations.translate('short', lang)),
                               ),
                               DropdownMenuItem(
                                 value: 'long',
-                                child: Text('طويل'),
+                                child: Text(AppTranslations.translate('long', lang)),
                               ),
                             ],
                             onChanged: (v) {
@@ -247,7 +252,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                 );
                               },
                               icon: const Icon(Icons.vibration, size: 20),
-                              label: const Text('اختبار الاهتزاز'),
+                              label: Text(AppTranslations.translate('test_vibration', lang)),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.blue,
                                 foregroundColor: Colors.white,
@@ -262,9 +267,98 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                       const SizedBox(height: 16),
 
+                      // Language Settings Section
+                      _buildSection(
+                        lang: lang,
+                        title: AppTranslations.translate('language', lang),
+                        icon: Icons.language,
+                        iconColor: const Color(0xFF57B6A8),
+                        children: [
+                          Text(
+                            AppTranslations.translate('choose_app_language', lang),
+                            style: TextStyle(fontSize: 13, color: Colors.grey),
+                          ),
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<String>(
+                            value: sp.language,
+                            decoration: InputDecoration(
+                              filled: true,
+                              fillColor: Colors.grey[100],
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide.none,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                            ),
+                            items: [
+                              DropdownMenuItem(
+                                value: 'ar',
+                                child: Text(lang == 'ar' ? 'العربية 🇸🇦' : 'Arabic 🇸🇦'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'en',
+                                child: Text('English 🇬🇧'),
+                              ),
+                            ],
+                            dropdownColor: Colors.white,
+                            style: const TextStyle(color: Colors.black, fontSize: 14),
+                            onChanged: (value) async {
+                              if (value != null) {
+                                await sp.setLanguage(value);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        AppTranslations.translate(
+                                          value == 'ar' ? 'language_changed_ar' : 'language_changed_en',
+                                          value,
+                                        ),
+                                      ),
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  size: 20,
+                                  color: Colors.blue.shade700,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    AppTranslations.translate('translation_note', lang),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.blue.shade700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
                       // Health Reports Section
                       _buildSection(
-                        title: 'التقارير الصحية',
+                        lang: lang,
+                        title: AppTranslations.translate('health_report', lang),
                         children: [
                           SizedBox(
                             width: double.infinity,
@@ -279,7 +373,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                 );
                               },
                               icon: const Icon(Icons.description_outlined, size: 20),
-                              label: const Text('إنشاء تقرير صحي'),
+                              label: Text(AppTranslations.translate('generate_report', lang)),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.blue,
                                 foregroundColor: Colors.white,
@@ -356,9 +450,9 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                             elevation: 0,
                           ),
-                          child: const Text(
-                            'حفظ والإغلاق',
-                            style: TextStyle(fontSize: 16),
+                          child: Text(
+                            AppTranslations.translate('save', lang),
+                            style: const TextStyle(fontSize: 16),
                           ),
                         ),
                       ),
@@ -366,14 +460,15 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ),
               ],
-            );
-          },
-        ),
-      ),
+            ),
+          ),
+        );
+      },
     );
   }
 
   Widget _buildSection({
+    String? lang,
     required String title,
     IconData? icon,
     Color? iconColor,
@@ -499,26 +594,30 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  List<Widget> _buildChronicDiseaseCheckboxes(SettingsProvider sp) {
-    final diseases = [
-      'ارتفاع ضغط الدم',
-      'السكري',
-      'ارتفاع الكوليستيرول / الدهون الثلاثية',
-      'قصور القلب',
-      'أمراض الكلى',
-      'أمراض الكبد',
-      'الصرع',
-      'الباركنسون',
-      'السرطان',
-      'لا توجد أمراض مزمنة',
-    ];
+  List<Widget> _buildChronicDiseaseCheckboxes(SettingsProvider sp, String lang) {
+    // Map of Arabic disease names (for storage) to translation keys
+    final diseaseMap = {
+      'ارتفاع ضغط الدم': 'chronic_disease_hypertension',
+      'السكري': 'chronic_disease_diabetes',
+      'ارتفاع الكوليستيرول / الدهون الثلاثية': 'chronic_disease_cholesterol',
+      'قصور القلب': 'chronic_disease_heart_failure',
+      'أمراض الكلى': 'chronic_disease_kidney',
+      'أمراض الكبد': 'chronic_disease_liver',
+      'الصرع': 'chronic_disease_epilepsy',
+      'الباركنسون': 'chronic_disease_parkinsons',
+      'السرطان': 'chronic_disease_cancer',
+      'لا توجد أمراض مزمنة': 'chronic_disease_none',
+    };
 
-    return diseases.map((disease) {
+    return diseaseMap.entries.map((entry) {
+      final diseaseKey = entry.key; // Arabic name for storage
+      final translationKey = entry.value; // Translation key
+      
       return CheckboxListTile(
-        value: sp.chronicDiseases.contains(disease),
-        onChanged: (v) => sp.toggleChronicDisease(disease),
+        value: sp.chronicDiseases.contains(diseaseKey),
+        onChanged: (v) => sp.toggleChronicDisease(diseaseKey),
         title: Text(
-          disease,
+          AppTranslations.translate(translationKey, lang),
           style: const TextStyle(fontSize: 14),
         ),
         controlAffinity: ListTileControlAffinity.leading,

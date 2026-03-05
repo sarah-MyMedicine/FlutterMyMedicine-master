@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/appointment_provider.dart';
+import '../providers/settings_provider.dart';
+import '../utils/translations.dart';
 import '../services/notification_service.dart';
 
 class AppointmentsPage extends StatefulWidget {
@@ -22,84 +24,89 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF6F8F8),
-        appBar: AppBar(
-          backgroundColor: const Color(0xFF57B6A8),
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
-          ),
-          title: const Text(
-            'مواعيدي الطبية',
-            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
-          ),
-          centerTitle: true,
-          actions: const [
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8),
-              child: Icon(Icons.shield_outlined, color: Colors.white),
-            ),
-            Padding(
-              padding: EdgeInsets.only(right: 12),
-              child: Icon(Icons.location_on_outlined, color: Colors.white),
-            ),
-          ],
-        ),
-        body: Column(
-          children: [
-            const SizedBox(height: 16),
-            Center(
-              child: ElevatedButton.icon(
-                onPressed: () => _openNewAppointmentDialog(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF57B6A8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                  elevation: 0,
-                ),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('موعد جديد', style: TextStyle(fontSize: 14)),
+    return Consumer<SettingsProvider>(
+      builder: (context, settings, _) {
+        final lang = settings.language;
+        return Directionality(
+          textDirection: lang == 'ar' ? TextDirection.rtl : TextDirection.ltr,
+          child: Scaffold(
+            backgroundColor: const Color(0xFFF6F8F8),
+            appBar: AppBar(
+              backgroundColor: const Color(0xFF57B6A8),
+              elevation: 0,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => Navigator.pop(context),
               ),
+              title: Text(
+                AppTranslations.translate('appointments', lang),
+                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+              ),
+              centerTitle: true,
+              actions: const [
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Icon(Icons.shield_outlined, color: Colors.white),
+                ),
+                Padding(
+                  padding: EdgeInsets.only(right: 12),
+                  child: Icon(Icons.location_on_outlined, color: Colors.white),
+                ),
+              ],
             ),
-            const SizedBox(height: 36),
-            Consumer<AppointmentProvider>(
-              builder: (context, ap, _) {
-                return ap.appointments.isEmpty ? _buildEmptyState() : _buildList(ap);
-              },
+            body: Column(
+              children: [
+                const SizedBox(height: 16),
+                Center(
+                  child: ElevatedButton.icon(
+                    onPressed: () => _openNewAppointmentDialog(lang),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF57B6A8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                      elevation: 0,
+                    ),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: Text(AppTranslations.translate('add_appointment', lang), style: const TextStyle(fontSize: 14)),
+                  ),
+                ),
+                const SizedBox(height: 36),
+                Consumer<AppointmentProvider>(
+                  builder: (context, ap, _) {
+                    return ap.appointments.isEmpty ? _buildEmptyState(lang) : _buildList(ap, lang);
+                  },
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(String lang) {
     return Expanded(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: const [
-          SizedBox(height: 12),
-          Icon(Icons.calendar_month, color: Color(0xFF57B6A8), size: 50),
-          SizedBox(height: 12),
+        children: [
+          const SizedBox(height: 12),
+          const Icon(Icons.calendar_month, color: Color(0xFF57B6A8), size: 50),
+          const SizedBox(height: 12),
           Text(
-            'لا توجد مواعيد',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF525252)),
+            AppTranslations.translate('no_appointments', lang),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF525252)),
           ),
-          SizedBox(height: 6),
+          const SizedBox(height: 6),
           Text(
-            'اضف مواعيدك الطبية ولا تتأخر أبداً',
-            style: TextStyle(fontSize: 13, color: Color(0xFF7B7B7B)),
+            AppTranslations.translate('add', lang) + ' ' + AppTranslations.translate('appointments', lang),
+            style: const TextStyle(fontSize: 13, color: Color(0xFF7B7B7B)),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildList(AppointmentProvider ap) {
+  Widget _buildList(AppointmentProvider ap, String lang) {
     return Expanded(
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -142,9 +149,18 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
                         ],
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
-                      onPressed: () => ap.delete(appt.id),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined, color: Color(0xFF57B6A8), size: 20),
+                          onPressed: () => _openEditAppointmentDialog(appt),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                          onPressed: () => ap.delete(appt.id),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -179,7 +195,7 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
     );
   }
 
-  void _openNewAppointmentDialog() {
+  void _openNewAppointmentDialog(String lang) {
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -191,16 +207,40 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
           // Schedule notification for 1 day before
           final oneDayBefore = appointmentDateTime.subtract(const Duration(days: 1));
           final notificationService = NotificationService();
+          final sp = Provider.of<SettingsProvider>(context, listen: false);
+          final lang = sp.language;
           await notificationService.scheduleOneOff(
             prefix: 'appointment',
-            title: 'تنبيه الموعد الطبي',
-            body: 'لديك موعد غداً مع د. $doctorName ($specialty)',
+            title: AppTranslations.translate('appointment_reminder', lang),
+            body: lang == 'ar' ? 'لديك موعد غداً مع د. $doctorName ($specialty)' : 'You have an appointment tomorrow with Dr. $doctorName ($specialty)',
             when: oneDayBefore,
           );
 
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('تم حفظ الموعد')),
+            SnackBar(content: Text(AppTranslations.translate('appointment_saved', lang))),
+          );
+        },
+      ),
+    );
+  }
+
+  void _openEditAppointmentDialog(Appointment appt) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => _AppointmentDialog(
+        appointment: appt,
+        onSave: (doctorName, specialty, appointmentDateTime, notes) async {
+          final ap = Provider.of<AppointmentProvider>(context, listen: false);
+          await ap.update(appt.id, doctorName, specialty, appointmentDateTime, notes);
+
+          final sp = Provider.of<SettingsProvider>(context, listen: false);
+          final lang = sp.language;
+
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(AppTranslations.translate('appointment_updated', lang))),
           );
         },
       ),
@@ -210,7 +250,8 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
 
 class _AppointmentDialog extends StatefulWidget {
   final void Function(String doctorName, String specialty, DateTime appointmentDateTime, String notes) onSave;
-  const _AppointmentDialog({required this.onSave});
+  final Appointment? appointment;
+  const _AppointmentDialog({required this.onSave, this.appointment});
 
   @override
   State<_AppointmentDialog> createState() => _AppointmentDialogState();
@@ -226,8 +267,19 @@ class _AppointmentDialogState extends State<_AppointmentDialog> {
   @override
   void initState() {
     super.initState();
-    _selectedDate = DateTime.now();
-    _selectedTime = TimeOfDay.now();
+    if (widget.appointment != null) {
+      _doctorCtrl.text = widget.appointment!.doctorName;
+      _specialtyCtrl.text = widget.appointment!.specialty;
+      _notesCtrl.text = widget.appointment!.notes;
+      _selectedDate = widget.appointment!.appointmentDateTime;
+      _selectedTime = TimeOfDay(
+        hour: widget.appointment!.appointmentDateTime.hour,
+        minute: widget.appointment!.appointmentDateTime.minute,
+      );
+    } else {
+      _selectedDate = DateTime.now();
+      _selectedTime = TimeOfDay.now();
+    }
   }
 
   @override
@@ -240,16 +292,20 @@ class _AppointmentDialogState extends State<_AppointmentDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      insetPadding: const EdgeInsets.all(16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+    return Consumer<SettingsProvider>(
+      builder: (context, sp, _) {
+        final lang = sp.language;
+        
+        return Dialog(
+          insetPadding: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
               Center(
                 child: Container(
                   width: 48,
@@ -261,37 +317,52 @@ class _AppointmentDialogState extends State<_AppointmentDialog> {
                 ),
               ),
               const SizedBox(height: 12),
-              const Center(
+              Center(
                 child: Text(
-                  'إضافة موعد جديد',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  widget.appointment != null 
+                    ? AppTranslations.translate('edit_appointment', lang)
+                    : AppTranslations.translate('add_appointment', lang),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
               const SizedBox(height: 16),
-              _buildTextField('اسم الطبيب', 'د. محمد', _doctorCtrl, icon: Icons.person),
+              _buildTextField(
+                AppTranslations.translate('doctor_name', lang),
+                lang == 'ar' ? 'د. محمد' : 'Dr. Mohammed',
+                _doctorCtrl,
+                icon: Icons.person
+              ),
               const SizedBox(height: 12),
-              _buildTextField('التخصص', 'مثال: باطنية، أسنان', _specialtyCtrl),
+              _buildTextField(
+                AppTranslations.translate('specialty', lang),
+                lang == 'ar' ? 'مثال: باطنية، أسنان' : 'E.g.: Internal Medicine, Dentistry',
+                _specialtyCtrl
+              ),
               const SizedBox(height: 12),
               Row(
                 children: [
                   Expanded(
-                    child: _buildDateField(),
+                    child: _buildDateField(lang),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _buildTimeField(),
+                    child: _buildTimeField(lang),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-              _buildMultilineField('أسئلة / ملاحظات', 'اكتب ها الأسئلة التي تود طرحها على الطبيب', _notesCtrl),
+              _buildMultilineField(
+                AppTranslations.translate('notes', lang),
+                lang == 'ar' ? 'اكتب ها الأسئلة التي تود طرحها على الطبيب' : 'Write questions you want to ask the doctor',
+                _notesCtrl
+              ),
               const SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('إلغاء'),
+                      child: Text(AppTranslations.translate('cancel', lang)),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -310,22 +381,32 @@ class _AppointmentDialogState extends State<_AppointmentDialog> {
                           _selectedTime.minute,
                         );
                         widget.onSave(
-                          _doctorCtrl.text.isEmpty ? 'طبيب' : _doctorCtrl.text,
-                          _specialtyCtrl.text.isEmpty ? 'تخصص' : _specialtyCtrl.text,
+                          _doctorCtrl.text.isEmpty 
+                            ? AppTranslations.translate('doctor', lang)
+                            : _doctorCtrl.text,
+                          _specialtyCtrl.text.isEmpty 
+                            ? AppTranslations.translate('specialty', lang)
+                            : _specialtyCtrl.text,
                           appointmentDateTime,
                           _notesCtrl.text,
                         );
                         Navigator.pop(context);
                       },
-                      child: const Text('حفظ الموعد'),
+                      child: Text(
+                        widget.appointment != null 
+                          ? AppTranslations.translate('update_appointment', lang) 
+                          : AppTranslations.translate('save_appointment', lang)
+                      ),
                     ),
                   ),
                 ],
               ),
-            ],
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -377,11 +458,14 @@ class _AppointmentDialogState extends State<_AppointmentDialog> {
     );
   }
 
-  Widget _buildDateField() {
+  Widget _buildDateField(String lang) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('التاريخ', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+        Text(
+          AppTranslations.translate('appointment_date', lang),
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)
+        ),
         const SizedBox(height: 6),
         InkWell(
           onTap: () async {
@@ -411,11 +495,14 @@ class _AppointmentDialogState extends State<_AppointmentDialog> {
     );
   }
 
-  Widget _buildTimeField() {
+  Widget _buildTimeField(String lang) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('الوقت', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+        Text(
+          AppTranslations.translate('appointment_time', lang),
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)
+        ),
         const SizedBox(height: 6),
         InkWell(
           onTap: () async {

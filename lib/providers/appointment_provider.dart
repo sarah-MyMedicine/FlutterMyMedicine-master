@@ -87,6 +87,21 @@ class AppointmentProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> update(String id, String doctorName, String specialty, DateTime appointmentDateTime, String notes) async {
+    final index = _appointments.indexWhere((a) => a.id == id);
+    if (index != -1) {
+      _appointments[index] = Appointment(
+        id: id,
+        doctorName: doctorName,
+        specialty: specialty,
+        appointmentDateTime: appointmentDateTime,
+        notes: notes,
+      );
+      await _saveToPrefs();
+      notifyListeners();
+    }
+  }
+
   Future<void> _saveToPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     final appointmentStrings = _appointments

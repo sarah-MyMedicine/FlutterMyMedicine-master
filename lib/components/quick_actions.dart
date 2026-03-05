@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/medication_provider.dart';
+import '../providers/settings_provider.dart';
+import '../utils/translations.dart';
 import 'medication_list.dart';
 
 class QuickActions extends StatelessWidget {
@@ -59,54 +61,63 @@ class MyMedicinesTile extends StatelessWidget {
     return Consumer<MedicationProvider>(
       builder: (context, medProv, _) {
         final items = medProv.items;
-        return GestureDetector(
-          onTap: () {
-            // Open the full medication list as a bottom sheet
-            showModalBottomSheet(
-              context: context,
-              isScrollControlled: true,
-              builder: (ctx) => SizedBox(
-                height: MediaQuery.of(ctx).size.height * 0.85,
-                child: MedicationList(),
+        return Consumer<SettingsProvider>(
+          builder: (context, sp, __) {
+            final lang = sp.language;
+            
+            return GestureDetector(
+              onTap: () {
+                // Open the full medication list as a bottom sheet
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  builder: (ctx) => SizedBox(
+                    height: MediaQuery.of(ctx).size.height * 0.85,
+                    child: MedicationList(),
+                  ),
+                );
+              },
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6)],
+                    ),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        CircleAvatar(
+                          radius: 20,
+                          backgroundColor: const Color(0xFF36BBA0),
+                          child: const Icon(Icons.local_pharmacy, color: Colors.white),
+                        ),
+                        if (items.isNotEmpty)
+                          Positioned(
+                            right: 0,
+                            top: 0,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(12)),
+                              child: Text('${items.length}', style: const TextStyle(color: Colors.white, fontSize: 10)),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    AppTranslations.translate('my_medications', lang),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
               ),
             );
           },
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6)],
-                ),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundColor: const Color(0xFF36BBA0),
-                      child: const Icon(Icons.local_pharmacy, color: Colors.white),
-                    ),
-                    if (items.isNotEmpty)
-                      Positioned(
-                        right: 0,
-                        top: 0,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(12)),
-                          child: Text('${items.length}', style: const TextStyle(color: Colors.white, fontSize: 10)),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text('أدويتي', style: Theme.of(context).textTheme.bodySmall),
-            ],
-          ),
         );
       },
     );

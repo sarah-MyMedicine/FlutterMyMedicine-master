@@ -8,6 +8,7 @@ import '../components/footer.dart';
 import '../components/medication_list.dart';
 import '../components/ad_banner.dart';
 import '../components/medication_form_modal.dart';
+import '../utils/translations.dart';
 import 'blood_pressure_log.dart';
 import 'blood_sugar_log.dart';
 import 'symptom_log_page.dart';
@@ -41,61 +42,69 @@ class HomePage extends StatelessWidget {
                   child: Column(
                     children: [
                       // Top info banner (green)
-                      GestureDetector(
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('قريبا', textAlign: TextAlign.center),
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
-                        },
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
-                          ),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF1EBEA6), Color(0xFF05B3A7)],
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(color: Colors.black12, blurRadius: 6),
-                            ],
-                          ),
-                          child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: const [
-                                  Text(
-                                    'استشارة صيدلي',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
+                      Consumer<SettingsProvider>(
+                        builder: (context, settings, _) {
+                          final lang = settings.language;
+                          return GestureDetector(
+                            onTap: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    AppTranslations.translate('coming_soon', lang),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 14,
+                              ),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF1EBEA6), Color(0xFF05B3A7)],
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(color: Colors.black12, blurRadius: 6),
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          AppTranslations.translate('pharmacist_consultation', lang),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          AppTranslations.translate('get_info_about_medicines', lang),
+                                          style: const TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  SizedBox(height: 6),
-                                  Text(
-                                    'مراجعة شاملة لملفك الطبي وعقاراتك على يد صيادلة متخصصين لضمان علاج آمن وفعال',
-                                    style: TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 13,
-                                    ),
+                                  const Icon(
+                                    Icons.info_outline,
+                                    color: Colors.white70,
                                   ),
                                 ],
                               ),
                             ),
-                            const Icon(
-                              Icons.info_outline,
-                              color: Colors.white70,
-                            ),
-                          ],
-                        ),
-                      ),
+                          );
+                        },
                       ),
                       const SizedBox(height: 20),
 
@@ -117,12 +126,14 @@ class HomePage extends StatelessWidget {
                                 age != null && age > 48 && isFemale;
                             final showMotherFetusCare =
                                 age != null && age > 19 && isFemale;
+                            
+                            final lang = settings.language;
 
                             // Build the grid children list
                             final List<Widget> gridChildren = [
                               _SquareTile(
                                 icon: Icons.calendar_today,
-                                label: 'مواعيدي الطبية',
+                                label: AppTranslations.translate('appointments', lang),
                                 onTap: () => Navigator.of(context).push(
                                   MaterialPageRoute(
                                     builder: (_) => const AppointmentsPage(),
@@ -135,7 +146,7 @@ class HomePage extends StatelessWidget {
                                   final items = medProv.items;
                                   return _SquareTile(
                                     icon: Icons.local_pharmacy,
-                                    label: 'أدويتي',
+                                    label: AppTranslations.translate('my_medications', lang),
                                     badge: items.isNotEmpty ? items.length : 0,
                                     onTap: () {
                                       showModalBottomSheet(
@@ -161,7 +172,7 @@ class HomePage extends StatelessWidget {
 
                               _SquareTile(
                                 icon: Icons.note,
-                                label: 'سجل الالتزام',
+                                label: AppTranslations.translate('adherence_log', lang),
                                 onTap: () {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
@@ -172,7 +183,7 @@ class HomePage extends StatelessWidget {
                               ),
                               _SquareTile(
                                 icon: Icons.sentiment_satisfied_alt,
-                                label: 'سجل الأعراض',
+                                label: AppTranslations.translate('symptom_log', lang),
                                 onTap: () => Navigator.of(context).push(
                                   MaterialPageRoute(
                                     builder: (_) => const SymptomLogPage(),
@@ -181,7 +192,7 @@ class HomePage extends StatelessWidget {
                               ),
                               _SquareTile(
                                 icon: Icons.medical_services,
-                                label: 'تقرير صحي',
+                                label: AppTranslations.translate('health_report', lang),
                                 onTap: () {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
@@ -193,7 +204,7 @@ class HomePage extends StatelessWidget {
 
                               _SquareTile(
                                 icon: Icons.vaccines,
-                                label: 'نتائج المختبر',
+                                label: AppTranslations.translate('lab_results', lang),
                                 onTap: () {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
@@ -204,7 +215,7 @@ class HomePage extends StatelessWidget {
                               ),
                               _SquareTile(
                                 icon: Icons.access_time,
-                                label: 'سجل الضغط',
+                                label: AppTranslations.translate('blood_pressure_log', lang),
                                 onTap: () {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
@@ -215,7 +226,7 @@ class HomePage extends StatelessWidget {
                               ),
                               _SquareTile(
                                 icon: Icons.bloodtype,
-                                label: 'سجل السكر',
+                                label: AppTranslations.translate('blood_sugar_log', lang),
                                 onTap: () {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
@@ -229,7 +240,7 @@ class HomePage extends StatelessWidget {
                               if (showPubertyStage)
                                 _SquareTile(
                                   icon: Icons.flutter_dash,
-                                  label: 'مرحلة البلوغ',
+                                  label: AppTranslations.translate('puberty_stage', lang),
                                   iconColor: const Color(0xFFD81B60),
                                   onTap: () {
                                     Navigator.of(context).push(
@@ -261,7 +272,7 @@ class HomePage extends StatelessWidget {
                               if (showMotherFetusCare)
                                 _SquareTile(
                                   icon: Icons.pregnant_woman,
-                                  label: 'رعاية الأم والجنين',
+                                  label: AppTranslations.translate('mother_fetus_care', lang),
                                   iconColor: const Color(0xFFE91E7A),
                                   onTap: () {
                                     Navigator.of(context).push(

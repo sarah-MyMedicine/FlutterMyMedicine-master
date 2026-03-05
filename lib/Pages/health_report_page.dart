@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/medication_provider.dart';
@@ -5,9 +6,10 @@ import '../providers/adherence_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/blood_pressure_provider.dart';
 import '../providers/blood_sugar_provider.dart';
+import '../utils/translations.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:pdf/pdf.dart';
+import 'package:pdf/pdf.dart' as pdflib;
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
@@ -36,6 +38,13 @@ class _HealthReportPageState extends State<HealthReportPage> {
     });
   }
 
+  String _getMedicationTypeText(String? chronicDisease, String lang) {
+    if (chronicDisease == null || chronicDisease.isEmpty) return AppTranslations.translate('no_medication_type', lang);
+    if (chronicDisease == 'ارتفاع ضغط الدم') return AppTranslations.translate('bp_medication_short', lang);
+    if (chronicDisease == 'السكري') return AppTranslations.translate('bs_medication_short', lang);
+    return chronicDisease;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_isLocaleInitialized) {
@@ -46,140 +55,168 @@ class _HealthReportPageState extends State<HealthReportPage> {
 
     final medicationProvider = Provider.of<MedicationProvider>(context);
     final adherenceProvider = Provider.of<AdherenceProvider>(context);
-    final settingsProvider = Provider.of<SettingsProvider>(context);
     final bloodPressureProvider = Provider.of<BloodPressureProvider>(context);
     final bloodSugarProvider = Provider.of<BloodSugarProvider>(context);
-    
-    final now = DateTime.now();
-    final startDate = now.subtract(Duration(days: _selectedDays));
-    final dateFormat = DateFormat('d MMMM yyyy', 'ar');
-    
-    final bloodPressureEnabled = settingsProvider.chronicDiseases.contains('ارتفاع ضغط الدم');
-    final bloodSugarEnabled = settingsProvider.chronicDiseases.contains('السكري');
 
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text('تقرير صحي'),
-        actions: [
-          PopupMenuButton<int>(
-            initialValue: _selectedDays,
-            child: Chip(
-              label: Text('آخر $_selectedDays ${_selectedDays == 7 ? 'أيام' : _selectedDays == 30 ? 'يوم' : 'يوم'}'),
+    return Consumer<SettingsProvider>(
+      builder: (context, settingsProvider, child) {
+        final lang = settingsProvider.language;
+        final now = DateTime.now();
+        final startDate = now.subtract(Duration(days: _selectedDays));
+        final dateFormat = DateFormat('d MMMM yyyy', lang == 'ar' ? 'ar' : 'en');
+        
+        final bloodPressureEnabled = settingsProvider.chronicDiseases.contains('ارتفاع ضغط الدم');
+        final bloodSugarEnabled = settingsProvider.chronicDiseases.contains('السكري');
+
+        return Directionality(
+          textDirection: lang == 'ar' ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+          child: Scaffold(
+            backgroundColor: Colors.grey[50],
+            appBar: AppBar(
+            leading: IconButton(
+              icon: Icon(lang == 'ar' ? Icons.arrow_forward : Icons.arrow_back),
+              onPressed: () => Navigator.of(context).pop(),
             ),
-            onSelected: (value) {
-              setState(() {
-                _selectedDays = value;
-              });
-            },
-            itemBuilder: (BuildContext context) => <PopupMenuEntry<int>>[
-              const PopupMenuItem<int>(value: 7, child: Text('آخر 7 أيام')),
-              const PopupMenuItem<int>(value: 30, child: Text('آخر 30 يوم')),
-              const PopupMenuItem<int>(value: 90, child: Text('آخر 90 يوم')),
+            title: Text(AppTranslations.translate('health_report_title', lang)),
+            actions: [
+              PopupMenuButton<int>(
+                initialValue: _selectedDays,
+                child: Chip(
+                  label: Text(
+                    _selectedDays == 7
+                        ? AppTranslations.translate('last_7_days', lang)
+                        : _selectedDays == 30
+                        ? AppTranslations.translate('last_30_days', lang)
+                        : AppTranslations.translate('last_90_days', lang),
+                  ),
+                ),
+                onSelected: (value) {
+                  setState(() {
+                    _selectedDays = value;
+                  });
+                },
+                itemBuilder: (BuildContext context) => <PopupMenuEntry<int>>[
+                  PopupMenuItem<int>(
+                    value: 7,
+                    child: Text(AppTranslations.translate('last_7_days', lang)),
+                  ),
+                  PopupMenuItem<int>(
+                    value: 30,
+                    child: Text(AppTranslations.translate('last_30_days', lang)),
+                  ),
+                  PopupMenuItem<int>(
+                    value: 90,
+                    child: Text(AppTranslations.translate('last_90_days', lang)),
+                  ),
+                ],
+              ),
+              IconButton(
+                icon: const Icon(Icons.picture_as_pdf),
+                tooltip: AppTranslations.translate('print_save_pdf', lang),
+                onPressed: () async {
+                  await _showExportDialog(
+                    context,
+                    settingsProvider,
+                    medicationProvider,
+                    adherenceProvider,
+                    bloodPressureProvider,
+                    bloodSugarProvider,
+                    startDate,
+                    now,
+                    lang,
+                  );
+                },
+              ),
             ],
           ),
-          IconButton(
-            icon: const Icon(Icons.picture_as_pdf),
-            tooltip: 'طباعة / حفظ كـ PDF',
-            onPressed: () async {
-              await _showExportDialog(
-                context,
-                settingsProvider,
-                medicationProvider,
-                adherenceProvider,
-                bloodPressureProvider,
-                bloodSugarProvider,
-                startDate,
-                now,
-              );
-            },
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Header card with tabs
-          Container(
-            margin: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF36BBA0), Color(0xFF5DABA8)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              children: [
-                const SizedBox(height: 16),
-                const Icon(Icons.health_and_safety, color: Colors.white, size: 40),
-                const SizedBox(height: 8),
-                Text(
-                  'تقرير ${settingsProvider.name}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+            body: Column(
+            children: [
+              // Header card with tabs
+              Container(
+                margin: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF36BBA0), Color(0xFF5DABA8)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                Text(
-                  'الفترة: ${dateFormat.format(startDate)} - ${dateFormat.format(now)}',
-                  style: const TextStyle(color: Colors.white70, fontSize: 14),
-                ),
-                const SizedBox(height: 16),
-                // Tab buttons
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                child: Column(
                   children: [
-                    _buildTabButton('ضغط الدم', 0),
-                    _buildTabButton('سكر الدم', 1),
-                    _buildTabButton('الأدوية', 2),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                // Progress indicator
-                Container(
-                  height: 4,
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white30,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: FractionallySizedBox(
-                      widthFactor: (_selectedTab + 1) / 3,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(2),
+                    const SizedBox(height: 16),
+                    const Icon(Icons.health_and_safety, color: Colors.white, size: 40),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${AppTranslations.translate('report_for', lang)} ${settingsProvider.name}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      '${AppTranslations.translate('period', lang)}: ${dateFormat.format(startDate)} - ${dateFormat.format(now)}',
+                      style: const TextStyle(color: Colors.white70, fontSize: 14),
+                    ),
+                    const SizedBox(height: 16),
+                    // Tab buttons
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildTabButton(AppTranslations.translate('blood_pressure_tab', lang), 0, lang),
+                        _buildTabButton(AppTranslations.translate('blood_sugar_tab', lang), 1, lang),
+                        _buildTabButton(AppTranslations.translate('medications_tab', lang), 2, lang),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // Progress indicator
+                    Container(
+                      height: 4,
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white30,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                      child: Align(
+                        alignment: lang == 'ar' ? Alignment.centerRight : Alignment.centerLeft,
+                        child: FractionallySizedBox(
+                          widthFactor: (_selectedTab + 1) / 3,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 16),
+                  ],
                 ),
-                const SizedBox(height: 16),
-              ],
+              ),
+              // Content area
+              Expanded(
+                child: _buildTabContent(
+                  medicationProvider,
+                  adherenceProvider,
+                  bloodPressureProvider,
+                  bloodSugarProvider,
+                  bloodPressureEnabled,
+                  bloodSugarEnabled,
+                  startDate,
+                  lang,
+                ),
+              ),
+            ],
             ),
           ),
-          // Content area
-          Expanded(
-            child: _buildTabContent(
-              medicationProvider,
-              adherenceProvider,
-              bloodPressureProvider,
-              bloodSugarProvider,
-              bloodPressureEnabled,
-              bloodSugarEnabled,
-              startDate,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildTabButton(String label, int index) {
+  Widget _buildTabButton(String label, int index, String lang) {
     final isSelected = _selectedTab == index;
     return GestureDetector(
       onTap: () {
@@ -213,6 +250,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
     bool bloodPressureEnabled,
     bool bloodSugarEnabled,
     DateTime startDate,
+    String lang,
   ) {
     switch (_selectedTab) {
       case 0:
@@ -222,6 +260,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
           bloodPressureProvider,
           bloodPressureEnabled,
           startDate,
+          lang,
         );
       case 1:
         return _buildBloodSugarTab(
@@ -230,12 +269,14 @@ class _HealthReportPageState extends State<HealthReportPage> {
           bloodSugarProvider,
           bloodSugarEnabled,
           startDate,
+          lang,
         );
       case 2:
         return _buildMedicationsTab(
           medicationProvider,
           adherenceProvider,
           startDate,
+          lang,
         );
       default:
         return const SizedBox();
@@ -248,15 +289,16 @@ class _HealthReportPageState extends State<HealthReportPage> {
     BloodPressureProvider bloodPressureProvider,
     bool bloodPressureEnabled,
     DateTime startDate,
+    String lang,
   ) {
     if (!bloodPressureEnabled) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(24),
+          padding: const EdgeInsets.all(24),
           child: Text(
-            'ضغط الدم غير مفعل في الأمراض المزمنة',
-            style: TextStyle(color: Colors.grey, fontSize: 16),
-            textAlign: TextAlign.center,
+            AppTranslations.translate('bp_not_enabled', lang),
+            style: const TextStyle(color: Colors.grey, fontSize: 16),
+            textAlign: lang == 'ar' ? TextAlign.right : TextAlign.left,
           ),
         ),
       );
@@ -291,24 +333,25 @@ class _HealthReportPageState extends State<HealthReportPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
+                    
                     children: [
-                      Icon(Icons.favorite, color: Colors.red, size: 20),
-                      SizedBox(width: 8),
+                      const Icon(Icons.favorite, color: Colors.red, size: 20),
+                      const SizedBox(width: 8),
                       Text(
-                        'قراءات ضغط الدم',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        AppTranslations.translate('bp_readings_title', lang),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
                   if (bpReadings.isEmpty)
-                    const Center(
+                    Center(
                       child: Padding(
-                        padding: EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(16),
                         child: Text(
-                          'لا توجد قراءات ضغط دم في هذه الفترة',
-                          style: TextStyle(color: Colors.grey),
+                          AppTranslations.translate('no_bp_readings', lang),
+                          style: const TextStyle(color: Colors.grey),
                         ),
                       ),
                     )
@@ -318,15 +361,15 @@ class _HealthReportPageState extends State<HealthReportPage> {
                       child: DataTable(
                         headingRowColor: WidgetStateProperty.all(Colors.red.shade50),
                         border: TableBorder.all(color: Colors.grey.shade300),
-                        columns: const [
-                          DataColumn(label: Text('التاريخ', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('الوقت', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('الانقباضي', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('الانبساطي', style: TextStyle(fontWeight: FontWeight.bold))),
+                        columns: [
+                          DataColumn(label: Text(AppTranslations.translate('date_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text(AppTranslations.translate('time_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text(AppTranslations.translate('systolic', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text(AppTranslations.translate('diastolic', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
                         ],
                         rows: bpReadings.map((reading) {
-                          final dateFormat = DateFormat('d/M/yyyy', 'ar');
-                          final timeFormat = DateFormat('h:mm a', 'ar');
+                          final dateFormat = DateFormat('d/M/yyyy', lang == 'ar' ? 'ar' : 'en');
+                          final timeFormat = DateFormat('h:mm a', lang == 'ar' ? 'ar' : 'en');
                           return DataRow(
                             cells: [
                               DataCell(Text(dateFormat.format(reading.when))),
@@ -351,24 +394,25 @@ class _HealthReportPageState extends State<HealthReportPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
+                    
                     children: [
-                      Icon(Icons.medication, color: Colors.blue, size: 20),
-                      SizedBox(width: 8),
+                      const Icon(Icons.medication, color: Colors.blue, size: 20),
+                      const SizedBox(width: 8),
                       Text(
-                        'أدوية ضغط الدم المأخوذة',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        AppTranslations.translate('bp_meds_taken_title', lang),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
                   if (bpMedsTaken.isEmpty)
-                    const Center(
+                    Center(
                       child: Padding(
-                        padding: EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(16),
                         child: Text(
-                          'لا توجد أدوية ضغط دم مأخوذة في هذه الفترة',
-                          style: TextStyle(color: Colors.grey),
+                          AppTranslations.translate('no_bp_meds_taken', lang),
+                          style: const TextStyle(color: Colors.grey),
                         ),
                       ),
                     )
@@ -378,23 +422,23 @@ class _HealthReportPageState extends State<HealthReportPage> {
                       child: DataTable(
                         headingRowColor: WidgetStateProperty.all(Colors.blue.shade50),
                         border: TableBorder.all(color: Colors.grey.shade300),
-                        columns: const [
-                          DataColumn(label: Text('التاريخ', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('الوقت', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('اسم الدواء', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('الجرعة', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('المرض', style: TextStyle(fontWeight: FontWeight.bold))),
+                        columns: [
+                          DataColumn(label: Text(AppTranslations.translate('date_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text(AppTranslations.translate('time_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text(AppTranslations.translate('medication_name', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text(AppTranslations.translate('dose', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text(AppTranslations.translate('disease_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
                         ],
                         rows: bpMedsTaken.map((log) {
-                          final dateFormat = DateFormat('d/M/yyyy', 'ar');
-                          final timeFormat = DateFormat('h:mm a', 'ar');
+                          final dateFormat = DateFormat('d/M/yyyy', lang == 'ar' ? 'ar' : 'en');
+                          final timeFormat = DateFormat('h:mm a', lang == 'ar' ? 'ar' : 'en');
                           return DataRow(
                             cells: [
                               DataCell(Text(dateFormat.format(log.when))),
                               DataCell(Text(timeFormat.format(log.when))),
                               DataCell(Text(log.medicationName, style: const TextStyle(fontWeight: FontWeight.bold))),
                               DataCell(Text(log.dose)),
-                              DataCell(Text('ارتفاع ضغط الدم', style: TextStyle(fontSize: 11, color: Colors.red.shade700))),
+                              DataCell(Text(AppTranslations.translate('chronic_disease_hypertension', lang), style: TextStyle(fontSize: 11, color: Colors.red.shade700))),
                             ],
                           );
                         }).toList(),
@@ -415,14 +459,15 @@ class _HealthReportPageState extends State<HealthReportPage> {
     BloodSugarProvider bloodSugarProvider,
     bool bloodSugarEnabled,
     DateTime startDate,
+    String lang,
   ) {
     if (!bloodSugarEnabled) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(24),
+          padding: const EdgeInsets.all(24),
           child: Text(
-            'سكر الدم غير مفعل في الأمراض المزمنة',
-            style: TextStyle(color: Colors.grey, fontSize: 16),
+            AppTranslations.translate('bs_not_enabled', lang),
+            style: const TextStyle(color: Colors.grey, fontSize: 16),
             textAlign: TextAlign.center,
           ),
         ),
@@ -458,24 +503,25 @@ class _HealthReportPageState extends State<HealthReportPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
+                    
                     children: [
-                      Icon(Icons.water_drop, color: Colors.orange, size: 20),
-                      SizedBox(width: 8),
+                      const Icon(Icons.water_drop, color: Colors.orange, size: 20),
+                      const SizedBox(width: 8),
                       Text(
-                        'قراءات سكر الدم',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        AppTranslations.translate('bs_readings_title', lang),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
                   if (sugarReadings.isEmpty)
-                    const Center(
+                    Center(
                       child: Padding(
-                        padding: EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(16),
                         child: Text(
-                          'لا توجد قراءات سكر دم في هذه الفترة',
-                          style: TextStyle(color: Colors.grey),
+                          AppTranslations.translate('no_bs_readings', lang),
+                          style: const TextStyle(color: Colors.grey),
                         ),
                       ),
                     )
@@ -485,14 +531,14 @@ class _HealthReportPageState extends State<HealthReportPage> {
                       child: DataTable(
                         headingRowColor: WidgetStateProperty.all(Colors.orange.shade50),
                         border: TableBorder.all(color: Colors.grey.shade300),
-                        columns: const [
-                          DataColumn(label: Text('التاريخ', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('الوقت', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('القراءة (mg/dL)', style: TextStyle(fontWeight: FontWeight.bold))),
+                        columns: [
+                          DataColumn(label: Text(AppTranslations.translate('date_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text(AppTranslations.translate('time_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text(AppTranslations.translate('reading_mg_dl', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
                         ],
                         rows: sugarReadings.map((reading) {
-                          final dateFormat = DateFormat('d/M/yyyy', 'ar');
-                          final timeFormat = DateFormat('h:mm a', 'ar');
+                          final dateFormat = DateFormat('d/M/yyyy', lang == 'ar' ? 'ar' : 'en');
+                          final timeFormat = DateFormat('h:mm a', lang == 'ar' ? 'ar' : 'en');
                           return DataRow(
                             cells: [
                               DataCell(Text(dateFormat.format(reading.when))),
@@ -516,24 +562,25 @@ class _HealthReportPageState extends State<HealthReportPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
+                    
                     children: [
-                      Icon(Icons.medication, color: Colors.orange, size: 20),
-                      SizedBox(width: 8),
+                      const Icon(Icons.medication, color: Colors.orange, size: 20),
+                      const SizedBox(width: 8),
                       Text(
-                        'أدوية سكر الدم المأخوذة',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        AppTranslations.translate('bs_meds_taken_title', lang),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
                   if (sugarMedsTaken.isEmpty)
-                    const Center(
+                    Center(
                       child: Padding(
-                        padding: EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(16),
                         child: Text(
-                          'لا توجد أدوية سكر دم مأخوذة في هذه الفترة',
-                          style: TextStyle(color: Colors.grey),
+                          AppTranslations.translate('no_bs_meds_taken', lang),
+                          style: const TextStyle(color: Colors.grey),
                         ),
                       ),
                     )
@@ -543,23 +590,23 @@ class _HealthReportPageState extends State<HealthReportPage> {
                       child: DataTable(
                         headingRowColor: WidgetStateProperty.all(Colors.orange.shade50),
                         border: TableBorder.all(color: Colors.grey.shade300),
-                        columns: const [
-                          DataColumn(label: Text('التاريخ', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('الوقت', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('اسم الدواء', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('الجرعة', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('المرض', style: TextStyle(fontWeight: FontWeight.bold))),
+                        columns: [
+                          DataColumn(label: Text(AppTranslations.translate('date_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text(AppTranslations.translate('time_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text(AppTranslations.translate('medication_name', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text(AppTranslations.translate('dose', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text(AppTranslations.translate('disease_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
                         ],
                         rows: sugarMedsTaken.map((log) {
-                          final dateFormat = DateFormat('d/M/yyyy', 'ar');
-                          final timeFormat = DateFormat('h:mm a', 'ar');
+                          final dateFormat = DateFormat('d/M/yyyy', lang == 'ar' ? 'ar' : 'en');
+                          final timeFormat = DateFormat('h:mm a', lang == 'ar' ? 'ar' : 'en');
                           return DataRow(
                             cells: [
                               DataCell(Text(dateFormat.format(log.when))),
                               DataCell(Text(timeFormat.format(log.when))),
                               DataCell(Text(log.medicationName, style: const TextStyle(fontWeight: FontWeight.bold))),
                               DataCell(Text(log.dose)),
-                              DataCell(Text('السكري', style: TextStyle(fontSize: 11, color: Colors.orange.shade700))),
+                              DataCell(Text(AppTranslations.translate('chronic_disease_diabetes', lang), style: TextStyle(fontSize: 11, color: Colors.orange.shade700))),
                             ],
                           );
                         }).toList(),
@@ -578,6 +625,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
     MedicationProvider medicationProvider,
     AdherenceProvider adherenceProvider,
     DateTime startDate,
+    String lang,
   ) {
     final otherMedsTaken = adherenceProvider.logs
         .where((log) {
@@ -600,24 +648,25 @@ class _HealthReportPageState extends State<HealthReportPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Row(
+              Row(
+                
                 children: [
-                  Icon(Icons.medication_liquid, color: Colors.green, size: 20),
-                  SizedBox(width: 8),
+                  const Icon(Icons.medication_liquid, color: Colors.green, size: 20),
+                  const SizedBox(width: 8),
                   Text(
-                    'الأدوية الأخرى المأخوذة',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    AppTranslations.translate('other_meds_taken_title', lang),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
               if (otherMedsTaken.isEmpty)
-                const Center(
+                Center(
                   child: Padding(
-                    padding: EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(16),
                     child: Text(
-                      'لا توجد أدوية أخرى مأخوذة في هذه الفترة',
-                      style: TextStyle(color: Colors.grey),
+                      AppTranslations.translate('no_other_meds_taken', lang),
+                      style: const TextStyle(color: Colors.grey),
                     ),
                   ),
                 )
@@ -627,30 +676,30 @@ class _HealthReportPageState extends State<HealthReportPage> {
                   child: DataTable(
                     headingRowColor: WidgetStateProperty.all(Colors.green.shade50),
                     border: TableBorder.all(color: Colors.grey.shade300),
-                    columns: const [
-                      DataColumn(label: Text('التاريخ', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('الوقت', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('اسم الدواء', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('الجرعة', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('المرض المزمن', style: TextStyle(fontWeight: FontWeight.bold))),
+                    columns: [
+                      DataColumn(label: Text(AppTranslations.translate('date_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
+                      DataColumn(label: Text(AppTranslations.translate('time_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
+                      DataColumn(label: Text(AppTranslations.translate('medication_name', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
+                      DataColumn(label: Text(AppTranslations.translate('dose', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
+                      DataColumn(label: Text(AppTranslations.translate('medication_type_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
                     ],
                     rows: otherMedsTaken.map((log) {
-                      final dateFormat = DateFormat('d/M/yyyy', 'ar');
-                      final timeFormat = DateFormat('h:mm a', 'ar');
+                      final dateFormat = DateFormat('d/M/yyyy', lang == 'ar' ? 'ar' : 'en');
+                      final timeFormat = DateFormat('h:mm a', lang == 'ar' ? 'ar' : 'en');
                       final med = medicationProvider.items.firstWhere(
                         (m) => m['name'] == log.medicationName,
                         orElse: () => {},
                       );
                       final disease = med.isNotEmpty && med['chronicDisease'] != null 
                           ? med['chronicDisease'] 
-                          : 'لا يوجد';
+                          : AppTranslations.translate('no_medication_type', lang);
                       return DataRow(
                         cells: [
                           DataCell(Text(dateFormat.format(log.when))),
                           DataCell(Text(timeFormat.format(log.when))),
                           DataCell(Text(log.medicationName, style: const TextStyle(fontWeight: FontWeight.bold))),
                           DataCell(Text(log.dose)),
-                          DataCell(Text(disease!, style: TextStyle(fontSize: 11, color: Colors.green.shade700))),
+                          DataCell(Text(_getMedicationTypeText(disease, lang), style: TextStyle(fontSize: 11, color: Colors.green.shade700))),
                         ],
                       );
                     }).toList(),
@@ -672,6 +721,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
     BloodSugarProvider bloodSugarProvider,
     DateTime startDate,
     DateTime now,
+    String lang,
   ) async {
     final bloodPressureEnabled = settingsProvider.chronicDiseases.contains('ارتفاع ضغط الدم');
     final bloodSugarEnabled = settingsProvider.chronicDiseases.contains('السكري');
@@ -680,17 +730,17 @@ class _HealthReportPageState extends State<HealthReportPage> {
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
-          title: const Text('تصدير التقرير'),
+          title: Text(AppTranslations.translate('export_dialog_title', lang)),
           content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('ما البيانات التي تريد تصديرها؟'),
+                Text(AppTranslations.translate('export_dialog_text', lang)),
                 const SizedBox(height: 16),
                 if (bloodPressureEnabled)
                   ElevatedButton.icon(
                     icon: const Icon(Icons.favorite),
-                    label: const Text('ضغط الدم والأدوية'),
+                    label: Text(AppTranslations.translate('bp_and_meds_btn', lang)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red.shade50,
                       foregroundColor: Colors.red.shade900,
@@ -707,6 +757,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
                         startDate,
                         now,
                         'bloodPressure',
+                        lang,
                       );
                     },
                   ),
@@ -714,7 +765,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
                 if (bloodSugarEnabled)
                   ElevatedButton.icon(
                     icon: const Icon(Icons.water_drop),
-                    label: const Text('سكر الدم والأدوية'),
+                    label: Text(AppTranslations.translate('bs_and_meds_btn', lang)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.orange.shade50,
                       foregroundColor: Colors.orange.shade900,
@@ -731,13 +782,14 @@ class _HealthReportPageState extends State<HealthReportPage> {
                         startDate,
                         now,
                         'bloodSugar',
+                        lang,
                       );
                     },
                   ),
                 if (bloodSugarEnabled) const SizedBox(height: 8),
                 ElevatedButton.icon(
                   icon: const Icon(Icons.medication_liquid),
-                  label: const Text('الأدوية الأخرى'),
+                  label: Text(AppTranslations.translate('other_meds_btn', lang)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green.shade50,
                     foregroundColor: Colors.green.shade900,
@@ -754,13 +806,14 @@ class _HealthReportPageState extends State<HealthReportPage> {
                       startDate,
                       now,
                       'medications',
+                      lang,
                     );
                   },
                 ),
                 const SizedBox(height: 8),
                 ElevatedButton.icon(
                   icon: const Icon(Icons.list_alt),
-                  label: const Text('تصدير الكل'),
+                  label: Text(AppTranslations.translate('export_all_btn', lang)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.teal.shade50,
                     foregroundColor: Colors.teal.shade900,
@@ -777,6 +830,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
                       startDate,
                       now,
                       'all',
+                      lang,
                     );
                   },
                 ),
@@ -784,8 +838,8 @@ class _HealthReportPageState extends State<HealthReportPage> {
             ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('إلغاء'),
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(AppTranslations.translate('cancel', lang)),
             ),
           ],
         );
@@ -803,9 +857,10 @@ class _HealthReportPageState extends State<HealthReportPage> {
     DateTime startDate,
     DateTime now,
     String exportType,
+    String lang,
   ) async {
-    final pdf = pw.Document();
-    final dateFormat = DateFormat('d MMMM yyyy', 'ar');
+    final doc = pw.Document();
+    final dateFormat = DateFormat('d MMMM yyyy', lang == 'ar' ? 'ar' : 'en');
     
     final bloodPressureEnabled = settingsProvider.chronicDiseases.contains('ارتفاع ضغط الدم');
     final bloodSugarEnabled = settingsProvider.chronicDiseases.contains('السكري');
@@ -817,34 +872,34 @@ class _HealthReportPageState extends State<HealthReportPage> {
     if (exportType == 'all') {
       // Export all three types in separate pages
       if (bloodPressureEnabled) {
-        await _addBloodPressurePage(pdf, settingsProvider, medicationProvider, adherenceProvider, bloodPressureProvider, startDate, now, arabicFont, arabicFontBold, dateFormat);
+        await _addBloodPressurePage(doc, settingsProvider, medicationProvider, adherenceProvider, bloodPressureProvider, startDate, now, arabicFont, arabicFontBold, dateFormat, lang);
       }
       if (bloodSugarEnabled) {
-        await _addBloodSugarPage(pdf, settingsProvider, medicationProvider, adherenceProvider, bloodSugarProvider, startDate, now, arabicFont, arabicFontBold, dateFormat);
+        await _addBloodSugarPage(doc, settingsProvider, medicationProvider, adherenceProvider, bloodSugarProvider, startDate, now, arabicFont, arabicFontBold, dateFormat, lang);
       }
-      await _addMedicationsPage(pdf, settingsProvider, medicationProvider, adherenceProvider, startDate, now, arabicFont, arabicFontBold, dateFormat);
+      await _addMedicationsPage(doc, settingsProvider, medicationProvider, adherenceProvider, startDate, now, arabicFont, arabicFontBold, dateFormat, lang);
     } else if (exportType == 'bloodPressure') {
-      await _addBloodPressurePage(pdf, settingsProvider, medicationProvider, adherenceProvider, bloodPressureProvider, startDate, now, arabicFont, arabicFontBold, dateFormat);
+      await _addBloodPressurePage(doc, settingsProvider, medicationProvider, adherenceProvider, bloodPressureProvider, startDate, now, arabicFont, arabicFontBold, dateFormat, lang);
     } else if (exportType == 'bloodSugar') {
-      await _addBloodSugarPage(pdf, settingsProvider, medicationProvider, adherenceProvider, bloodSugarProvider, startDate, now, arabicFont, arabicFontBold, dateFormat);
+      await _addBloodSugarPage(doc, settingsProvider, medicationProvider, adherenceProvider, bloodSugarProvider, startDate, now, arabicFont, arabicFontBold, dateFormat, lang);
     } else if (exportType == 'medications') {
-      await _addMedicationsPage(pdf, settingsProvider, medicationProvider, adherenceProvider, startDate, now, arabicFont, arabicFontBold, dateFormat);
+      await _addMedicationsPage(doc, settingsProvider, medicationProvider, adherenceProvider, startDate, now, arabicFont, arabicFontBold, dateFormat, lang);
     }
 
     // Show print/save dialog
-    String fileName = 'تقرير_صحي';
-    if (exportType == 'bloodPressure') fileName = 'تقرير_ضغط_الدم';
-    else if (exportType == 'bloodSugar') fileName = 'تقرير_سكر_الدم';
-    else if (exportType == 'medications') fileName = 'تقرير_الأدوية';
+    String fileName = lang == 'ar' ? 'تقرير_صحي' : 'health_report';
+    if (exportType == 'bloodPressure') fileName = lang == 'ar' ? 'تقرير_ضغط_الدم' : 'blood_pressure_report';
+    else if (exportType == 'bloodSugar') fileName = lang == 'ar' ? 'تقرير_سكر_الدم' : 'blood_sugar_report';
+    else if (exportType == 'medications') fileName = lang == 'ar' ? 'تقرير_الأدوية' : 'medications_report';
     
     await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => pdf.save(),
+      onLayout: (pdflib.PdfPageFormat format) async => doc.save(),
       name: '${fileName}_${DateFormat('yyyy-MM-dd').format(now)}.pdf',
     );
   }
 
   Future<void> _addBloodPressurePage(
-    pw.Document pdf,
+    pw.Document doc,
     SettingsProvider settingsProvider,
     MedicationProvider medicationProvider,
     AdherenceProvider adherenceProvider,
@@ -854,7 +909,11 @@ class _HealthReportPageState extends State<HealthReportPage> {
     pw.Font arabicFont,
     pw.Font arabicFontBold,
     DateFormat dateFormat,
+    String lang,
   ) async {
+    final isArabic = lang == 'ar';
+    final pdfTextDirection = isArabic ? pw.TextDirection.rtl : pw.TextDirection.ltr;
+
     final bpReadings = bloodPressureProvider.readings
         .where((r) => r.when.isAfter(startDate))
         .toList()
@@ -872,10 +931,10 @@ class _HealthReportPageState extends State<HealthReportPage> {
         .toList()
       ..sort((a, b) => b.when.compareTo(a.when));
 
-    pdf.addPage(
+    doc.addPage(
       pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        textDirection: pw.TextDirection.rtl,
+        pageFormat: pdflib.PdfPageFormat.a4,
+        textDirection: pdfTextDirection,
         theme: pw.ThemeData.withFont(
           base: arabicFont,
           bold: arabicFontBold,
@@ -886,28 +945,28 @@ class _HealthReportPageState extends State<HealthReportPage> {
             pw.Container(
               padding: const pw.EdgeInsets.all(20),
               decoration: pw.BoxDecoration(
-                color: PdfColors.red50,
-                border: pw.Border.all(color: PdfColors.red200),
+                color: pdflib.PdfColors.red50,
+                border: pw.Border.all(color: pdflib.PdfColors.red200),
                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
               ),
               child: pw.Column(
                 children: [
                   pw.Text(
-                    'تقرير ضغط الدم',
-                    style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: PdfColors.red900),
-                    textDirection: pw.TextDirection.rtl,
+                    AppTranslations.translate('bp_report_title_pdf', lang),
+                    style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: pdflib.PdfColors.red900),
+                    textDirection: pdfTextDirection,
                   ),
                   pw.SizedBox(height: 8),
                   pw.Text(
                     settingsProvider.name,
                     style: const pw.TextStyle(fontSize: 18),
-                    textDirection: pw.TextDirection.rtl,
+                    textDirection: pdfTextDirection,
                   ),
                   pw.SizedBox(height: 8),
                   pw.Text(
-                    'الفترة: ${dateFormat.format(startDate)} - ${dateFormat.format(now)}',
-                    style: const pw.TextStyle(color: PdfColors.grey700),
-                    textDirection: pw.TextDirection.rtl,
+                    '${AppTranslations.translate('period', lang)}: ${dateFormat.format(startDate)} - ${dateFormat.format(now)}',
+                    style: const pw.TextStyle(color: pdflib.PdfColors.grey700),
+                    textDirection: pdfTextDirection,
                   ),
                 ],
               ),
@@ -916,26 +975,26 @@ class _HealthReportPageState extends State<HealthReportPage> {
 
             // Blood Pressure Readings
             pw.Text(
-              'قراءات ضغط الدم',
-              style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColors.red900),
-              textDirection: pw.TextDirection.rtl,
+              AppTranslations.translate('bp_readings_title', lang),
+              style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: pdflib.PdfColors.red900),
+              textDirection: pdfTextDirection,
             ),
             pw.SizedBox(height: 12),
             if (bpReadings.isEmpty)
               pw.Padding(
                 padding: const pw.EdgeInsets.all(16),
                 child: pw.Text(
-                  'لا توجد قراءات ضغط دم في هذه الفترة',
-                  style: const pw.TextStyle(color: PdfColors.grey700),
-                  textDirection: pw.TextDirection.rtl,
+                  AppTranslations.translate('no_bp_readings', lang),
+                  style: const pw.TextStyle(color: pdflib.PdfColors.grey700),
+                  textDirection: pdfTextDirection,
                 ),
               )
             else
               pw.TableHelper.fromTextArray(
                 context: context,
-                border: pw.TableBorder.all(color: PdfColors.grey300),
+                border: pw.TableBorder.all(color: pdflib.PdfColors.grey300),
                 headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
-                headerDecoration: const pw.BoxDecoration(color: PdfColors.red100),
+                headerDecoration: const pw.BoxDecoration(color: pdflib.PdfColors.red100),
                 cellHeight: 25,
                 cellAlignments: {
                   0: pw.Alignment.center,
@@ -943,11 +1002,16 @@ class _HealthReportPageState extends State<HealthReportPage> {
                   2: pw.Alignment.center,
                   3: pw.Alignment.center,
                 },
-                headers: ['التاريخ', 'الوقت', 'الانقباضي', 'الانبساطي'],
+                headers: [
+                  AppTranslations.translate('date_col', lang),
+                  AppTranslations.translate('time_col', lang),
+                  AppTranslations.translate('systolic', lang),
+                  AppTranslations.translate('diastolic', lang),
+                ],
                 data: bpReadings.map((reading) {
                   return [
-                    DateFormat('d/M/yyyy', 'ar').format(reading.when),
-                    DateFormat('h:mm a', 'ar').format(reading.when),
+                    DateFormat('d/M/yyyy', isArabic ? 'ar' : 'en').format(reading.when),
+                    DateFormat('h:mm a', isArabic ? 'ar' : 'en').format(reading.when),
                     '${reading.systolic}',
                     '${reading.diastolic}',
                   ];
@@ -957,26 +1021,26 @@ class _HealthReportPageState extends State<HealthReportPage> {
 
             // Blood Pressure Medications
             pw.Text(
-              'أدوية ضغط الدم المأخوذة',
-              style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900),
-              textDirection: pw.TextDirection.rtl,
+              AppTranslations.translate('bp_meds_taken_title', lang),
+              style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: pdflib.PdfColors.blue900),
+              textDirection: pdfTextDirection,
             ),
             pw.SizedBox(height: 12),
             if (bpMedsTaken.isEmpty)
               pw.Padding(
                 padding: const pw.EdgeInsets.all(16),
                 child: pw.Text(
-                  'لا توجد أدوية ضغط دم مأخوذة في هذه الفترة',
-                  style: const pw.TextStyle(color: PdfColors.grey700),
-                  textDirection: pw.TextDirection.rtl,
+                  AppTranslations.translate('no_bp_meds_taken', lang),
+                  style: const pw.TextStyle(color: pdflib.PdfColors.grey700),
+                  textDirection: pdfTextDirection,
                 ),
               )
             else
               pw.TableHelper.fromTextArray(
                 context: context,
-                border: pw.TableBorder.all(color: PdfColors.grey300),
+                border: pw.TableBorder.all(color: pdflib.PdfColors.grey300),
                 headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
-                headerDecoration: const pw.BoxDecoration(color: PdfColors.blue100),
+                headerDecoration: const pw.BoxDecoration(color: pdflib.PdfColors.blue100),
                 cellHeight: 25,
                 cellAlignments: {
                   0: pw.Alignment.center,
@@ -984,11 +1048,16 @@ class _HealthReportPageState extends State<HealthReportPage> {
                   2: pw.Alignment.centerRight,
                   3: pw.Alignment.center,
                 },
-                headers: ['التاريخ', 'الوقت', 'اسم الدواء', 'الجرعة'],
+                headers: [
+                  AppTranslations.translate('date_col', lang),
+                  AppTranslations.translate('time_col', lang),
+                  AppTranslations.translate('medication_name', lang),
+                  AppTranslations.translate('dose', lang),
+                ],
                 data: bpMedsTaken.map((log) {
                   return [
-                    DateFormat('d/M/yyyy', 'ar').format(log.when),
-                    DateFormat('h:mm a', 'ar').format(log.when),
+                    DateFormat('d/M/yyyy', isArabic ? 'ar' : 'en').format(log.when),
+                    DateFormat('h:mm a', isArabic ? 'ar' : 'en').format(log.when),
                     log.medicationName,
                     log.dose,
                   ];
@@ -1000,15 +1069,15 @@ class _HealthReportPageState extends State<HealthReportPage> {
             pw.Container(
               padding: const pw.EdgeInsets.all(16),
               decoration: pw.BoxDecoration(
-                color: PdfColors.red50,
-                border: pw.Border.all(color: PdfColors.red200),
+                color: pdflib.PdfColors.red50,
+                border: pw.Border.all(color: pdflib.PdfColors.red200),
                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
               ),
               child: pw.Text(
-                'تنويه هام: تطبيق دوائي لا يبديل استشارة الطبيب وتأكد دائماً أن جرعاتك محددة من قبل الطبيب أو الصيدلي.',
-                style: const pw.TextStyle(color: PdfColors.red700, fontSize: 12),
+                AppTranslations.translate('disclaimer_text', lang),
+                style: const pw.TextStyle(color: pdflib.PdfColors.red700, fontSize: 12),
                 textAlign: pw.TextAlign.center,
-                textDirection: pw.TextDirection.rtl,
+                textDirection: pdfTextDirection,
               ),
             ),
           ];
@@ -1018,7 +1087,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
   }
 
   Future<void> _addBloodSugarPage(
-    pw.Document pdf,
+    pw.Document doc,
     SettingsProvider settingsProvider,
     MedicationProvider medicationProvider,
     AdherenceProvider adherenceProvider,
@@ -1028,7 +1097,11 @@ class _HealthReportPageState extends State<HealthReportPage> {
     pw.Font arabicFont,
     pw.Font arabicFontBold,
     DateFormat dateFormat,
+    String lang,
   ) async {
+    final isArabic = lang == 'ar';
+    final pdfTextDirection = isArabic ? pw.TextDirection.rtl : pw.TextDirection.ltr;
+
     final sugarReadings = bloodSugarProvider.readings
         .where((r) => r.when.isAfter(startDate))
         .toList()
@@ -1046,10 +1119,10 @@ class _HealthReportPageState extends State<HealthReportPage> {
         .toList()
       ..sort((a, b) => b.when.compareTo(a.when));
 
-    pdf.addPage(
+    doc.addPage(
       pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        textDirection: pw.TextDirection.rtl,
+        pageFormat: pdflib.PdfPageFormat.a4,
+        textDirection: pdfTextDirection,
         theme: pw.ThemeData.withFont(
           base: arabicFont,
           bold: arabicFontBold,
@@ -1060,28 +1133,28 @@ class _HealthReportPageState extends State<HealthReportPage> {
             pw.Container(
               padding: const pw.EdgeInsets.all(20),
               decoration: pw.BoxDecoration(
-                color: PdfColors.orange50,
-                border: pw.Border.all(color: PdfColors.orange200),
+                color: pdflib.PdfColors.orange50,
+                border: pw.Border.all(color: pdflib.PdfColors.orange200),
                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
               ),
               child: pw.Column(
                 children: [
                   pw.Text(
-                    'تقرير سكر الدم',
-                    style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: PdfColors.orange900),
-                    textDirection: pw.TextDirection.rtl,
+                    AppTranslations.translate('bs_report_title_pdf', lang),
+                    style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: pdflib.PdfColors.orange900),
+                    textDirection: pdfTextDirection,
                   ),
                   pw.SizedBox(height: 8),
                   pw.Text(
                     settingsProvider.name,
                     style: const pw.TextStyle(fontSize: 18),
-                    textDirection: pw.TextDirection.rtl,
+                    textDirection: pdfTextDirection,
                   ),
                   pw.SizedBox(height: 8),
                   pw.Text(
-                    'الفترة: ${dateFormat.format(startDate)} - ${dateFormat.format(now)}',
-                    style: const pw.TextStyle(color: PdfColors.grey700),
-                    textDirection: pw.TextDirection.rtl,
+                    '${AppTranslations.translate('period', lang)}: ${dateFormat.format(startDate)} - ${dateFormat.format(now)}',
+                    style: const pw.TextStyle(color: pdflib.PdfColors.grey700),
+                    textDirection: pdfTextDirection,
                   ),
                 ],
               ),
@@ -1090,37 +1163,41 @@ class _HealthReportPageState extends State<HealthReportPage> {
 
             // Blood Sugar Readings
             pw.Text(
-              'قراءات سكر الدم',
-              style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColors.orange900),
-              textDirection: pw.TextDirection.rtl,
+              AppTranslations.translate('bs_readings_title', lang),
+              style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: pdflib.PdfColors.orange900),
+              textDirection: pdfTextDirection,
             ),
             pw.SizedBox(height: 12),
             if (sugarReadings.isEmpty)
               pw.Padding(
                 padding: const pw.EdgeInsets.all(16),
                 child: pw.Text(
-                  'لا توجد قراءات سكر دم في هذه الفترة',
-                  style: const pw.TextStyle(color: PdfColors.grey700),
-                  textDirection: pw.TextDirection.rtl,
+                  AppTranslations.translate('no_bs_readings', lang),
+                  style: const pw.TextStyle(color: pdflib.PdfColors.grey700),
+                  textDirection: pdfTextDirection,
                 ),
               )
             else
               pw.TableHelper.fromTextArray(
                 context: context,
-                border: pw.TableBorder.all(color: PdfColors.grey300),
+                border: pw.TableBorder.all(color: pdflib.PdfColors.grey300),
                 headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
-                headerDecoration: const pw.BoxDecoration(color: PdfColors.orange100),
+                headerDecoration: const pw.BoxDecoration(color: pdflib.PdfColors.orange100),
                 cellHeight: 25,
                 cellAlignments: {
                   0: pw.Alignment.center,
                   1: pw.Alignment.center,
                   2: pw.Alignment.center,
                 },
-                headers: ['التاريخ', 'الوقت', 'القراءة (mg/dL)'],
+                headers: [
+                  AppTranslations.translate('date_col', lang),
+                  AppTranslations.translate('time_col', lang),
+                  AppTranslations.translate('reading_mg_dl', lang),
+                ],
                 data: sugarReadings.map((reading) {
                   return [
-                    DateFormat('d/M/yyyy', 'ar').format(reading.when),
-                    DateFormat('h:mm a', 'ar').format(reading.when),
+                    DateFormat('d/M/yyyy', isArabic ? 'ar' : 'en').format(reading.when),
+                    DateFormat('h:mm a', isArabic ? 'ar' : 'en').format(reading.when),
                     '${reading.value}',
                   ];
                 }).toList(),
@@ -1129,26 +1206,26 @@ class _HealthReportPageState extends State<HealthReportPage> {
 
             // Blood Sugar Medications
             pw.Text(
-              'أدوية سكر الدم المأخوذة',
-              style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColors.orange900),
-              textDirection: pw.TextDirection.rtl,
+              AppTranslations.translate('bs_meds_taken_title', lang),
+              style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: pdflib.PdfColors.orange900),
+              textDirection: pdfTextDirection,
             ),
             pw.SizedBox(height: 12),
             if (sugarMedsTaken.isEmpty)
               pw.Padding(
                 padding: const pw.EdgeInsets.all(16),
                 child: pw.Text(
-                  'لا توجد أدوية سكر دم مأخوذة في هذه الفترة',
-                  style: const pw.TextStyle(color: PdfColors.grey700),
-                  textDirection: pw.TextDirection.rtl,
+                  AppTranslations.translate('no_bs_meds_taken', lang),
+                  style: const pw.TextStyle(color: pdflib.PdfColors.grey700),
+                  textDirection: pdfTextDirection,
                 ),
               )
             else
               pw.TableHelper.fromTextArray(
                 context: context,
-                border: pw.TableBorder.all(color: PdfColors.grey300),
+                border: pw.TableBorder.all(color: pdflib.PdfColors.grey300),
                 headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
-                headerDecoration: const pw.BoxDecoration(color: PdfColors.orange100),
+                headerDecoration: const pw.BoxDecoration(color: pdflib.PdfColors.orange100),
                 cellHeight: 25,
                 cellAlignments: {
                   0: pw.Alignment.center,
@@ -1156,11 +1233,16 @@ class _HealthReportPageState extends State<HealthReportPage> {
                   2: pw.Alignment.centerRight,
                   3: pw.Alignment.center,
                 },
-                headers: ['التاريخ', 'الوقت', 'اسم الدواء', 'الجرعة'],
+                headers: [
+                  AppTranslations.translate('date_col', lang),
+                  AppTranslations.translate('time_col', lang),
+                  AppTranslations.translate('medication_name', lang),
+                  AppTranslations.translate('dose', lang),
+                ],
                 data: sugarMedsTaken.map((log) {
                   return [
-                    DateFormat('d/M/yyyy', 'ar').format(log.when),
-                    DateFormat('h:mm a', 'ar').format(log.when),
+                    DateFormat('d/M/yyyy', isArabic ? 'ar' : 'en').format(log.when),
+                    DateFormat('h:mm a', isArabic ? 'ar' : 'en').format(log.when),
                     log.medicationName,
                     log.dose,
                   ];
@@ -1172,15 +1254,15 @@ class _HealthReportPageState extends State<HealthReportPage> {
             pw.Container(
               padding: const pw.EdgeInsets.all(16),
               decoration: pw.BoxDecoration(
-                color: PdfColors.red50,
-                border: pw.Border.all(color: PdfColors.red200),
+                color: pdflib.PdfColors.red50,
+                border: pw.Border.all(color: pdflib.PdfColors.red200),
                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
               ),
               child: pw.Text(
-                'تنويه هام: تطبيق دوائي لا يبديل استشارة الطبيب وتأكد دائماً أن جرعاتك محددة من قبل الطبيب أو الصيدلي.',
-                style: const pw.TextStyle(color: PdfColors.red700, fontSize: 12),
+                AppTranslations.translate('disclaimer_text', lang),
+                style: const pw.TextStyle(color: pdflib.PdfColors.red700, fontSize: 12),
                 textAlign: pw.TextAlign.center,
-                textDirection: pw.TextDirection.rtl,
+                textDirection: pdfTextDirection,
               ),
             ),
           ];
@@ -1190,7 +1272,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
   }
 
   Future<void> _addMedicationsPage(
-    pw.Document pdf,
+    pw.Document doc,
     SettingsProvider settingsProvider,
     MedicationProvider medicationProvider,
     AdherenceProvider adherenceProvider,
@@ -1199,7 +1281,11 @@ class _HealthReportPageState extends State<HealthReportPage> {
     pw.Font arabicFont,
     pw.Font arabicFontBold,
     DateFormat dateFormat,
+    String lang,
   ) async {
+    final isArabic = lang == 'ar';
+    final pdfTextDirection = isArabic ? pw.TextDirection.rtl : pw.TextDirection.ltr;
+
     final otherMedsTaken = adherenceProvider.logs
         .where((log) {
           if (!log.when.isAfter(startDate) || !log.taken) return false;
@@ -1213,10 +1299,10 @@ class _HealthReportPageState extends State<HealthReportPage> {
         .toList()
       ..sort((a, b) => b.when.compareTo(a.when));
 
-    pdf.addPage(
+    doc.addPage(
       pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        textDirection: pw.TextDirection.rtl,
+        pageFormat: pdflib.PdfPageFormat.a4,
+        textDirection: pdfTextDirection,
         theme: pw.ThemeData.withFont(
           base: arabicFont,
           bold: arabicFontBold,
@@ -1227,28 +1313,28 @@ class _HealthReportPageState extends State<HealthReportPage> {
             pw.Container(
               padding: const pw.EdgeInsets.all(20),
               decoration: pw.BoxDecoration(
-                color: PdfColors.green50,
-                border: pw.Border.all(color: PdfColors.green200),
+                color: pdflib.PdfColors.green50,
+                border: pw.Border.all(color: pdflib.PdfColors.green200),
                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
               ),
               child: pw.Column(
                 children: [
                   pw.Text(
-                    'تقرير الأدوية الأخرى',
-                    style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: PdfColors.green900),
-                    textDirection: pw.TextDirection.rtl,
+                    AppTranslations.translate('other_meds_report_title_pdf', lang),
+                    style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: pdflib.PdfColors.green900),
+                    textDirection: pdfTextDirection,
                   ),
                   pw.SizedBox(height: 8),
                   pw.Text(
                     settingsProvider.name,
                     style: const pw.TextStyle(fontSize: 18),
-                    textDirection: pw.TextDirection.rtl,
+                    textDirection: pdfTextDirection,
                   ),
                   pw.SizedBox(height: 8),
                   pw.Text(
-                    'الفترة: ${dateFormat.format(startDate)} - ${dateFormat.format(now)}',
-                    style: const pw.TextStyle(color: PdfColors.grey700),
-                    textDirection: pw.TextDirection.rtl,
+                    '${AppTranslations.translate('period', lang)}: ${dateFormat.format(startDate)} - ${dateFormat.format(now)}',
+                    style: const pw.TextStyle(color: pdflib.PdfColors.grey700),
+                    textDirection: pdfTextDirection,
                   ),
                 ],
               ),
@@ -1257,26 +1343,26 @@ class _HealthReportPageState extends State<HealthReportPage> {
 
             // Other Medications
             pw.Text(
-              'الأدوية الأخرى المأخوذة',
-              style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColors.green900),
-              textDirection: pw.TextDirection.rtl,
+              AppTranslations.translate('other_meds_taken_title', lang),
+              style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: pdflib.PdfColors.green900),
+              textDirection: pdfTextDirection,
             ),
             pw.SizedBox(height: 12),
             if (otherMedsTaken.isEmpty)
               pw.Padding(
                 padding: const pw.EdgeInsets.all(16),
                 child: pw.Text(
-                  'لا توجد أدوية أخرى مأخوذة في هذه الفترة',
-                  style: const pw.TextStyle(color: PdfColors.grey700),
-                  textDirection: pw.TextDirection.rtl,
+                  AppTranslations.translate('no_other_meds_taken', lang),
+                  style: const pw.TextStyle(color: pdflib.PdfColors.grey700),
+                  textDirection: pdfTextDirection,
                 ),
               )
             else
               pw.TableHelper.fromTextArray(
                 context: context,
-                border: pw.TableBorder.all(color: PdfColors.grey300),
+                border: pw.TableBorder.all(color: pdflib.PdfColors.grey300),
                 headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
-                headerDecoration: const pw.BoxDecoration(color: PdfColors.green100),
+                headerDecoration: const pw.BoxDecoration(color: pdflib.PdfColors.green100),
                 cellHeight: 25,
                 cellAlignments: {
                   0: pw.Alignment.center,
@@ -1285,7 +1371,13 @@ class _HealthReportPageState extends State<HealthReportPage> {
                   3: pw.Alignment.center,
                   4: pw.Alignment.centerRight,
                 },
-                headers: ['التاريخ', 'الوقت', 'اسم الدواء', 'الجرعة', 'المرض المزمن'],
+                headers: [
+                  AppTranslations.translate('date_col', lang),
+                  AppTranslations.translate('time_col', lang),
+                  AppTranslations.translate('medication_name', lang),
+                  AppTranslations.translate('dose', lang),
+                  AppTranslations.translate('medication_type_col', lang),
+                ],
                 data: otherMedsTaken.map((log) {
                   final med = medicationProvider.items.firstWhere(
                     (m) => m['name'] == log.medicationName,
@@ -1293,13 +1385,13 @@ class _HealthReportPageState extends State<HealthReportPage> {
                   );
                   final disease = med.isNotEmpty && med['chronicDisease'] != null
                       ? med['chronicDisease']
-                      : 'لا يوجد';
+                      : AppTranslations.translate('no_medication_type', lang);
                   return [
-                    DateFormat('d/M/yyyy', 'ar').format(log.when),
-                    DateFormat('h:mm a', 'ar').format(log.when),
+                    DateFormat('d/M/yyyy', isArabic ? 'ar' : 'en').format(log.when),
+                    DateFormat('h:mm a', isArabic ? 'ar' : 'en').format(log.when),
                     log.medicationName,
                     log.dose,
-                    disease!,
+                    _getMedicationTypeText(disease, lang),
                   ];
                 }).toList(),
               ),
@@ -1309,15 +1401,15 @@ class _HealthReportPageState extends State<HealthReportPage> {
             pw.Container(
               padding: const pw.EdgeInsets.all(16),
               decoration: pw.BoxDecoration(
-                color: PdfColors.red50,
-                border: pw.Border.all(color: PdfColors.red200),
+                color: pdflib.PdfColors.red50,
+                border: pw.Border.all(color: pdflib.PdfColors.red200),
                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
               ),
               child: pw.Text(
-                'تنويه هام: تطبيق دوائي لا يبديل استشارة الطبيب وتأكد دائماً أن جرعاتك محددة من قبل الطبيب أو الصيدلي.',
-                style: const pw.TextStyle(color: PdfColors.red700, fontSize: 12),
+                AppTranslations.translate('disclaimer_text', lang),
+                style: const pw.TextStyle(color: pdflib.PdfColors.red700, fontSize: 12),
                 textAlign: pw.TextAlign.center,
-                textDirection: pw.TextDirection.rtl,
+                textDirection: pdfTextDirection,
               ),
             ),
           ];
@@ -1326,3 +1418,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
     );
   }
 }
+
+
+
+
