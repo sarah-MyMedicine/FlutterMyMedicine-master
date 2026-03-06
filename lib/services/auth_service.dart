@@ -6,18 +6,22 @@ class AuthService extends ChangeNotifier {
   
   bool _isAuthenticated = false;
   String? _userId;
-  String? _userEmail;
+  String? _username;
   String? _userName;
+  String? _userType;
   String? _errorMessage;
   bool _isLoading = false;
 
   // Getters
   bool get isAuthenticated => _isAuthenticated;
   String? get userId => _userId;
-  String? get userEmail => _userEmail;
+  String? get username => _username;
   String? get userName => _userName;
+  String? get userType => _userType;
   String? get errorMessage => _errorMessage;
   bool get isLoading => _isLoading;
+  bool get isPatient => _userType == 'patient';
+  bool get isCaregiver => _userType == 'caregiver';
 
   Future<void> init() async {
     _isAuthenticated = _apiService.isAuthenticated();
@@ -27,9 +31,10 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<bool> register({
-    required String email,
+    required String username,
     required String password,
     required String name,
+    required String userType,
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -37,15 +42,17 @@ class AuthService extends ChangeNotifier {
 
     try {
       final response = await _apiService.register(
-        email: email,
+        username: username,
         password: password,
         name: name,
+        userType: userType,
       );
 
       _isAuthenticated = true;
       _userId = response['userId'];
-      _userEmail = email;
+      _username = username;
       _userName = name;
+      _userType = userType;
       debugPrint('[AuthService] Registration successful');
       notifyListeners();
       return true;
@@ -62,7 +69,7 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<bool> login({
-    required String email,
+    required String username,
     required String password,
   }) async {
     _isLoading = true;
@@ -71,15 +78,16 @@ class AuthService extends ChangeNotifier {
 
     try {
       final response = await _apiService.login(
-        email: email,
+        username: username,
         password: password,
       );
 
       _isAuthenticated = true;
       _userId = response['userId'];
-      _userEmail = email;
+      _username = username;
       _userName = response['name'];
-      debugPrint('[AuthService] Login successful for: $email');
+      _userType = response['userType'];
+      debugPrint('[AuthService] Login successful for: $username');
       notifyListeners();
       return true;
     } catch (e) {
@@ -102,8 +110,9 @@ class AuthService extends ChangeNotifier {
       await _apiService.logout();
       _isAuthenticated = false;
       _userId = null;
-      _userEmail = null;
+      _username = null;
       _userName = null;
+      _userType = null;
       _errorMessage = null;
       debugPrint('[AuthService] Logout successful');
       notifyListeners();

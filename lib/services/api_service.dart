@@ -52,18 +52,20 @@ class ApiService {
   // ==================== AUTHENTICATION ====================
 
   Future<Map<String, dynamic>> register({
-    required String email,
+    required String username,
     required String password,
     required String name,
+    required String userType,
   }) async {
     try {
       final response = await _httpClient.post(
         Uri.parse('$_baseUrl/auth/register'),
         headers: _getHeaders(),
         body: jsonEncode({
-          'email': email,
+          'username': username,
           'password': password,
           'name': name,
+          'userType': userType,
         }),
       ).timeout(const Duration(seconds: 15));
 
@@ -82,7 +84,7 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> login({
-    required String email,
+    required String username,
     required String password,
   }) async {
     try {
@@ -90,7 +92,7 @@ class ApiService {
         Uri.parse('$_baseUrl/auth/login'),
         headers: _getHeaders(),
         body: jsonEncode({
-          'email': email,
+          'username': username,
           'password': password,
         }),
       ).timeout(const Duration(seconds: 15));
@@ -481,6 +483,200 @@ class ApiService {
     } catch (e) {
       debugPrint('[ApiService] Delete appointment error: $e');
       rethrow;
+    }
+  }
+
+  // ==================== CAREGIVER LINKING ====================
+
+  Future<Map<String, dynamic>> generateInvitation(String username) async {
+    if (!isAuthenticated()) throw Exception('Not authenticated');
+    
+    try {
+      final response = await _httpClient.post(
+        Uri.parse('$_baseUrl/caregiver/generate-invitation'),
+        headers: _getHeaders(),
+        body: jsonEncode({'username': username}),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        debugPrint('[ApiService] Invitation generated: ${data['invitationCode']}');
+        return data;
+      } else {
+        throw Exception('Failed to generate invitation: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('[ApiService] Generate invitation error: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getPendingInvitations(String username) async {
+    if (!isAuthenticated()) throw Exception('Not authenticated');
+    
+    try {
+      final response = await _httpClient.get(
+        Uri.parse('$_baseUrl/caregiver/invitations/$username'),
+        headers: _getHeaders(),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final List<dynamic> invitations = data['invitations'] as List<dynamic>;
+        return invitations.cast<Map<String, dynamic>>();
+      } else {
+        return [];
+      }
+    } catch (e) {
+      debugPrint('[ApiService] Get pending invitations error: $e');
+      return [];
+    }
+  }
+
+  Future<bool> acceptInvitation({
+    required String invitationCode,
+    required String caregiverUsername,
+  }) async {
+    if (!isAuthenticated()) throw Exception('Not authenticated');
+    
+    try {
+      final response = await _httpClient.post(
+        Uri.parse('$_baseUrl/caregiver/accept-invitation'),
+        headers: _getHeaders(),
+        body: jsonEncode({
+          'invitationCode': invitationCode,
+          'caregiverUsername': caregiverUsername,
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        debugPrint('[ApiService] Invitation accepted: $invitationCode');
+        return true;
+      } else {
+        debugPrint('[ApiService] Failed to accept invitation: ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('[ApiService] Accept invitation error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> rejectInvitation(String invitationCode) async {
+    if (!isAuthenticated()) throw Exception('Not authenticated');
+    
+    try {
+      final response = await _httpClient.post(
+        Uri.parse('$_baseUrl/caregiver/reject-invitation'),
+        headers: _getHeaders(),
+        body: jsonEncode({'invitationCode': invitationCode}),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        debugPrint('[ApiService] Invitation rejected: $invitationCode');
+        return true;
+      } else {
+        return false;
+      }
+    } catch (e) {
+      debugPrint('[ApiService] Reject invitation error: $e');
+      return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getLinkedPatients(String caregiverUsername) async {
+    if (!isAuthenticated()) throw Exception('Not authenticated');
+    
+    try {
+      final response = await _httpClient.get(
+        Uri.parse('$_baseUrl/caregiver/patients/$caregiverUsername'),
+        headers: _getHeaders(),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final List<dynamic> patients = data['patients'] as List<dynamic>;
+        return patients.cast<Map<String, dynamic>>();
+      } else {
+        return [];
+      }
+    } catch (e) {
+      debugPrint('[ApiService] Get linked patients error: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>?> getLinkedCaregiver(String patientUsername) async {
+    if (!isAuthenticated()) throw Exception('Not authenticated');
+    
+    try {
+      final response = await _httpClient.get(
+        Uri.parse('$_baseUrl/caregiver/caregiver/$patientUsername'),
+        headers: _getHeaders(),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['caregiver'] as Map<String, dynamic>?;
+      } else {
+        return null;
+      }
+    } catch (e) {
+      debugPrint('[ApiService] Get linked caregiver error: $e');
+      return null;
+    }
+  }
+
+  Future<void> unlinkCaregiver({
+    required String patientUsername,
+    required String caregiverUsername,
+  }) async {
+    if (!isAuthenticated()) throw Exception('Not authenticated');
+    
+    try {
+      final response = await _httpClient.post(
+        Uri.parse('$_baseUrl/caregiver/unlink'),
+        headers: _getHeaders(),
+        body: jsonEncode({
+          'patientUsername': patientUsername,
+          'caregiverUsername': caregiverUsername,
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        debugPrint('[ApiService] Caregiver unlinked');
+      } else {
+        throw Exception('Failed to unlink caregiver: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('[ApiService] Unlink caregiver error: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> notifyMissedDoses({
+    required String patientUsername,
+    required int consecutiveMissed,
+    required String medicationName,
+  }) async {
+    if (!isAuthenticated()) throw Exception('Not authenticated');
+    
+    try {
+      final response = await _httpClient.post(
+        Uri.parse('$_baseUrl/caregiver/notify-missed-dose'),
+        headers: _getHeaders(),
+        body: jsonEncode({
+          'patientUsername': patientUsername,
+          'consecutiveMissed': consecutiveMissed,
+          'medicationName': medicationName,
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        debugPrint('[ApiService] Missed dose notification sent');
+      }
+    } catch (e) {
+      debugPrint('[ApiService] Notify missed doses error: $e');
     }
   }
 

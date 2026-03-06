@@ -4,6 +4,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mymedicineapp/Pages/home.dart';
 import 'package:mymedicineapp/Pages/onboarding_page.dart';
 import 'package:mymedicineapp/Pages/language_selection_page.dart';
+import 'package:mymedicineapp/Pages/login_page.dart';
+import 'package:mymedicineapp/Pages/register_page.dart';
+import 'package:mymedicineapp/Pages/caregiver_link_page.dart';
 import 'services/notification_service.dart';
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
@@ -13,6 +16,7 @@ import 'providers/blood_sugar_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/appointment_provider.dart';
 import 'providers/adherence_provider.dart';
+import 'providers/user_provider.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
@@ -43,11 +47,16 @@ void main() async {
   final bloodSugarProvider = BloodSugarProvider();
   await bloodSugarProvider.load();
   debugPrint('[main] Blood sugar readings loaded');
+
+  final userProvider = UserProvider();
+  await userProvider.loadUserFromStorage();
+  debugPrint('[main] User data loaded');
   
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()),
+        ChangeNotifierProvider.value(value: userProvider),
         ChangeNotifierProvider.value(value: medicationProvider),
         ChangeNotifierProvider.value(value: bloodPressureProvider),
         ChangeNotifierProvider.value(value: bloodSugarProvider),
@@ -71,6 +80,7 @@ class _MyAppState extends State<MyApp> {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   bool _isFirstTime = false;
   bool _isLanguageSelected = false;
+  bool _isUserLoggedIn = false;
   bool _isLoading = true;
 
   @override
@@ -83,9 +93,12 @@ class _MyAppState extends State<MyApp> {
     final prefs = await SharedPreferences.getInstance();
     final languageSelected = prefs.getBool('language_selected') ?? false;
     final onboardingCompleted = prefs.getBool('onboarding_completed') ?? false;
+    final userLoggedIn = prefs.getString('username') != null;
+    
     setState(() {
       _isLanguageSelected = languageSelected;
       _isFirstTime = !onboardingCompleted;
+      _isUserLoggedIn = userLoggedIn;
       _isLoading = false;
     });
   }
@@ -104,7 +117,10 @@ class _MyAppState extends State<MyApp> {
     NotificationService().setNavigatorKey(_navigatorKey);
 
     Widget getInitialPage() {
-      if (!_isLanguageSelected) {
+      // Priority: Login > Language > Onboarding > Home
+      if (!_isUserLoggedIn) {
+        return const LoginPage();
+      } else if (!_isLanguageSelected) {
         return const LanguageSelectionPage();
       } else if (_isFirstTime) {
         return const OnboardingPage();
@@ -124,6 +140,9 @@ class _MyAppState extends State<MyApp> {
             '/home': (context) => const HomePage(),
             '/onboarding': (context) => const OnboardingPage(),
             '/language': (context) => const LanguageSelectionPage(),
+            '/login': (context) => const LoginPage(),
+            '/register': (context) => const RegisterPage(),
+            '/caregiver-link': (context) => const CaregiverLinkPage(),
           },
           builder: (context, child) {
             return Consumer<SettingsProvider>(
