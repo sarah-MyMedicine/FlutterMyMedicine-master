@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import '../services/notification_service.dart';
 
 class BloodSugarReading {
@@ -6,15 +8,64 @@ class BloodSugarReading {
   final DateTime when;
 
   BloodSugarReading({required this.value, DateTime? when}) : when = when ?? DateTime.now();
+
+  Map<String, dynamic> toJson() => {
+        'value': value,
+        'when': when.toIso8601String(),
+      };
+
+  factory BloodSugarReading.fromJson(Map<String, dynamic> json) {
+    return BloodSugarReading(
+      value: (json['value'] as num?)?.toInt() ?? 0,
+      when: DateTime.tryParse(json['when']?.toString() ?? '') ?? DateTime.now(),
+    );
+  }
 }
 
 class BloodSugarProvider extends ChangeNotifier {
+  static const String _storageKey = 'blood_sugar_readings_v1';
   final List<BloodSugarReading> _readings = [];
 
   List<BloodSugarReading> get readings => List.unmodifiable(_readings);
 
-  void add(int value, {int? targetBloodSugar, DateTime? when}) {
+  Future<void> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_storageKey);
+
+    if (raw == null || raw.isEmpty) {
+      _readings.clear();
+      notifyListeners();
+      return;
+    }
+
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        _readings
+          ..clear()
+          ..addAll(
+            decoded
+                .whereType<Map>()
+                .map((item) => BloodSugarReading.fromJson(Map<String, dynamic>.from(item))),
+          );
+      }
+    } catch (e) {
+      debugPrint('[BloodSugarProvider.load] Failed to parse readings: $e');
+      _readings.clear();
+    }
+
+    notifyListeners();
+  }
+
+  Future<void> _saveToPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final payload = _readings.map((r) => r.toJson()).toList();
+    await prefs.setString(_storageKey, jsonEncode(payload));
+  }
+
+  void add(int value, {int? targetBloodSugar, DateTime? when}) async {
     _readings.insert(0, BloodSugarReading(value: value, when: when));
+    await _saveToPrefs();
     notifyListeners();
     
     // Use custom target if provided, otherwise use default value
@@ -41,16 +92,18 @@ class BloodSugarProvider extends ChangeNotifier {
     }
   }
 
-  void remove(int index) {
+  void remove(int index) async {
     if (index >= 0 && index < _readings.length) {
       _readings.removeAt(index);
+      await _saveToPrefs();
       notifyListeners();
     }
   }
 
-  void update(int index, int value) {
+  void update(int index, int value) async {
     if (index >= 0 && index < _readings.length) {
       _readings[index] = BloodSugarReading(value: value, when: _readings[index].when);
+      await _saveToPrefs();
       notifyListeners();
     }
   }

@@ -4,6 +4,7 @@ import '../providers/blood_sugar_provider.dart';
 import '../providers/settings_provider.dart';
 import '../components/blood_sugar_form_modal.dart';
 import '../components/blood_sugar_report_modal.dart';
+import '../utils/translations.dart';
 
 class BloodSugarPage extends StatelessWidget {
   const BloodSugarPage({super.key});
@@ -12,9 +13,10 @@ class BloodSugarPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = Provider.of<BloodSugarProvider>(context);
     final settingsProvider = Provider.of<SettingsProvider>(context);
+    final lang = context.read<SettingsProvider>().language;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('سجل السكر'), actions: [
+      appBar: AppBar(title: Text(AppTranslations.translate('blood_sugar_log', lang)), actions: [
         IconButton(
             onPressed: () {
               showModalBottomSheet(
@@ -32,12 +34,12 @@ class BloodSugarPage extends StatelessWidget {
             color: Colors.orange.shade50,
             child: ListTile(
               leading: const Icon(Icons.water_drop, color: Colors.orange),
-              title: const Text('الهدف لسكر الدم', style: TextStyle(fontWeight: FontWeight.bold)),
+              title: Text(AppTranslations.translate('target_for_blood_sugar', lang), style: const TextStyle(fontWeight: FontWeight.bold)),
               subtitle: Text('${settingsProvider.targetBloodSugar} mg/dL'),
               trailing: IconButton(
                 icon: const Icon(Icons.edit),
                 onPressed: () {
-                  _showTargetDialog(context, settingsProvider);
+                  _showTargetDialog(context, settingsProvider, lang);
                 },
               ),
             ),
@@ -72,23 +74,23 @@ class BloodSugarPage extends StatelessWidget {
                         context: context,
                         position: position,
                         items: [
-                          const PopupMenuItem<String>(
+                          PopupMenuItem<String>(
                             value: 'edit',
                             child: Row(
                               children: [
-                                Icon(Icons.edit, size: 18),
-                                SizedBox(width: 12),
-                                Text('تعديل'),
+                                const Icon(Icons.edit, size: 18),
+                                const SizedBox(width: 12),
+                                Text(AppTranslations.translate('edit', lang)),
                               ],
                             ),
                           ),
-                          const PopupMenuItem<String>(
+                          PopupMenuItem<String>(
                             value: 'delete',
                             child: Row(
                               children: [
-                                Icon(Icons.delete, size: 18, color: Colors.red),
-                                SizedBox(width: 12),
-                                Text('حذف', style: TextStyle(color: Colors.red)),
+                                const Icon(Icons.delete, size: 18, color: Colors.red),
+                                const SizedBox(width: 12),
+                                Text(AppTranslations.translate('delete', lang), style: const TextStyle(color: Colors.red)),
                               ],
                             ),
                           ),
@@ -109,7 +111,7 @@ class BloodSugarPage extends StatelessWidget {
                       } else if (selected == 'delete') {
                         Provider.of<BloodSugarProvider>(context, listen: false).remove(i);
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('تم حذف القراءة')),
+                          SnackBar(content: Text(AppTranslations.translate('reading_saved', lang))),
                         );
                       }
                     },
@@ -139,24 +141,24 @@ class BloodSugarPage extends StatelessWidget {
     );
   }
 
-  void _showTargetDialog(BuildContext context, SettingsProvider settingsProvider) {
+  void _showTargetDialog(BuildContext context, SettingsProvider settingsProvider, String lang) {
     final controller = TextEditingController(text: settingsProvider.targetBloodSugar.toString());
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('تحديد الهدف لسكر الدم'),
+        title: Text(AppTranslations.translate('target_for_blood_sugar', lang)),
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'سكر الدم المستهدف (mg/dL)',
+          decoration: InputDecoration(
+            labelText: AppTranslations.translate('target_blood_sugar_level', lang),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء'),
+            child: Text(AppTranslations.translate('cancel', lang)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -166,7 +168,7 @@ class BloodSugarPage extends StatelessWidget {
                 Navigator.pop(context);
               }
             },
-            child: const Text('حفظ'),
+            child: Text(AppTranslations.translate('save', lang)),
           ),
         ],
       ),

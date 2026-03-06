@@ -43,8 +43,8 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
   // Frequency selection
   String _frequencyType = 'hourly'; // 'hourly', 'weekly', 'monthly'
   int _hoursValue = 8;
-  String _weeklyFrequency = 'مرة'; // مرة, مرتين, ثلاث مرات, etc.
-  String _monthlyFrequency = 'مرة';
+  int _weeklyFrequencyTimes = 1;
+  int _monthlyFrequencyTimes = 1;
 
   @override
   void initState() {
@@ -63,11 +63,11 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
       } else if (hours >= 84 && hours <= 168) {
         _frequencyType = 'weekly';
         final timesPerWeek = (168 / hours).round();
-        _weeklyFrequency = _getFrequencyLabel(timesPerWeek);
+        _weeklyFrequencyTimes = timesPerWeek.clamp(1, 7);
       } else if (hours >= 180) {
         _frequencyType = 'monthly';
         final timesPerMonth = (720 / hours).round();
-        _monthlyFrequency = _getFrequencyLabel(timesPerMonth);
+        _monthlyFrequencyTimes = timesPerMonth.clamp(1, 7);
       } else {
         _frequencyType = 'hourly';
         _hoursValue = hours;
@@ -96,29 +96,24 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
     }
   }
 
-  String _getFrequencyLabel(int times) {
+  String _getFrequencyLabel(int times, String lang) {
     switch (times) {
-      case 1: return 'مرة';
-      case 2: return 'مرتين';
-      case 3: return 'ثلاث مرات';
-      case 4: return 'أربع مرات';
-      case 5: return 'خمس مرات';
-      case 6: return 'ست مرات';
-      case 7: return 'سبع مرات';
-      default: return 'مرة';
-    }
-  }
-
-  int _getTimesFromLabel(String label) {
-    switch (label) {
-      case 'مرة': return 1;
-      case 'مرتين': return 2;
-      case 'ثلاث مرات': return 3;
-      case 'أربع مرات': return 4;
-      case 'خمس مرات': return 5;
-      case 'ست مرات': return 6;
-      case 'سبع مرات': return 7;
-      default: return 1;
+      case 1:
+        return AppTranslations.translate('once', lang);
+      case 2:
+        return AppTranslations.translate('twice', lang);
+      case 3:
+        return AppTranslations.translate('three_times', lang);
+      case 4:
+        return AppTranslations.translate('four_times', lang);
+      case 5:
+        return AppTranslations.translate('five_times', lang);
+      case 6:
+        return AppTranslations.translate('six_times', lang);
+      case 7:
+        return AppTranslations.translate('seven_times', lang);
+      default:
+        return AppTranslations.translate('once', lang);
     }
   }
 
@@ -127,11 +122,9 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
       case 'hourly':
         return _hoursValue;
       case 'weekly':
-        final times = _getTimesFromLabel(_weeklyFrequency);
-        return (168 / times).round();
+        return (168 / _weeklyFrequencyTimes).round();
       case 'monthly':
-        final times = _getTimesFromLabel(_monthlyFrequency);
-        return (720 / times).round();
+        return (720 / _monthlyFrequencyTimes).round();
       default:
         return 24;
     }
@@ -260,22 +253,22 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                           border: Border.all(color: Colors.grey.shade400),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: DropdownButton<String>(
-                          value: _weeklyFrequency,
+                        child: DropdownButton<int>(
+                          value: _weeklyFrequencyTimes,
                           underline: const SizedBox(),
                           style: const TextStyle(color: Colors.black, fontSize: 14),
                           dropdownColor: Colors.white,
-                          items: ['مرة', 'مرتين', 'ثلاث مرات', 'أربع مرات', 'خمس مرات', 'ست مرات', 'سبع مرات']
-                              .map((v) => DropdownMenuItem<String>(
+                          items: List<int>.generate(7, (i) => i + 1)
+                              .map((v) => DropdownMenuItem<int>(
                                     value: v,
-                                    child: Text(v),
+                                    child: Text(_getFrequencyLabel(v, lang)),
                                   ))
                               .toList(),
                           onChanged: (v) {
                             if (v != null) {
                               setState(() {
                                 _frequencyType = 'weekly';
-                                _weeklyFrequency = v;
+                                _weeklyFrequencyTimes = v;
                               });
                             }
                           },
@@ -297,22 +290,22 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                           border: Border.all(color: Colors.grey.shade400),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: DropdownButton<String>(
-                          value: _monthlyFrequency,
+                        child: DropdownButton<int>(
+                          value: _monthlyFrequencyTimes,
                           underline: const SizedBox(),
                           style: const TextStyle(color: Colors.black, fontSize: 14),
                           dropdownColor: Colors.white,
-                          items: ['مرة', 'مرتين', 'ثلاث مرات', 'أربع مرات', 'خمس مرات', 'ست مرات', 'سبع مرات']
-                              .map((v) => DropdownMenuItem<String>(
+                          items: List<int>.generate(7, (i) => i + 1)
+                              .map((v) => DropdownMenuItem<int>(
                                     value: v,
-                                    child: Text(v),
+                                    child: Text(_getFrequencyLabel(v, lang)),
                                   ))
                               .toList(),
                           onChanged: (v) {
                             if (v != null) {
                               setState(() {
                                 _frequencyType = 'monthly';
-                                _monthlyFrequency = v;
+                                _monthlyFrequencyTimes = v;
                               });
                             }
                           },

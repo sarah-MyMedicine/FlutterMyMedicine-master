@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
@@ -32,6 +33,7 @@ class LabResultsPage extends StatefulWidget {
 }
 
 class _LabResultsPageState extends State<LabResultsPage> {
+  static const String _labResultsKey = 'lab_results';
   final List<LabResult> _labResults = [];
   final ImagePicker _picker = ImagePicker();
 
@@ -43,19 +45,48 @@ class _LabResultsPageState extends State<LabResultsPage> {
 
   Future<void> _loadImages() async {
     final prefs = await SharedPreferences.getInstance();
-    final resultsJson = prefs.getString('lab_results');
-    if (resultsJson != null) {
+    final resultsJson = prefs.getString(_labResultsKey);
+    if (resultsJson == null || resultsJson.isEmpty) return;
+
+    try {
       final List<dynamic> decoded = jsonDecode(resultsJson);
+      final parsed = decoded
+          .whereType<Map>()
+          .map((item) => LabResult.fromJson(Map<String, dynamic>.from(item)))
+          .where((item) => item.imagePath.isNotEmpty)
+          .toList();
+
+      if (!mounted) return;
       setState(() {
-        _labResults.clear();
-        _labResults.addAll(decoded.map((item) => LabResult.fromJson(item)));
+        _labResults
+          ..clear()
+          ..addAll(parsed);
       });
+    } catch (e) {
+      debugPrint('Failed to load lab results: $e');
     }
   }
 
   Future<void> _saveImages() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('lab_results', jsonEncode(_labResults.map((r) => r.toJson()).toList()));
+    await prefs.setString(_labResultsKey, jsonEncode(_labResults.map((r) => r.toJson()).toList()));
+  }
+
+  Future<String> _persistImageLocally(String sourcePath) async {
+    final sourceFile = File(sourcePath);
+    final docsDir = await getApplicationDocumentsDirectory();
+    final targetDir = Directory('${docsDir.path}${Platform.pathSeparator}lab_results_images');
+    if (!await targetDir.exists()) {
+      await targetDir.create(recursive: true);
+    }
+
+    final extensionIndex = sourcePath.lastIndexOf('.');
+    final extension = extensionIndex == -1 ? '.jpg' : sourcePath.substring(extensionIndex);
+    final fileName = 'lab_${DateTime.now().millisecondsSinceEpoch}$extension';
+    final targetPath = '${targetDir.path}${Platform.pathSeparator}$fileName';
+
+    final copied = await sourceFile.copy(targetPath);
+    return copied.path;
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -69,12 +100,14 @@ class _LabResultsPageState extends State<LabResultsPage> {
       );
 
       if (image != null) {
+        final persistentPath = await _persistImageLocally(image.path);
+
         // Show dialog to add description
         final description = await _showDescriptionDialog(context);
         if (description != null) {
           setState(() {
             _labResults.add(LabResult(
-              imagePath: image.path,
+              imagePath: persistentPath,
               description: description,
             ));
           });
@@ -83,6 +116,15 @@ class _LabResultsPageState extends State<LabResultsPage> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(AppTranslations.translate('image_added_success', lang))),
             );
+          }
+        } else {
+          try {
+            final file = File(persistentPath);
+            if (await file.exists()) {
+              await file.delete();
+            }
+          } catch (e) {
+            debugPrint('Failed to cleanup canceled lab image file: $e');
           }
         }
       }
@@ -148,9 +190,20 @@ class _LabResultsPageState extends State<LabResultsPage> {
     );
 
     if (shouldDelete == true) {
+      final removedPath = _labResults[index].imagePath;
       setState(() {
         _labResults.removeAt(index);
       });
+
+      try {
+        final removedFile = File(removedPath);
+        if (await removedFile.exists()) {
+          await removedFile.delete();
+        }
+      } catch (e) {
+        debugPrint('Failed to delete lab image file: $e');
+      }
+
       await _saveImages();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -17,29 +17,29 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
 
   // Mother care checklist state
   final Map<String, bool> _motherChecklist = {
-    'روب يوم مريح (مفضل للراحة)': false,
-    'ملابس داخلية قطنية': false,
-    'فوط صحية (حجم كبير)': false,
-    'حمالات صدر للرضاعة': false,
-    'أدوات العناية الشخصية (فرشاة، شامبو...)': false,
-    'ملابس الخروج من المستشفى': false,
+    'comfortable_robe': false,
+    'cotton_underwear': false,
+    'sanitary_pads_large': false,
+    'nursing_bras': false,
+    'personal_care_items': false,
+    'hospital_discharge_clothes': false,
   };
 
   // Child care checklist state
   final Map<String, bool> _childChecklist = {
-    'ملابس داخلية (الوِعي) عدد 3': false,
-    'أطقم خارجية كاملة عدد 3': false,
-    'قبعات وجوارب وقفازات': false,
-    'بطانية ناعمة': false,
-    'حقاضات مقاس مواليد جديد': false,
-    'مناديل مبللة (Wipes)': false,
+    'baby_undershirts_3': false,
+    'baby_outfits_3': false,
+    'hats_socks_mittens': false,
+    'soft_blanket': false,
+    'newborn_diapers': false,
+    'baby_wipes': false,
   };
 
   // Supplies checklist state
   final Map<String, bool> _suppliesChecklist = {
-    'بطاقة الهوية / الإقامة': false,
-    'بطاقة التأمين': false,
-    'ملف متابعة الحمل والتحاليل': false,
+    'id_card': false,
+    'insurance_card': false,
+    'pregnancy_file': false,
   };
 
   @override
@@ -54,7 +54,7 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
               AppTranslations.translate('mother_fetus_care_title', lang),
               style: const TextStyle(color: Colors.white, fontSize: 18),
             ),
-            backgroundColor: const Color(0xFF5DABA8),
+            backgroundColor: sp.themeColor,
             iconTheme: const IconThemeData(color: Colors.white),
             leading: IconButton(
               icon: Icon(lang == 'ar' ? Icons.arrow_forward : Icons.arrow_back),
@@ -74,8 +74,8 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
               Container(
                 margin: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFE91E7A), Color(0xFFF06292)],
+                  gradient: LinearGradient(
+                    colors: [sp.themeColor, Color.lerp(sp.themeColor, Colors.black, 0.15) ?? sp.themeColor],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -135,7 +135,7 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
                 ),
               ),
               // Content area
-              Expanded(child: _buildTabContent(lang)),
+              Expanded(child: _buildTabContent(lang, sp)),
             ],
           ),
         );
@@ -145,6 +145,7 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
 
   Widget _buildTabButton(String label, int index, String lang) {
     final isSelected = _selectedTab == index;
+    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -160,7 +161,7 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? const Color(0xFFE91E7A) : Colors.white,
+            color: isSelected ? settingsProvider.themeColor : Colors.white,
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),
@@ -169,20 +170,20 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
     );
   }
 
-  Widget _buildTabContent(String lang) {
+  Widget _buildTabContent(String lang, SettingsProvider sp) {
     switch (_selectedTab) {
       case 0:
-        return _buildPregnancySummaryTab(lang);
+        return _buildPregnancySummaryTab(lang, sp);
       case 1:
-        return _buildFetalMovementTab(lang);
+        return _buildFetalMovementTab(lang, sp);
       case 2:
-        return _buildHealthTab(lang);
+        return _buildHealthTab(lang, sp);
       default:
-        return _buildPregnancySummaryTab(lang);
+        return _buildPregnancySummaryTab(lang, sp);
     }
   }
 
-  Widget _buildPregnancySummaryTab(String lang) {
+  Widget _buildPregnancySummaryTab(String lang, SettingsProvider sp) {
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -310,7 +311,7 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
     );
   }
 
-  Widget _buildChecklistSection(String title, Map<String, bool> items, String lang) {
+  Widget _buildChecklistSection(String title, Map<String, bool> items, String lang, SettingsProvider sp) {
     int checkedCount = items.values.where((v) => v).length;
     int totalCount = items.length;
 
@@ -324,9 +325,9 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
           // Section header
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
-              color: Color(0xFFF3E5F5),
-              borderRadius: BorderRadius.only(
+            decoration: BoxDecoration(
+              color: Color.lerp(sp.themeColor, Colors.white, 0.85) ?? const Color(0xFFF3E5F5),
+              borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(12),
                 topRight: Radius.circular(12),
               ),
@@ -336,8 +337,8 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
               children: [
                 Text(
                   '$checkedCount/$totalCount',
-                  style: const TextStyle(
-                    color: Color(0xFFE91E7A),
+                  style: TextStyle(
+                    color: sp.themeColor,
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
@@ -363,13 +364,13 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
                 });
               },
               title: Text(
-                entry.key,
+                AppTranslations.translate(entry.key, lang),
                 style: const TextStyle(fontSize: 14),
                 textDirection: lang == 'ar' ? TextDirection.rtl : TextDirection.ltr,
                 textAlign: lang == 'ar' ? TextAlign.right : TextAlign.left,
               ),
               controlAffinity: ListTileControlAffinity.leading,
-              activeColor: const Color(0xFFE91E7A),
+              activeColor: sp.themeColor,
             );
           }),
         ],
@@ -377,7 +378,7 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
     );
   }
 
-  Widget _buildFetalMovementTab(String lang) {
+  Widget _buildFetalMovementTab(String lang, SettingsProvider sp) {
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -421,10 +422,10 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
                 children: [
                   Text(
                     '$_fetalMovementCount',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 72,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFFE91E7A),
+                      color: sp.themeColor,
                     ),
                   ),
                   Text(
@@ -445,7 +446,7 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
                       style: const TextStyle(color: Colors.white, fontSize: 16),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFE91E7A),
+                      backgroundColor: sp.themeColor,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 32,
                         vertical: 16,
@@ -476,7 +477,7 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
     );
   }
 
-  Widget _buildHealthTab(String lang) {
+  Widget _buildHealthTab(String lang, SettingsProvider sp) {
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -507,13 +508,13 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
             ),
             const SizedBox(height: 16),
             // Mother care checklist
-            _buildChecklistSection(AppTranslations.translate('for_mother', lang), _motherChecklist, lang),
+            _buildChecklistSection(AppTranslations.translate('for_mother', lang), _motherChecklist, lang, sp),
             const SizedBox(height: 16),
             // Child care checklist
-            _buildChecklistSection(AppTranslations.translate('for_baby', lang), _childChecklist, lang),
+            _buildChecklistSection(AppTranslations.translate('for_baby', lang), _childChecklist, lang, sp),
             const SizedBox(height: 16),
             // Documents checklist
-            _buildChecklistSection(AppTranslations.translate('documents', lang), _suppliesChecklist, lang),
+            _buildChecklistSection(AppTranslations.translate('documents', lang), _suppliesChecklist, lang, sp),
             const SizedBox(height: 80),
           ],
         ),

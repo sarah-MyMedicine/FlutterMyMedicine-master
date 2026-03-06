@@ -1,14 +1,62 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import '../services/notification_service.dart';
 
 class MedicationProvider extends ChangeNotifier {
+  static const String _storageKey = 'medications_v1';
+
   // Each item may include an optional imagePath (local file path to a photo)
   // We also store a prefix id so we can cancel scheduled notifications when removing
   final List<Map<String, String?>> _items = [];
 
   List<Map<String, String?>> get items => List.unmodifiable(_items);
 
-  void add(String name, String dose, {String? imagePath, int intervalHours = 24, String? startTime, String? startDate, String? chronicDisease}) async {
+  Future<void> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_storageKey);
+
+    if (raw == null || raw.isEmpty) {
+      _items.clear();
+      notifyListeners();
+      return;
+    }
+
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        _items
+          ..clear()
+          ..addAll(
+            decoded.whereType<Map>().map((entry) {
+              final map = entry.map(
+                (key, value) => MapEntry(key.toString(), value?.toString()),
+              );
+
+              map.putIfAbsent(
+                'notifPrefix',
+                () => DateTime.now().microsecondsSinceEpoch.toString(),
+              );
+
+              return Map<String, String?>.from(map);
+            }),
+          );
+      }
+    } catch (e) {
+      debugPrint('[MedicationProvider.load] Failed to parse saved medications: $e');
+      _items.clear();
+    }
+
+    notifyListeners();
+  }
+
+  Future<void> _saveToPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final payload = _items.map((item) => Map<String, String?>.from(item)).toList();
+    await prefs.setString(_storageKey, jsonEncode(payload));
+  }
+
+  Future<void> add(String name, String dose, {String? imagePath, int intervalHours = 24, String? startTime, String? startDate, String? chronicDisease}) async {
     final prefix = DateTime.now().millisecondsSinceEpoch.toString();
     debugPrint('[MedicationProvider.add] Adding medication: $name, dose: $dose, interval: $intervalHours hours, startTime: $startTime, startDate: $startDate, chronicDisease: $chronicDisease');
 
@@ -22,6 +70,8 @@ class MedicationProvider extends ChangeNotifier {
       'chronicDisease': chronicDisease,
       'notifPrefix': prefix,
     });
+
+    await _saveToPrefs();
 
     // Schedule notifications based on startTime, optional startDate and intervalHours
     try {
@@ -107,10 +157,14 @@ class MedicationProvider extends ChangeNotifier {
     // Save lastTaken timestamp for UI if desired
     item['lastTaken'] = now.toIso8601String();
 
+    await _saveToPrefs();
+
     notifyListeners();
   }
 
-  void removeAt(int index) async {
+  Future<void> removeAt(int index) async {
+    if (index < 0 || index >= _items.length) return;
+
     final item = _items[index];
     final prefix = item['notifPrefix'];
     if (prefix != null) {
@@ -118,11 +172,27 @@ class MedicationProvider extends ChangeNotifier {
     }
 
     _items.removeAt(index);
+    await _saveToPrefs();
     notifyListeners();
   }
 
-  void updateAt(int index, String name, String dose, {String? imagePath, int intervalHours = 24, String? startTime, String? startDate, String? chronicDisease}) {
-    _items[index] = {'name': name, 'dose': dose, 'imagePath': imagePath, 'intervalHours': intervalHours.toString(), 'startTime': startTime, 'startDate': startDate, 'chronicDisease': chronicDisease};
+  Future<void> updateAt(int index, String name, String dose, {String? imagePath, int intervalHours = 24, String? startTime, String? startDate, String? chronicDisease}) async {
+    if (index < 0 || index >= _items.length) return;
+
+    final existing = _items[index];
+    _items[index] = {
+      'name': name,
+      'dose': dose,
+      'imagePath': imagePath,
+      'intervalHours': intervalHours.toString(),
+      'startTime': startTime,
+      'startDate': startDate,
+      'chronicDisease': chronicDisease,
+      'notifPrefix': existing['notifPrefix'],
+      'lastTaken': existing['lastTaken'],
+    };
+
+    await _saveToPrefs();
     notifyListeners();
   }
 }

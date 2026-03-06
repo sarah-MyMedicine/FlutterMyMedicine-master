@@ -38,7 +38,7 @@ class AdherenceLogPage extends StatelessWidget {
           child: Scaffold(
             appBar: AppBar(
               title: Text(AppTranslations.translate('adherence_log_title', lang)),
-              backgroundColor: const Color(0xFF1EBEA6),
+              backgroundColor: sp.themeColor,
               foregroundColor: Colors.white,
               leading: IconButton(
                 icon: Icon(lang == 'ar' ? Icons.arrow_forward : Icons.arrow_back),
@@ -111,9 +111,9 @@ class AdherenceLogPage extends StatelessWidget {
                                   children: [
                                     Text(
                                       _formatDate(timestamp, lang),
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 13,
-                                        color: Color(0xFF1EBEA6),
+                                        color: sp.themeColor,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),

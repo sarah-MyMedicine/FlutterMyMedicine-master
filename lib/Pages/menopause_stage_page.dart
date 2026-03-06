@@ -29,7 +29,7 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
                 AppTranslations.translate('menopause_stage_title', lang),
                 style: const TextStyle(color: Colors.white, fontSize: 18),
               ),
-              backgroundColor: const Color(0xFF5DABA8),
+              backgroundColor: sp.themeColor,
               iconTheme: const IconThemeData(color: Colors.white),
               leading: IconButton(
                 icon: Icon(lang == 'ar' ? Icons.arrow_forward : Icons.arrow_back),
@@ -49,8 +49,8 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
                 Container(
                   margin: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFD946A6), Color(0xFFEC4899)],
+                    gradient: LinearGradient(
+                      colors: [sp.themeColor, Color.lerp(sp.themeColor, Colors.black, 0.15) ?? sp.themeColor],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -125,6 +125,7 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
 
   Widget _buildTabButton(String label, int index) {
     final isSelected = _selectedTab == index;
+    final sp = Provider.of<SettingsProvider>(context, listen: false);
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -140,7 +141,7 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? const Color(0xFFD946A6) : Colors.white,
+            color: isSelected ? sp.themeColor : Colors.white,
             fontSize: 11,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),
@@ -302,10 +303,10 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
           const SizedBox(height: 16),
           Text(
             '$count',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 64,
               fontWeight: FontWeight.bold,
-              color: Color(0xFFD946A6),
+              color: sp.themeColor,
             ),
           ),
           const SizedBox(height: 16),
@@ -316,7 +317,7 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
               ElevatedButton(
                 onPressed: onDecrement,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFD946A6),
+                  backgroundColor: sp.themeColor,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 20,
                     vertical: 12,
@@ -336,7 +337,7 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
               ElevatedButton(
                 onPressed: onIncrement,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFD946A6),
+                  backgroundColor: sp.themeColor,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 20,
                     vertical: 12,

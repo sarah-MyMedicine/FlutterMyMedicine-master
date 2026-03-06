@@ -1,43 +1,39 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  static const primary = Color(0xFF5FB8A8); // main teal
-  static const primaryDark = Color(0xFF4A9184);
-  static const primaryAlt = Color(0xFF52A396);
-  static const bgLight = Color(0xFFF0F9F8);
-  static const border = Color(0xFFC3E7E2);
-  static const heading = Color(0xFF45887E);
-  static const deep = Color(0xFF315C56);
   static const warning = Color(0xFFFFB300);
 }
 
 class AppTheme {
-  static ThemeData get theme {
+  static ThemeData theme(Color primaryColor) {
+    // Generate lighter shade for light backgrounds
+    final lightBg = Color.lerp(primaryColor, Colors.white, 0.9) ?? Colors.white;
+    
     final base = ThemeData.from(
       colorScheme: ColorScheme.light(
-        primary: AppColors.primary,
-        secondary: AppColors.primaryAlt,
+        primary: primaryColor,
+        secondary: Color.lerp(primaryColor, Colors.black, 0.1) ?? primaryColor,
         surface: Colors.white,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
-        onSurface: AppColors.deep,
+        onSurface: Color.lerp(primaryColor, Colors.black, 0.3) ?? Colors.black,
       ),
     );
 
     return base.copyWith(
       colorScheme: base.colorScheme.copyWith(
-        primary: AppColors.primary,
-        secondary: AppColors.primaryAlt,
+        primary: primaryColor,
+        secondary: Color.lerp(primaryColor, Colors.black, 0.1) ?? primaryColor,
       ),
       scaffoldBackgroundColor: Colors.white,
-      appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.primary,
+      appBarTheme: AppBarTheme(
+        backgroundColor: primaryColor,
         foregroundColor: Colors.white,
         elevation: 2,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
+          backgroundColor: primaryColor,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -47,40 +43,43 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.bgLight,
+        fillColor: lightBg,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppColors.border),
+          borderSide: BorderSide(color: Color.lerp(primaryColor, Colors.black, 0.2) ?? primaryColor),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppColors.border),
+          borderSide: BorderSide(color: Color.lerp(primaryColor, Colors.black, 0.2) ?? primaryColor),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppColors.primary),
+          borderSide: BorderSide(color: primaryColor),
         ),
       ),
-      textTheme: const TextTheme(
+      textTheme: TextTheme(
         headlineLarge: TextStyle(
           fontSize: 28,
           fontWeight: FontWeight.bold,
-          color: AppColors.deep,
-        ), // text-3xl / 3xl
+          color: Color.lerp(primaryColor, Colors.black, 0.3) ?? Colors.black,
+        ),
         headlineMedium: TextStyle(
           fontSize: 22,
           fontWeight: FontWeight.w600,
-          color: AppColors.deep,
-        ), // 2xl / bold
+          color: Color.lerp(primaryColor, Colors.black, 0.3) ?? Colors.black,
+        ),
         titleLarge: TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.bold,
-          color: AppColors.deep,
-        ), // xl
-        bodyLarge: TextStyle(fontSize: 16, color: AppColors.deep),
-        bodyMedium: TextStyle(fontSize: 14, color: Colors.black87),
-        labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-        bodySmall: TextStyle(fontSize: 12, color: Colors.grey),
+          color: Color.lerp(primaryColor, Colors.black, 0.3) ?? Colors.black,
+        ),
+        bodyLarge: TextStyle(
+          fontSize: 16,
+          color: Color.lerp(primaryColor, Colors.black, 0.3) ?? Colors.black,
+        ),
+        bodyMedium: const TextStyle(fontSize: 14, color: Colors.black87),
+        labelLarge: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        bodySmall: const TextStyle(fontSize: 12, color: Colors.grey),
       ),
     );
   }

@@ -135,8 +135,8 @@ class _HealthReportPageState extends State<HealthReportPage> {
               Container(
                 margin: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF36BBA0), Color(0xFF5DABA8)],
+                  gradient: LinearGradient(
+                    colors: [settingsProvider.themeColor, Color.lerp(settingsProvider.themeColor, Colors.black, 0.15) ?? settingsProvider.themeColor],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -218,6 +218,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
 
   Widget _buildTabButton(String label, int index, String lang) {
     final isSelected = _selectedTab == index;
+    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -233,7 +234,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? const Color(0xFF36BBA0) : Colors.white,
+            color: isSelected ? settingsProvider.themeColor : Colors.white,
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),

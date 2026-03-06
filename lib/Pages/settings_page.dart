@@ -415,9 +415,9 @@ class _SettingsPageState extends State<SettingsPage> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                          child: const Text(
-                            'إلغاء',
-                            style: TextStyle(
+                          child: Text(
+                            AppTranslations.translate('cancel', lang),
+                            style: const TextStyle(
                               color: Colors.grey,
                               fontSize: 16,
                             ),

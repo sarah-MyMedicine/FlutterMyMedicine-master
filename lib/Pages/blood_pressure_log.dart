@@ -4,6 +4,7 @@ import '../providers/blood_pressure_provider.dart';
 import '../providers/settings_provider.dart';
 import '../components/blood_pressure_form_modal.dart';
 import '../components/blood_pressure_report_modal.dart';
+import '../utils/translations.dart';
 
 class BloodPressurePage extends StatelessWidget {
   const BloodPressurePage({super.key});
@@ -12,9 +13,10 @@ class BloodPressurePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = Provider.of<BloodPressureProvider>(context);
     final settingsProvider = Provider.of<SettingsProvider>(context);
+    final lang = context.read<SettingsProvider>().language;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('سجل الضغط'), actions: [
+      appBar: AppBar(title: Text(AppTranslations.translate('blood_pressure_log', lang)), actions: [
         IconButton(
             onPressed: () {
               showModalBottomSheet(
@@ -32,12 +34,12 @@ class BloodPressurePage extends StatelessWidget {
             color: Colors.red.shade50,
             child: ListTile(
               leading: const Icon(Icons.favorite, color: Colors.red),
-              title: const Text('الهدف لضغط الدم', style: TextStyle(fontWeight: FontWeight.bold)),
+              title: Text(AppTranslations.translate('target_for_blood_pressure', lang), style: const TextStyle(fontWeight: FontWeight.bold)),
               subtitle: Text('${settingsProvider.targetSystolic}/${settingsProvider.targetDiastolic}'),
               trailing: IconButton(
                 icon: const Icon(Icons.edit),
                 onPressed: () {
-                  _showTargetDialog(context, settingsProvider);
+                  _showTargetDialog(context, settingsProvider, lang);
                 },
               ),
             ),
@@ -72,23 +74,23 @@ class BloodPressurePage extends StatelessWidget {
                         context: context,
                         position: position,
                         items: [
-                          const PopupMenuItem<String>(
+                          PopupMenuItem<String>(
                             value: 'edit',
                             child: Row(
                               children: [
-                                Icon(Icons.edit, size: 18),
-                                SizedBox(width: 12),
-                                Text('تعديل'),
+                                const Icon(Icons.edit, size: 18),
+                                const SizedBox(width: 12),
+                                Text(AppTranslations.translate('edit', lang)),
                               ],
                             ),
                           ),
-                          const PopupMenuItem<String>(
+                          PopupMenuItem<String>(
                             value: 'delete',
                             child: Row(
                               children: [
-                                Icon(Icons.delete, size: 18, color: Colors.red),
-                                SizedBox(width: 12),
-                                Text('حذف', style: TextStyle(color: Colors.red)),
+                                const Icon(Icons.delete, size: 18, color: Colors.red),
+                                const SizedBox(width: 12),
+                                Text(AppTranslations.translate('delete', lang), style: const TextStyle(color: Colors.red)),
                               ],
                             ),
                           ),
@@ -110,7 +112,7 @@ class BloodPressurePage extends StatelessWidget {
                       } else if (selected == 'delete') {
                         Provider.of<BloodPressureProvider>(context, listen: false).remove(i);
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('تم حذف القراءة')),
+                          SnackBar(content: Text(AppTranslations.translate('reading_saved', lang))),
                         );
                       }
                     },
@@ -142,30 +144,30 @@ class BloodPressurePage extends StatelessWidget {
     );
   }
 
-  void _showTargetDialog(BuildContext context, SettingsProvider settingsProvider) {
+  void _showTargetDialog(BuildContext context, SettingsProvider settingsProvider, String lang) {
     final sysController = TextEditingController(text: settingsProvider.targetSystolic.toString());
     final diaController = TextEditingController(text: settingsProvider.targetDiastolic.toString());
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('تحديد الهدف لضغط الدم'),
+        title: Text(AppTranslations.translate('target_for_blood_pressure', lang)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: sysController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'الضغط الانقباضي المستهدف',
+              decoration: InputDecoration(
+                labelText: AppTranslations.translate('target_systolic_bp', lang),
               ),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: diaController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'الضغط الانبساطي المستهدف',
+              decoration: InputDecoration(
+                labelText: AppTranslations.translate('target_diastolic_bp', lang),
               ),
             ),
           ],
@@ -173,7 +175,7 @@ class BloodPressurePage extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء'),
+            child: Text(AppTranslations.translate('cancel', lang)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -185,7 +187,7 @@ class BloodPressurePage extends StatelessWidget {
                 Navigator.pop(context);
               }
             },
-            child: const Text('حفظ'),
+            child: Text(AppTranslations.translate('save', lang)),
           ),
         ],
       ),

@@ -31,14 +31,26 @@ void main() async {
   final settingsProvider = SettingsProvider();
   await settingsProvider.load();
   debugPrint('[main] Settings loaded');
+
+  final medicationProvider = MedicationProvider();
+  await medicationProvider.load();
+  debugPrint('[main] Medications loaded');
+
+  final bloodPressureProvider = BloodPressureProvider();
+  await bloodPressureProvider.load();
+  debugPrint('[main] Blood pressure readings loaded');
+
+  final bloodSugarProvider = BloodSugarProvider();
+  await bloodSugarProvider.load();
+  debugPrint('[main] Blood sugar readings loaded');
   
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()),
-        ChangeNotifierProvider(create: (_) => MedicationProvider()),
-        ChangeNotifierProvider(create: (_) => BloodPressureProvider()),
-        ChangeNotifierProvider(create: (_) => BloodSugarProvider()),
+        ChangeNotifierProvider.value(value: medicationProvider),
+        ChangeNotifierProvider.value(value: bloodPressureProvider),
+        ChangeNotifierProvider.value(value: bloodSugarProvider),
         ChangeNotifierProvider.value(value: settingsProvider),
         ChangeNotifierProvider(create: (_) => AppointmentProvider()),
         ChangeNotifierProvider(create: (_) => AdherenceProvider()),
@@ -87,20 +99,6 @@ class _MyAppState extends State<MyApp> {
         ),
       );
     }
-    // Debug auto-add disabled: adding meds on app start has caused heavy startup activity in some environments.
-    // If you need it for testing, re-enable manually and use a lightweight schedule.
-    // Example to re-enable (debug only):
-    // assert(() {
-    //   WidgetsBinding.instance.addPostFrameCallback((_) {
-    //     try {
-    //       final medProv = Provider.of<MedicationProvider>(context, listen: false);
-    //       final now = DateTime.now().add(const Duration(minutes: 1));
-    //       final start = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-    //       medProv.add('DebugMed', '1 tablet', intervalHours: 6, startTime: start);
-    //     } catch (_) {}
-    //   });
-    //   return true;
-    // }());
 
     // Provide the navigatorKey early so taps can be flushed ASAP
     NotificationService().setNavigatorKey(_navigatorKey);
@@ -115,22 +113,26 @@ class _MyAppState extends State<MyApp> {
       }
     }
 
-    return MaterialApp(
-      navigatorKey: _navigatorKey,
-      title: 'My Medicine',
-      theme: AppTheme.theme,
-      home: getInitialPage(),
-      routes: {
-        '/home': (context) => const HomePage(),
-        '/onboarding': (context) => const OnboardingPage(),
-        '/language': (context) => const LanguageSelectionPage(),
-      },
-      builder: (context, child) {
-        return Consumer<SettingsProvider>(
-          builder: (context, settings, _) {
-            return Directionality(
-              textDirection: settings.language == 'ar' ? TextDirection.rtl : TextDirection.ltr,
-              child: child!,
+    return Consumer<SettingsProvider>(
+      builder: (context, settingsProvider, _) {
+        return MaterialApp(
+          navigatorKey: _navigatorKey,
+          title: 'My Medicine',
+          theme: AppTheme.theme(settingsProvider.themeColor),
+          home: getInitialPage(),
+          routes: {
+            '/home': (context) => const HomePage(),
+            '/onboarding': (context) => const OnboardingPage(),
+            '/language': (context) => const LanguageSelectionPage(),
+          },
+          builder: (context, child) {
+            return Consumer<SettingsProvider>(
+              builder: (context, settings, _) {
+                return Directionality(
+                  textDirection: settings.language == 'ar' ? TextDirection.rtl : TextDirection.ltr,
+                  child: child!,
+                );
+              },
             );
           },
         );
@@ -138,3 +140,5 @@ class _MyAppState extends State<MyApp> {
     );
   }
 }
+
+
