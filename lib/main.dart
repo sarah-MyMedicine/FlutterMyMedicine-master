@@ -76,7 +76,7 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   bool _isFirstTime = false;
   bool _isLanguageSelected = false;
@@ -86,7 +86,45 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkFirstTime();
+    _checkMissedDosesOnStartup();
+  }
+  
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+  
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // App came back to foreground, check for missed doses
+      debugPrint('[main] App resumed, checking for missed doses');
+      _checkMissedDoses();
+    }
+  }
+  
+  Future<void> _checkMissedDosesOnStartup() async {
+    // Wait a bit for providers to fully initialize
+    await Future.delayed(const Duration(seconds: 2));
+    await _checkMissedDoses();
+  }
+  
+  Future<void> _checkMissedDoses() async {
+    try {
+      final userProvider = context.read<UserProvider>();
+      final medicationProvider = context.read<MedicationProvider>();
+      
+      if (userProvider.isLoggedIn && userProvider.isPatient) {
+        final username = userProvider.username;
+        debugPrint('[main] Checking missed doses for patient: $username');
+        await medicationProvider.performMissedDoseCheck(username);
+      }
+    } catch (e) {
+      debugPrint('[main] Error checking missed doses: $e');
+    }
   }
 
   Future<void> _checkFirstTime() async {

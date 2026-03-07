@@ -13,6 +13,7 @@ class MedicationItem extends StatelessWidget {
   final String? startTime;
   final String? startDate;
   final String? chronicDisease;
+  final int missedDosesCount;
   final VoidCallback? onTap;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
@@ -26,6 +27,7 @@ class MedicationItem extends StatelessWidget {
     this.startTime,
     this.startDate,
     this.chronicDisease,
+    this.missedDosesCount = 0,
     this.onTap,
     this.onEdit,
     this.onDelete,
@@ -154,6 +156,25 @@ class MedicationItem extends StatelessWidget {
                                   fontWeight: FontWeight.w500,
                                 ),
                                 overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (missedDosesCount > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4.0),
+                        child: Row(
+                          children: [
+                            Icon(Icons.notifications_active, size: 14, color: Colors.red[700]),
+                            const SizedBox(width: 4),
+                            Text(
+                              missedDosesCount == 1
+                                  ? '${AppTranslations.translate('missed_dose', lang)}'
+                                  : '${AppTranslations.translate('missed_doses', lang)}: $missedDosesCount',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Colors.red[700],
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ],

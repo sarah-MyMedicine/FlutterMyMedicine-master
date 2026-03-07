@@ -42,6 +42,9 @@ app.use('/api/auth', require('./routes/auth'));
 // Caregiver routes
 app.use('/api/caregiver', require('./routes/caregiver'));
 
+// Admin routes (protected by API key)
+app.use('/api/admin', require('./routes/admin'));
+
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });

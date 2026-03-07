@@ -117,4 +117,42 @@ router.post('/logout', (req, res) => {
   res.json({ success: true, message: 'Logged out successfully' });
 });
 
+// ============ PASSWORD RESET ============
+
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { username, newPassword } = req.body;
+    
+    if (!username || !newPassword) {
+      return res.status(400).json({ message: 'Username and new password required' });
+    }
+    
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters' });
+    }
+    
+    const user = await User.findOne({ username: username.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    user.updatedAt = Date.now();
+    await user.save();
+    
+    console.log(`[Auth] Password reset for user: ${username}`);
+    
+    res.json({ 
+      success: true, 
+      message: 'Password reset successfully',
+      username: user.username
+    });
+  } catch (error) {
+    console.error('[Auth] Password reset error:', error);
+    res.status(500).json({ message: 'Password reset failed' });
+  }
+});
+
 module.exports = router;

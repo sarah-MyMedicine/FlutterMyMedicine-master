@@ -53,6 +53,9 @@ class MedicationList extends StatelessWidget {
                 itemCount: items.length,
                 itemBuilder: (context, i) {
                   final item = items[i];
+                  final notifPrefix = item['notifPrefix'] ?? '';
+                  final missedCount = provider.getMissedDosesCount(notifPrefix);
+                  
                   return MedicationItem(
                     name: item['name'] ?? '',
                     dose: item['dose'] ?? '',
@@ -61,6 +64,7 @@ class MedicationList extends StatelessWidget {
                     startTime: item['startTime'],
                     startDate: item['startDate'],
                     chronicDisease: item['chronicDisease'],
+                    missedDosesCount: missedCount,
                     onTap: () => _showInfo(context, item),
                     onEdit: () {
                       Navigator.pop(context);
