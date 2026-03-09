@@ -50,9 +50,10 @@ class _LoginPageState extends State<LoginPage> {
     if (success) {
       Navigator.pushReplacementNamed(context, '/home');
     } else {
+      final errorMessage = userProvider.lastError ?? 'فشل تسجيل الدخول. تحقق من بياناتك';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('فشل تسجيل الدخول. تحقق من بياناتك'),
+        SnackBar(
+          content: Text(errorMessage),
           backgroundColor: Colors.red,
         ),
       );

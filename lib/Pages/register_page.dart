@@ -79,9 +79,10 @@ class _RegisterPageState extends State<RegisterPage> {
     if (success) {
       Navigator.pushReplacementNamed(context, '/home');
     } else {
+      final errorMessage = userProvider.lastError ?? 'فشل التسجيل. تحقق من البيانات وحاول مرة أخرى';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('فشل التسجيل. اسم المستخدم موجود مسبقاً'),
+        SnackBar(
+          content: Text(errorMessage),
           backgroundColor: Colors.red,
         ),
       );

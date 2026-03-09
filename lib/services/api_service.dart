@@ -8,9 +8,18 @@ class ApiService {
   static final ApiService _instance = ApiService._privateConstructor();
   factory ApiService() => _instance;
 
-  // Change this to your backend URL
-  static const String _baseUrl = 'http://localhost:5000/api';
-  // For mobile testing, use: 'http://192.168.x.x:5000/api' (your machine's IP)
+  static const String _defaultBaseUrl = 'http://localhost:5000/api';
+  static const String _envBaseUrl = String.fromEnvironment('API_BASE_URL');
+
+  // Use --dart-define=API_BASE_URL=http://<ip>:5000/api for physical devices.
+  static String get _baseUrl {
+    if (_envBaseUrl.isNotEmpty) return _envBaseUrl;
+    if (kIsWeb) return _defaultBaseUrl;
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://10.0.2.2:5000/api';
+    }
+    return _defaultBaseUrl;
+  }
   
   late http.Client _httpClient;
   String? _authToken;
@@ -20,6 +29,19 @@ class ApiService {
     _httpClient = http.Client();
     await _loadAuthToken();
     debugPrint('[ApiService] Initialized with baseUrl: $_baseUrl');
+  }
+
+  String _extractApiError(http.Response response, String fallback) {
+    try {
+      final dynamic decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) {
+        final message = decoded['message']?.toString();
+        if (message != null && message.isNotEmpty) return message;
+      }
+    } catch (_) {
+      // Keep fallback when server body is not JSON.
+    }
+    return '$fallback (HTTP ${response.statusCode})';
   }
 
   Future<void> _loadAuthToken() async {
@@ -75,7 +97,7 @@ class ApiService {
         debugPrint('[ApiService] Registration successful');
         return data;
       } else {
-        throw Exception('Registration failed: ${response.body}');
+        throw Exception(_extractApiError(response, 'Registration failed'));
       }
     } catch (e) {
       debugPrint('[ApiService] Registration error: $e');
@@ -103,7 +125,7 @@ class ApiService {
         debugPrint('[ApiService] Login successful');
         return data;
       } else {
-        throw Exception('Login failed: ${response.body}');
+        throw Exception(_extractApiError(response, 'Login failed'));
       }
     } catch (e) {
       debugPrint('[ApiService] Login error: $e');

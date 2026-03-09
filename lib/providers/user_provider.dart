@@ -7,15 +7,28 @@ class UserProvider extends ChangeNotifier {
   String? _name;
   String? _userType;
   String? _userId;
+  String? _lastError;
   bool _isLoggedIn = false;
   
   String? get username => _username;
   String? get name => _name;
   String? get userType => _userType;
   String? get userId => _userId;
+  String? get lastError => _lastError;
   bool get isLoggedIn => _isLoggedIn;
   bool get isPatient => _userType == 'patient';
   bool get isCaregiver => _userType == 'caregiver';
+
+  String _friendlyError(Object error) {
+    final raw = error.toString().replaceFirst('Exception: ', '').trim();
+    if (raw.contains('Connection refused') ||
+        raw.contains('Failed host lookup') ||
+        raw.contains('SocketException')) {
+      return 'تعذر الاتصال بالخادم. تأكد من تشغيل الـ Backend وصحة عنوان API.';
+    }
+    if (raw.isEmpty) return 'حدث خطأ غير متوقع.';
+    return raw;
+  }
   
   Future<void> loadUserFromStorage() async {
     final prefs = await SharedPreferences.getInstance();
@@ -33,25 +46,28 @@ class UserProvider extends ChangeNotifier {
     required String name,
     required String userType,
   }) async {
+    _lastError = null;
     try {
       final apiService = ApiService();
       final response = await apiService.register(
-        username: username,
+        username: username.trim().toLowerCase(),
         password: password,
         name: name,
         userType: userType,
       );
       
       await _saveUserData(
-        username: username,
-        name: name,
-        userType: userType,
+        username: response['username']?.toString() ?? username.trim().toLowerCase(),
+        name: response['name']?.toString() ?? name,
+        userType: response['userType']?.toString() ?? userType,
         userId: response['userId'],
       );
       
       return true;
     } catch (e) {
-      debugPrint('Registration error: $e');
+      _lastError = _friendlyError(e);
+      debugPrint('Registration error: $_lastError');
+      notifyListeners();
       return false;
     }
   }
@@ -60,23 +76,26 @@ class UserProvider extends ChangeNotifier {
     required String username,
     required String password,
   }) async {
+    _lastError = null;
     try {
       final apiService = ApiService();
       final response = await apiService.login(
-        username: username,
+        username: username.trim().toLowerCase(),
         password: password,
       );
       
       await _saveUserData(
-        username: username,
-        name: response['name'],
-        userType: response['userType'],
+        username: response['username']?.toString() ?? username.trim().toLowerCase(),
+        name: response['name']?.toString() ?? '',
+        userType: response['userType']?.toString() ?? '',
         userId: response['userId'],
       );
       
       return true;
     } catch (e) {
-      debugPrint('Login error: $e');
+      _lastError = _friendlyError(e);
+      debugPrint('Login error: $_lastError');
+      notifyListeners();
       return false;
     }
   }
@@ -112,6 +131,7 @@ class UserProvider extends ChangeNotifier {
     _name = null;
     _userType = null;
     _userId = null;
+    _lastError = null;
     _isLoggedIn = false;
     notifyListeners();
   }
