@@ -170,7 +170,7 @@ class MedicationItem extends StatelessWidget {
                             const SizedBox(width: 4),
                             Text(
                               missedDosesCount == 1
-                                  ? '${AppTranslations.translate('missed_dose', lang)}'
+                                  ? AppTranslations.translate('missed_dose', lang)
                                   : '${AppTranslations.translate('missed_doses', lang)}: $missedDosesCount',
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: Colors.red[700],

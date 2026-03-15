@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const User = require('./models/User');
 
 // Load environment variables
 dotenv.config();
@@ -21,8 +22,17 @@ mongoose
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
-  .then(() => {
+  .then(async () => {
     console.log('[MongoDB] Connected successfully');
+
+    // Keep DB indexes aligned with current schemas.
+    // This removes stale indexes from old schema versions (e.g. unique email index).
+    try {
+      await User.syncIndexes();
+      console.log('[MongoDB] User indexes synced');
+    } catch (indexError) {
+      console.error('[MongoDB] Failed to sync User indexes:', indexError);
+    }
   })
   .catch((error) => {
     console.error('[MongoDB] Connection failed:', error);

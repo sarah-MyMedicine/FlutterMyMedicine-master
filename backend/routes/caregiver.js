@@ -3,6 +3,8 @@ const router = express.Router();
 const crypto = require('crypto');
 const User = require('../models/User');
 const LinkInvitation = require('../models/LinkInvitation');
+const EmergencyAlert = require('../models/EmergencyAlert');
+const { sendPushNotification } = require('../services/push_service');
 const { authMiddleware } = require('../middleware/auth');
 
 // ============ GENERATE INVITATION CODE ============
@@ -264,6 +266,49 @@ router.post('/unlink', authMiddleware, async (req, res) => {
   }
 });
 
+// ============ REGISTER/CLEAR FCM TOKEN ============
+
+router.post('/register-fcm-token', authMiddleware, async (req, res) => {
+  try {
+    const { fcmToken } = req.body;
+    if (!fcmToken || typeof fcmToken !== 'string') {
+      return res.status(400).json({ message: 'Valid fcmToken is required' });
+    }
+
+    const user = await User.findOne({ username: req.username.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    user.fcmToken = fcmToken;
+    user.updatedAt = new Date();
+    await user.save();
+
+    res.json({ success: true, message: 'FCM token registered' });
+  } catch (error) {
+    console.error('[Caregiver] Register FCM token error:', error);
+    res.status(500).json({ message: 'Failed to register FCM token' });
+  }
+});
+
+router.post('/clear-fcm-token', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findOne({ username: req.username.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    user.fcmToken = null;
+    user.updatedAt = new Date();
+    await user.save();
+
+    res.json({ success: true, message: 'FCM token cleared' });
+  } catch (error) {
+    console.error('[Caregiver] Clear FCM token error:', error);
+    res.status(500).json({ message: 'Failed to clear FCM token' });
+  }
+});
+
 // ============ NOTIFY MISSED DOSES ============
 
 router.post('/notify-missed-dose', authMiddleware, async (req, res) => {
@@ -274,6 +319,10 @@ router.post('/notify-missed-dose', authMiddleware, async (req, res) => {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
+    if (req.username !== patientUsername.toLowerCase()) {
+      return res.status(403).json({ message: 'You can only send alerts for your own account' });
+    }
+
     // Find patient and their caregiver
     const patient = await User.findOne({ username: patientUsername.toLowerCase() })
       .populate('caregiverId', 'fcmToken name username');
@@ -282,15 +331,28 @@ router.post('/notify-missed-dose', authMiddleware, async (req, res) => {
       return res.status(404).json({ message: 'Patient not found' });
     }
 
-    // If patient has linked caregiver and FCM token, send notification
+    if (patient.userType !== 'patient') {
+      return res.status(400).json({ message: 'Only patients can send missed dose alerts' });
+    }
+
+    let pushDelivered = false;
+
+    // If patient has linked caregiver and FCM token, send push notification
     if (patient.caregiverId && patient.caregiverId.fcmToken) {
-      // TODO: Implement FCM push notification
-      // sendPushNotification(patient.caregiverId.fcmToken, {
-      //   title: 'تنبيه: جرعات دواء مفقودة',
-      //   body: `${patient.name} فاته ${consecutiveMissed} جرعات من ${medicationName}`,
-      // });
-      
-      console.log(`[Caregiver] Notification would be sent to caregiver: ${patient.caregiverId.username}`);
+      const pushResult = await sendPushNotification({
+        token: patient.caregiverId.fcmToken,
+        title: 'تنبيه: جرعات دواء مفقودة',
+        body: `${patient.name} فاته ${consecutiveMissed} جرعات من ${medicationName}`,
+        data: {
+          type: 'missed_dose',
+          patientUsername: patient.username,
+          patientName: patient.name,
+          medicationName,
+          consecutiveMissed,
+        },
+      });
+      pushDelivered = pushResult.delivered;
+      console.log(`[Caregiver] Missed-dose push result: ${JSON.stringify(pushResult)}`);
     }
 
     // Log the missed dose notification
@@ -300,10 +362,162 @@ router.post('/notify-missed-dose', authMiddleware, async (req, res) => {
       success: true,
       message: 'Missed dose notification sent',
       caregiverNotified: patient.caregiverId != null,
+      pushDelivered,
     });
   } catch (error) {
     console.error('[Caregiver] Notify missed doses error:', error);
     res.status(500).json({ message: 'Failed to send notification' });
+  }
+});
+
+// ============ NOTIFY EMERGENCY (SIREN) ============
+
+router.post('/notify-emergency', authMiddleware, async (req, res) => {
+  try {
+    const { patientUsername, message, classification } = req.body;
+
+    if (!patientUsername) {
+      return res.status(400).json({ message: 'Patient username is required' });
+    }
+
+    // Ensure patients can only send emergency alerts for themselves.
+    if (req.username !== patientUsername.toLowerCase()) {
+      return res.status(403).json({ message: 'You can only send alerts for your own account' });
+    }
+
+    const patient = await User.findOne({ username: patientUsername.toLowerCase() })
+      .populate('caregiverId', 'name username fcmToken userType');
+
+    if (!patient) {
+      return res.status(404).json({ message: 'Patient not found' });
+    }
+
+    if (patient.userType !== 'patient') {
+      return res.status(400).json({ message: 'Only patients can send emergency alerts' });
+    }
+
+    if (!patient.caregiverId) {
+      return res.status(400).json({ message: 'No linked caregiver found for this patient' });
+    }
+
+    const resolvedClassification = classification || 'siren';
+    const resolvedMessage =
+      message ||
+      `${patient.name} triggered an emergency alert and needs immediate attention.`;
+
+    const alert = new EmergencyAlert({
+      patientId: patient._id,
+      caregiverId: patient.caregiverId._id,
+      patientUsername: patient.username,
+      patientName: patient.name,
+      caregiverUsername: patient.caregiverId.username,
+      caregiverName: patient.caregiverId.name,
+      classification: resolvedClassification,
+      message: resolvedMessage,
+      status: 'unread',
+    });
+
+    await alert.save();
+
+    let pushDelivered = false;
+    if (patient.caregiverId.fcmToken) {
+      const pushResult = await sendPushNotification({
+        token: patient.caregiverId.fcmToken,
+        title: '🚨 Siren Emergency Alert',
+        body: resolvedMessage,
+        data: {
+          type: 'emergency_siren',
+          alertId: alert._id,
+          classification: resolvedClassification,
+          patientUsername: patient.username,
+          patientName: patient.name,
+        },
+      });
+      pushDelivered = pushResult.delivered;
+      console.log(`[Caregiver] Siren push result: ${JSON.stringify(pushResult)}`);
+    }
+
+    console.log(
+      `[Caregiver] Emergency alert saved: patient=${patient.username}, caregiver=${patient.caregiverId.username}, classification=${resolvedClassification}`
+    );
+
+    res.json({
+      success: true,
+      message: 'Emergency alert sent to caregiver',
+      alertId: alert._id,
+      caregiver: {
+        username: patient.caregiverId.username,
+        name: patient.caregiverId.name,
+      },
+      classification: resolvedClassification,
+      pushDelivered,
+    });
+  } catch (error) {
+    console.error('[Caregiver] Notify emergency error:', error);
+    res.status(500).json({ message: 'Failed to send emergency alert' });
+  }
+});
+
+// ============ GET CAREGIVER ALERTS ============
+
+router.get('/alerts/:caregiverUsername', authMiddleware, async (req, res) => {
+  try {
+    const { caregiverUsername } = req.params;
+
+    if (req.username !== caregiverUsername.toLowerCase()) {
+      return res.status(403).json({ message: 'You can only access your own alerts' });
+    }
+
+    const caregiver = await User.findOne({ username: caregiverUsername.toLowerCase() });
+    if (!caregiver) {
+      return res.status(404).json({ message: 'Caregiver not found' });
+    }
+
+    if (caregiver.userType !== 'caregiver') {
+      return res.status(400).json({ message: 'User is not a caregiver' });
+    }
+
+    const alerts = await EmergencyAlert.find({ caregiverId: caregiver._id })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
+
+    res.json({
+      success: true,
+      alerts,
+    });
+  } catch (error) {
+    console.error('[Caregiver] Get alerts error:', error);
+    res.status(500).json({ message: 'Failed to get alerts' });
+  }
+});
+
+// ============ MARK ALERT AS READ ============
+
+router.patch('/alerts/:alertId/read', authMiddleware, async (req, res) => {
+  try {
+    const { alertId } = req.params;
+
+    const alert = await EmergencyAlert.findById(alertId);
+    if (!alert) {
+      return res.status(404).json({ message: 'Alert not found' });
+    }
+
+    const caregiver = await User.findById(alert.caregiverId);
+    if (!caregiver || caregiver.username !== req.username) {
+      return res.status(403).json({ message: 'You are not allowed to update this alert' });
+    }
+
+    alert.status = 'read';
+    await alert.save();
+
+    res.json({
+      success: true,
+      message: 'Alert marked as read',
+    });
+  } catch (error) {
+    console.error('[Caregiver] Mark alert read error:', error);
+    res.status(500).json({ message: 'Failed to mark alert as read' });
   }
 });
 

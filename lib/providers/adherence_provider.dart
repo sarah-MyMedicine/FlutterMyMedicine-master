@@ -33,6 +33,20 @@ class AdherenceLog {
 class AdherenceProvider extends ChangeNotifier {
   List<AdherenceLog> _logs = [];
 
+  int _parseIntervalHours(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? 24;
+    return 24;
+  }
+
+  DateTime? _parseStartDate(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is String) return DateTime.tryParse(value);
+    return null;
+  }
+
   List<AdherenceLog> get logs {
     // Return logs sorted by date descending
     return List.from(_logs)..sort((a, b) => b.when.compareTo(a.when));
@@ -139,14 +153,14 @@ class AdherenceProvider extends ChangeNotifier {
     int validMedications = 0;
     
     for (final med in medications) {
-      final name = med['name'] as String?;
-      final intervalStr = med['intervalHours'] as String?;
-      final startDateStr = med['startDate'] as String?;
+      final name = med['name']?.toString();
+      final intervalValue = med['intervalHours'];
+      final startDateValue = med['startDate'];
       
-      if (name == null || intervalStr == null) continue;
+      if (name == null || name.isEmpty) continue;
       
-      final intervalHours = int.tryParse(intervalStr) ?? 24;
-      final startDate = startDateStr != null ? DateTime.tryParse(startDateStr) : null;
+      final intervalHours = _parseIntervalHours(intervalValue);
+      final startDate = _parseStartDate(startDateValue);
       
       final score = calculateMedicationAdherence(
         medicationName: name,
@@ -167,14 +181,14 @@ class AdherenceProvider extends ChangeNotifier {
     final scores = <String, double>{};
     
     for (final med in medications) {
-      final name = med['name'] as String?;
-      final intervalStr = med['intervalHours'] as String?;
-      final startDateStr = med['startDate'] as String?;
+      final name = med['name']?.toString();
+      final intervalValue = med['intervalHours'];
+      final startDateValue = med['startDate'];
       
-      if (name == null || intervalStr == null) continue;
+      if (name == null || name.isEmpty) continue;
       
-      final intervalHours = int.tryParse(intervalStr) ?? 24;
-      final startDate = startDateStr != null ? DateTime.tryParse(startDateStr) : null;
+      final intervalHours = _parseIntervalHours(intervalValue);
+      final startDate = _parseStartDate(startDateValue);
       
       scores[name] = calculateMedicationAdherence(
         medicationName: name,

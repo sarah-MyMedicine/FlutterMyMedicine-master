@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/user_provider.dart';
 import '../utils/translations.dart';
+import 'profile_page.dart';
+import 'reminder_reliability_check_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -60,6 +63,73 @@ class _SettingsPageState extends State<SettingsPage> {
                   child: ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
+                      // Account & Profile Section
+                      Consumer<UserProvider>(
+                        builder: (context, userProvider, _) {
+                          return _buildSection(
+                            lang: lang,
+                            title: AppTranslations.translate('profile', lang),
+                            icon: Icons.account_circle,
+                            iconColor: Colors.blue,
+                            children: [
+                              if (userProvider.username != null)
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      AppTranslations.translate('username', lang),
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      userProvider.username ?? 'N/A',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: ElevatedButton.icon(
+                                        onPressed: () {
+                                          if (userProvider.password != null) {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) => ProfilePage(
+                                                  password: userProvider.password!,
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                        },
+                                        icon: const Icon(Icons.security, size: 18),
+                                        label: Text(
+                                          AppTranslations.translate('account_security', lang),
+                                        ),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.blue.shade700,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(vertical: 12),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                            ],
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
                       // Personal Profile Section
                       _buildSection(
                         lang: lang,
@@ -263,6 +333,30 @@ class _SettingsPageState extends State<SettingsPage> {
                               ),
                             ),
                           ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const ReminderReliabilityCheckPage(),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.verified_user_outlined, size: 20),
+                              label: Text(
+                                AppTranslations.translate('reminder_reliability_check', lang),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -280,7 +374,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                           const SizedBox(height: 12),
                           DropdownButtonFormField<String>(
-                            value: sp.language,
+                            initialValue: sp.language,
                             decoration: InputDecoration(
                               filled: true,
                               fillColor: Colors.grey[100],

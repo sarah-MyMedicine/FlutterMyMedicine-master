@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'dart:math';
 import '../services/notification_service.dart';
 import '../services/api_service.dart';
 
 class MedicationProvider extends ChangeNotifier {
   static const String _storageKey = 'medications_v1';
   static const String _missedDosesKey = 'missed_doses_tracking';
+  static const int _scheduleHorizonDays = 90;
+  static const int _minScheduledOccurrences = 60;
+  static const int _maxScheduledOccurrences = 720;
 
   // Each item may include an optional imagePath (local file path to a photo)
   // We also store a prefix id so we can cancel scheduled notifications when removing
@@ -20,8 +24,112 @@ class MedicationProvider extends ChangeNotifier {
   
   // Track if we've already notified for current missed doses (to avoid spam)
   final Map<String, bool> _hasNotifiedForCurrentMissed = {};
+  final Random _random = Random();
 
   List<Map<String, String?>> get items => List.unmodifiable(_items);
+
+  String _generateUniquePrefix() {
+    while (true) {
+      final candidate =
+          '${DateTime.now().microsecondsSinceEpoch}_${_random.nextInt(1 << 20)}';
+      final exists = _items.any((item) => item['notifPrefix'] == candidate);
+      if (!exists) return candidate;
+    }
+  }
+
+  bool _ensureUniquePrefixes() {
+    bool changed = false;
+    final seen = <String>{};
+
+    for (final item in _items) {
+      final prefix = item['notifPrefix'];
+      final needsNew = prefix == null || prefix.isEmpty || seen.contains(prefix);
+      if (needsNew) {
+        item['notifPrefix'] = _generateUniquePrefix();
+        changed = true;
+      }
+      seen.add(item['notifPrefix']!);
+    }
+
+    return changed;
+  }
+
+  int _occurrencesForInterval(int intervalHours) {
+    final safeInterval = intervalHours <= 0 ? 24 : intervalHours;
+    final calculated = ((_scheduleHorizonDays * 24) / safeInterval).ceil();
+    if (calculated < _minScheduledOccurrences) return _minScheduledOccurrences;
+    if (calculated > _maxScheduledOccurrences) return _maxScheduledOccurrences;
+    return calculated;
+  }
+
+  DateTime? _calculateNextDoseFromItem(Map<String, String?> item, DateTime now) {
+    final intervalHours = int.tryParse(item['intervalHours'] ?? '24') ?? 24;
+    final lastTakenStr = item['lastTaken'];
+
+    if (lastTakenStr != null && lastTakenStr.isNotEmpty) {
+      final lastTaken = DateTime.tryParse(lastTakenStr);
+      if (lastTaken != null) {
+        var next = lastTaken.add(Duration(hours: intervalHours));
+        while (!next.isAfter(now)) {
+          next = next.add(Duration(hours: intervalHours));
+        }
+        return next;
+      }
+    }
+
+    final startTime = item['startTime'];
+    if (startTime == null || startTime.isEmpty) return null;
+
+    final parts = startTime.split(':');
+    if (parts.length != 2) return null;
+
+    final h = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    if (h == null || m == null) return null;
+
+    DateTime base = DateTime(now.year, now.month, now.day);
+    final startDate = item['startDate'];
+    if (startDate != null && startDate.isNotEmpty) {
+      final parsedBase = DateTime.tryParse(startDate);
+      if (parsedBase != null) {
+        base = DateTime(parsedBase.year, parsedBase.month, parsedBase.day);
+      }
+    }
+
+    var next = DateTime(base.year, base.month, base.day, h, m);
+    while (!next.isAfter(now)) {
+      next = next.add(Duration(hours: intervalHours));
+    }
+    return next;
+  }
+
+  Future<void> _restoreMedicationSchedules() async {
+    final now = DateTime.now();
+    for (final item in _items) {
+      final prefix = item['notifPrefix'];
+      final name = item['name'];
+      final dose = item['dose'];
+      if (prefix == null || name == null || dose == null) continue;
+
+      final intervalHours = int.tryParse(item['intervalHours'] ?? '24') ?? 24;
+      final firstOccurrence = _calculateNextDoseFromItem(item, now);
+      if (firstOccurrence == null) continue;
+
+      try {
+        await NotificationService().cancelForPrefix(prefix);
+        await NotificationService().scheduleRepeatedOccurrences(
+          prefix: prefix,
+          title: 'موعد تناول $name',
+          body: '$dose · كل $intervalHours ساعة',
+          firstOccurrence: firstOccurrence,
+          intervalHours: intervalHours,
+          occurrences: _occurrencesForInterval(intervalHours),
+        );
+      } catch (e) {
+        debugPrint('[MedicationProvider] Failed to restore schedule for $name: $e');
+      }
+    }
+  }
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -57,6 +165,11 @@ class MedicationProvider extends ChangeNotifier {
       debugPrint('[MedicationProvider.load] Failed to parse saved medications: $e');
       _items.clear();
     }
+
+    final prefixesFixed = _ensureUniquePrefixes();
+    if (prefixesFixed) {
+      await _saveToPrefs();
+    }
     
     // Load missed doses tracking data
     final missedDosesRaw = prefs.getString(_missedDosesKey);
@@ -74,6 +187,8 @@ class MedicationProvider extends ChangeNotifier {
       }
     }
 
+    await _restoreMedicationSchedules();
+
     notifyListeners();
   }
 
@@ -89,7 +204,7 @@ class MedicationProvider extends ChangeNotifier {
   }
 
   Future<void> add(String name, String dose, {String? imagePath, int intervalHours = 24, String? startTime, String? startDate, String? chronicDisease}) async {
-    final prefix = DateTime.now().millisecondsSinceEpoch.toString();
+    final prefix = _generateUniquePrefix();
     debugPrint('[MedicationProvider.add] Adding medication: $name, dose: $dose, interval: $intervalHours hours, startTime: $startTime, startDate: $startDate, chronicDisease: $chronicDisease');
 
     _items.add({
@@ -142,10 +257,10 @@ class MedicationProvider extends ChangeNotifier {
             await NotificationService().scheduleRepeatedOccurrences(
               prefix: prefix,
               title: 'موعد تناول $name',
-              body: '$dose · كل ${intervalHours} ساعة',
+              body: '$dose · كل $intervalHours ساعة',
               firstOccurrence: firstDue,
               intervalHours: intervalHours,
-              occurrences: 30,
+              occurrences: _occurrencesForInterval(intervalHours),
             );
             debugPrint('[MedicationProvider.add] Successfully scheduled notifications for prefix: $prefix');
           } else {
@@ -180,10 +295,10 @@ class MedicationProvider extends ChangeNotifier {
     await NotificationService().scheduleRepeatedOccurrences(
       prefix: prefix,
       title: 'موعد تناول ${item['name']}',
-      body: '${item['dose']} · كل ${interval} ساعة',
+      body: '${item['dose']} · كل $interval ساعة',
       firstOccurrence: first,
       intervalHours: interval,
-      occurrences: 30,
+      occurrences: _occurrencesForInterval(interval),
     );
 
     // Save lastTaken timestamp for UI if desired
@@ -218,6 +333,9 @@ class MedicationProvider extends ChangeNotifier {
     if (index < 0 || index >= _items.length) return;
 
     final existing = _items[index];
+    final String prefix = (existing['notifPrefix'] == null || existing['notifPrefix']!.isEmpty)
+        ? _generateUniquePrefix()
+        : existing['notifPrefix']!;
     _items[index] = {
       'name': name,
       'dose': dose,
@@ -226,11 +344,52 @@ class MedicationProvider extends ChangeNotifier {
       'startTime': startTime,
       'startDate': startDate,
       'chronicDisease': chronicDisease,
-      'notifPrefix': existing['notifPrefix'],
+      'notifPrefix': prefix,
       'lastTaken': existing['lastTaken'],
     };
 
     await _saveToPrefs();
+
+    // Reschedule notifications only for this same medication entry.
+    try {
+      await NotificationService().cancelForPrefix(prefix);
+
+      if (startTime != null) {
+        final parts = startTime.split(':');
+        if (parts.length == 2) {
+          final h = int.tryParse(parts[0]);
+          final m = int.tryParse(parts[1]);
+          if (h != null && m != null) {
+            final now = DateTime.now();
+            DateTime scheduled = DateTime(now.year, now.month, now.day, h, m);
+
+            if (startDate != null) {
+              try {
+                final base = DateTime.parse(startDate);
+                scheduled = DateTime(base.year, base.month, base.day, h, m);
+              } catch (_) {}
+            }
+
+            var firstDue = scheduled;
+            while (!firstDue.isAfter(now)) {
+              firstDue = firstDue.add(Duration(hours: intervalHours));
+            }
+
+            await NotificationService().scheduleRepeatedOccurrences(
+              prefix: prefix,
+              title: 'موعد تناول $name',
+              body: '$dose · كل $intervalHours ساعة',
+              firstOccurrence: firstDue,
+              intervalHours: intervalHours,
+              occurrences: _occurrencesForInterval(intervalHours),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[MedicationProvider.updateAt] Failed to reschedule $name: $e');
+    }
+
     notifyListeners();
   }
   

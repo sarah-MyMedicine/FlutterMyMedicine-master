@@ -3,11 +3,13 @@ import 'package:provider/provider.dart';
 import '../providers/medication_provider.dart';
 import '../providers/adherence_provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/user_provider.dart';
 import '../components/header.dart';
 import '../components/footer.dart';
 import '../components/medication_list.dart';
 import '../components/ad_banner.dart';
 import '../components/medication_form_modal.dart';
+import '../services/api_service.dart';
 import '../utils/translations.dart';
 import 'blood_pressure_log.dart';
 import 'blood_sugar_log.dart';
@@ -22,6 +24,82 @@ import 'lab_results_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
+
+  Future<void> _handleEmergencyTap(BuildContext context, String lang) async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+    if (!userProvider.isPatient) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppTranslations.translate('emergency_patient_only', lang)),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
+    final patientUsername = userProvider.username;
+    if (patientUsername == null || patientUsername.isEmpty) return;
+
+    final shouldSend = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(AppTranslations.translate('send_siren_alert', lang)),
+        content: Text(AppTranslations.translate('send_siren_alert_desc', lang)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(AppTranslations.translate('cancel', lang)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(AppTranslations.translate('send_alert', lang)),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldSend != true) return;
+
+    try {
+      final response = await ApiService().sendEmergencyAlert(
+        patientUsername: patientUsername,
+        classification: 'siren',
+        message: AppTranslations.translate('siren_alert_message', lang),
+      );
+
+      final caregiverName = (response['caregiver'] as Map<String, dynamic>?)?['name']?.toString();
+      final successMessage = caregiverName != null && caregiverName.isNotEmpty
+          ? '${AppTranslations.translate('emergency_alert_sent_to', lang)} $caregiverName'
+          : AppTranslations.translate('emergency_alert_sent', lang);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(successMessage),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      final raw = e.toString().replaceFirst('Exception: ', '').trim();
+      final msg = raw.contains('No linked caregiver')
+          ? AppTranslations.translate('no_linked_caregiver', lang)
+          : AppTranslations.translate('emergency_alert_failed', lang);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(msg),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -165,9 +243,9 @@ class HomePage extends StatelessWidget {
                               ),
                               _SquareTile(
                                 icon: Icons.add_alert,
-                                label: 'طوارئ',
+                                label: AppTranslations.translate('emergency', lang),
                                 highlight: true,
-                                onTap: () {},
+                                onTap: () => _handleEmergencyTap(context, lang),
                               ),
 
                               _SquareTile(

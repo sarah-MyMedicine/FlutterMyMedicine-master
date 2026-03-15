@@ -98,7 +98,7 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
           ),
           const SizedBox(height: 6),
           Text(
-            AppTranslations.translate('add', lang) + ' ' + AppTranslations.translate('appointments', lang),
+            '${AppTranslations.translate('add', lang)} ${AppTranslations.translate('appointments', lang)}',
             style: const TextStyle(fontSize: 13, color: Color(0xFF7B7B7B)),
           ),
         ],

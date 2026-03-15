@@ -4,10 +4,11 @@ import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/api_service.dart';
+import '../utils/translations.dart';
 import 'dart:async';
 
 class CaregiverLinkPage extends StatefulWidget {
-  const CaregiverLinkPage({Key? key}) : super(key: key);
+  const CaregiverLinkPage({super.key});
 
   @override
   _CaregiverLinkPageState createState() => _CaregiverLinkPageState();
@@ -19,6 +20,7 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
   Timer? _codeExpiryTimer;
   List<Map<String, dynamic>> _pendingInvitations = [];
   List<Map<String, dynamic>> _linkedPatients = [];
+  List<Map<String, dynamic>> _caregiverAlerts = [];
   Map<String, dynamic>? _linkedCaregiver;
   bool _isLoading = false;
   final _codeController = TextEditingController();
@@ -48,6 +50,7 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
       if (userProvider.isCaregiver) {
         _pendingInvitations = await apiService.getPendingInvitations(userProvider.username!);
         _linkedPatients = await apiService.getLinkedPatients(userProvider.username!);
+        _caregiverAlerts = await apiService.getCaregiverAlerts(userProvider.username!);
       } else {
         _linkedCaregiver = await apiService.getLinkedCaregiver(userProvider.username!);
       }
@@ -648,27 +651,123 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
   }
   
   Widget _buildNotificationsTab(SettingsProvider sp) {
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.notifications_outlined, size: 80, color: Colors.grey),
-            SizedBox(height: 16),
-            Text(
-              'سيتم عرض إشعارات الجرعات المفقودة هنا',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 18, color: Colors.grey),
-            ),
-            SizedBox(height: 8),
-            Text(
-              'سيتم إشعارك تلقائياً عندما يفوت المريض جرعتين متتاليتين',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: Colors.grey),
-            ),
-          ],
+    final lang = sp.language;
+
+    if (_caregiverAlerts.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.notifications_outlined, size: 80, color: Colors.grey),
+              const SizedBox(height: 16),
+              Text(
+                AppTranslations.translate('missed_doses_notification_desc', lang),
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 18, color: Colors.grey),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'ستظهر هنا أيضاً تنبيهات الطوارئ المصنفة كصفارة إنذار',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+            ],
+          ),
         ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: _caregiverAlerts.length,
+        itemBuilder: (context, index) {
+          final alert = _caregiverAlerts[index];
+          final classification = (alert['classification']?.toString() ?? '').toLowerCase();
+          final isSiren = classification == 'siren';
+          final isUnread = (alert['status']?.toString() ?? 'unread') == 'unread';
+          final patientName = alert['patientName']?.toString() ?? alert['patientUsername']?.toString() ?? '-';
+          final message = alert['message']?.toString() ?? '';
+
+          DateTime? createdAt;
+          final createdAtRaw = alert['createdAt']?.toString();
+          if (createdAtRaw != null && createdAtRaw.isNotEmpty) {
+            createdAt = DateTime.tryParse(createdAtRaw);
+          }
+
+          return Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: ListTile(
+              contentPadding: const EdgeInsets.all(14),
+              leading: CircleAvatar(
+                backgroundColor: isSiren ? Colors.red.shade50 : Colors.orange.shade50,
+                child: Icon(
+                  isSiren ? Icons.warning_amber_rounded : Icons.notification_important,
+                  color: isSiren ? Colors.red : Colors.orange,
+                ),
+              ),
+              title: Text(
+                patientName,
+                style: TextStyle(
+                  fontWeight: isUnread ? FontWeight.bold : FontWeight.w600,
+                ),
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 6),
+                  Text(
+                    message,
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    isSiren
+                        ? AppTranslations.translate('siren_classification', lang)
+                        : 'Classification: ${classification.isEmpty ? 'high' : classification}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isSiren ? Colors.red : Colors.grey,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (createdAt != null)
+                    Text(
+                      '${createdAt.day}/${createdAt.month}/${createdAt.year} ${createdAt.hour.toString().padLeft(2, '0')}:${createdAt.minute.toString().padLeft(2, '0')}',
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
+                ],
+              ),
+              trailing: isUnread
+                  ? TextButton(
+                      onPressed: () async {
+                        final alertId = alert['_id']?.toString();
+                        if (alertId == null || alertId.isEmpty) return;
+
+                        try {
+                          await ApiService().markEmergencyAlertAsRead(alertId);
+                          if (!mounted) return;
+                          await _loadData();
+                        } catch (_) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('فشل تحديث حالة التنبيه'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      },
+                      child: Text(AppTranslations.translate('mark_as_read', lang)),
+                    )
+                  : const Icon(Icons.check_circle, color: Colors.green),
+            ),
+          );
+        },
       ),
     );
   }

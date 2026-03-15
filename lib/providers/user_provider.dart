@@ -1,12 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
+import '../services/push_notification_service.dart';
 
 class UserProvider extends ChangeNotifier {
   String? _username;
   String? _name;
   String? _userType;
   String? _userId;
+  String? _password;
   String? _lastError;
   bool _isLoggedIn = false;
   
@@ -14,6 +16,7 @@ class UserProvider extends ChangeNotifier {
   String? get name => _name;
   String? get userType => _userType;
   String? get userId => _userId;
+  String? get password => _password;
   String? get lastError => _lastError;
   bool get isLoggedIn => _isLoggedIn;
   bool get isPatient => _userType == 'patient';
@@ -21,6 +24,9 @@ class UserProvider extends ChangeNotifier {
 
   String _friendlyError(Object error) {
     final raw = error.toString().replaceFirst('Exception: ', '').trim();
+    if (raw.contains('timed out') || raw.contains('TimeoutException')) {
+      return 'انتهت مهلة الاتصال بالخادم. تأكد من تشغيل الـ Backend وصحة عنوان API.';
+    }
     if (raw.contains('Connection refused') ||
         raw.contains('Failed host lookup') ||
         raw.contains('SocketException')) {
@@ -36,6 +42,7 @@ class UserProvider extends ChangeNotifier {
     _name = prefs.getString('name');
     _userType = prefs.getString('userType');
     _userId = prefs.getString('userId');
+    _password = prefs.getString('password');
     _isLoggedIn = _username != null;
     notifyListeners();
   }
@@ -61,7 +68,10 @@ class UserProvider extends ChangeNotifier {
         name: response['name']?.toString() ?? name,
         userType: response['userType']?.toString() ?? userType,
         userId: response['userId'],
+        password: password,
       );
+
+      await PushNotificationService().syncTokenToBackend();
       
       return true;
     } catch (e) {
@@ -89,7 +99,10 @@ class UserProvider extends ChangeNotifier {
         name: response['name']?.toString() ?? '',
         userType: response['userType']?.toString() ?? '',
         userId: response['userId'],
+        password: password,
       );
+
+      await PushNotificationService().syncTokenToBackend();
       
       return true;
     } catch (e) {
@@ -105,32 +118,41 @@ class UserProvider extends ChangeNotifier {
     required String name,
     required String userType,
     required String userId,
+    required String password,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('username', username);
     await prefs.setString('name', name);
     await prefs.setString('userType', userType);
     await prefs.setString('userId', userId);
+    await prefs.setString('password', password);
     
     _username = username;
     _name = name;
     _userType = userType;
     _userId = userId;
+    _password = password;
     _isLoggedIn = true;
     notifyListeners();
   }
   
   Future<void> logout() async {
+    try {
+      await PushNotificationService().clearTokenFromBackend();
+    } catch (_) {}
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('username');
     await prefs.remove('name');
     await prefs.remove('userType');
     await prefs.remove('userId');
+    await prefs.remove('password');
     
     _username = null;
     _name = null;
     _userType = null;
     _userId = null;
+    _password = null;
     _lastError = null;
     _isLoggedIn = false;
     notifyListeners();

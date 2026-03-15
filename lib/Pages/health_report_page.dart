@@ -889,8 +889,9 @@ class _HealthReportPageState extends State<HealthReportPage> {
 
     // Show print/save dialog
     String fileName = lang == 'ar' ? 'تقرير_صحي' : 'health_report';
-    if (exportType == 'bloodPressure') fileName = lang == 'ar' ? 'تقرير_ضغط_الدم' : 'blood_pressure_report';
-    else if (exportType == 'bloodSugar') fileName = lang == 'ar' ? 'تقرير_سكر_الدم' : 'blood_sugar_report';
+    if (exportType == 'bloodPressure') {
+      fileName = lang == 'ar' ? 'تقرير_ضغط_الدم' : 'blood_pressure_report';
+    } else if (exportType == 'bloodSugar') fileName = lang == 'ar' ? 'تقرير_سكر_الدم' : 'blood_sugar_report';
     else if (exportType == 'medications') fileName = lang == 'ar' ? 'تقرير_الأدوية' : 'medications_report';
     
     await Printing.layoutPdf(

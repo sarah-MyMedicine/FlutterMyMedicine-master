@@ -61,6 +61,16 @@ router.post('/register', async (req, res) => {
     });
   } catch (error) {
     console.error('[Auth] Register error:', error);
+
+    if (error?.code === 11000) {
+      if (error?.keyPattern?.username) {
+        return res.status(400).json({ message: 'Username already exists' });
+      }
+      return res.status(400).json({
+        message: 'Duplicate key conflict in database. Please contact support to reindex.',
+      });
+    }
+
     res.status(500).json({ message: 'Registration failed' });
   }
 });

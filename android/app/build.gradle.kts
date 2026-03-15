@@ -5,6 +5,8 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val debugAbi = providers.gradleProperty("debugAbi").orNull
+
 android {
     namespace = "com.example.mymedicineapp"
     compileSdk = flutter.compileSdkVersion
@@ -29,6 +31,12 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        if (!debugAbi.isNullOrBlank()) {
+            ndk {
+                abiFilters += debugAbi
+            }
+        }
     }
 
     buildTypes {
@@ -41,16 +49,6 @@ android {
         }
     }
     
-    packagingOptions {
-        jniLibs {
-            useLegacyPackaging = true
-        }
-        doNotStrip("*/armeabi-v7a/*.so")
-        doNotStrip("*/arm64-v8a/*.so")
-        doNotStrip("*/x86/*.so")
-        doNotStrip("*/x86_64/*.so")
-    }
-
     dependencies {
         coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     }
@@ -58,4 +56,17 @@ android {
 
 flutter {
     source = "../.."
+}
+
+val hasGoogleServicesConfig = listOf(
+    "google-services.json",
+    "src/debug/google-services.json",
+    "src/release/google-services.json",
+    "src/Debug/google-services.json",
+).any { file(it).exists() }
+
+if (hasGoogleServicesConfig) {
+    apply(plugin = "com.google.gms.google-services")
+} else {
+    logger.warn("google-services.json not found. Firebase push notifications are disabled for this build.")
 }

@@ -7,9 +7,11 @@ import 'package:mymedicineapp/Pages/language_selection_page.dart';
 import 'package:mymedicineapp/Pages/login_page.dart';
 import 'package:mymedicineapp/Pages/register_page.dart';
 import 'package:mymedicineapp/Pages/caregiver_link_page.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'services/notification_service.dart';
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
+import 'services/push_notification_service.dart';
 import 'providers/medication_provider.dart';
 import 'providers/blood_pressure_provider.dart';
 import 'providers/blood_sugar_provider.dart';
@@ -21,6 +23,7 @@ import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   debugPrint('[main] Initializing services...');
   
   // Initialize API Service
@@ -51,6 +54,10 @@ void main() async {
   final userProvider = UserProvider();
   await userProvider.loadUserFromStorage();
   debugPrint('[main] User data loaded');
+
+  // Initialize push notifications (supports background/terminated delivery via FCM).
+  await PushNotificationService().initialize(isLoggedIn: userProvider.isLoggedIn);
+  debugPrint('[main] PushNotificationService initialized');
   
   runApp(
     MultiProvider(

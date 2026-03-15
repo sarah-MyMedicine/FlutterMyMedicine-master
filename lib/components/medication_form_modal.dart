@@ -40,8 +40,8 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
   DateTime? _startDate;
   String? _chronicDisease;
   
-  // Frequency selection
-  String _frequencyType = 'hourly'; // 'hourly', 'weekly', 'monthly'
+  // Frequency selection – exactly one type is active at a time
+  String _frequencyType = 'daily'; // 'daily', 'weekly', 'monthly'
   int _hoursValue = 8;
   int _weeklyFrequencyTimes = 1;
   int _monthlyFrequencyTimes = 1;
@@ -58,7 +58,7 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
     if (widget.initialIntervalHours != null) {
       final hours = widget.initialIntervalHours!;
       if (hours <= 24) {
-        _frequencyType = 'hourly';
+        _frequencyType = 'daily';
         _hoursValue = hours;
       } else if (hours >= 84 && hours <= 168) {
         _frequencyType = 'weekly';
@@ -67,9 +67,9 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
       } else if (hours >= 180) {
         _frequencyType = 'monthly';
         final timesPerMonth = (720 / hours).round();
-        _monthlyFrequencyTimes = timesPerMonth.clamp(1, 7);
+        _monthlyFrequencyTimes = timesPerMonth.clamp(1, 4);
       } else {
-        _frequencyType = 'hourly';
+        _frequencyType = 'daily';
         _hoursValue = hours;
       }
     }
@@ -119,9 +119,10 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
 
   int _calculateIntervalHours() {
     switch (_frequencyType) {
-      case 'hourly':
+      case 'daily':
         return _hoursValue;
       case 'weekly':
+        // e.g. 2×/week → 168 ÷ 2 = 84 h ≈ 3.5 days between doses
         return (168 / _weeklyFrequencyTimes).round();
       case 'monthly':
         return (720 / _monthlyFrequencyTimes).round();
@@ -135,6 +136,56 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
     _nameController.dispose();
     _doseController.dispose();
     super.dispose();
+  }
+
+  /// Builds a mutually-exclusive frequency selection tile.
+  /// Tapping anywhere on the tile activates this [type].
+  /// The [trailing] widget (dropdown) is grayed-out and non-interactive when inactive.
+  Widget _buildFrequencyOption({
+    required String type,
+    required String label,
+    required Widget trailing,
+    required bool active,
+  }) {
+    return GestureDetector(
+      onTap: () => setState(() => _frequencyType = type),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: active ? const Color(0xFF36BBA0).withOpacity(0.09) : Colors.grey.shade50,
+          border: Border.all(
+            color: active ? const Color(0xFF36BBA0) : Colors.grey.shade300,
+            width: active ? 1.5 : 1,
+          ),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              active ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+              color: active ? const Color(0xFF36BBA0) : Colors.grey.shade400,
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: active ? Colors.black87 : Colors.grey,
+                  fontWeight: active ? FontWeight.w500 : FontWeight.normal,
+                ),
+              ),
+            ),
+            IgnorePointer(
+              ignoring: !active,
+              child: Opacity(opacity: active ? 1.0 : 0.35, child: trailing),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -194,126 +245,87 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                   ),
                   const SizedBox(height: 16),
                   
-                  // Frequency Section
+                  // Frequency Section – pick exactly one
                   Align(
-                    alignment: Alignment.centerRight,
+                    alignment: AlignmentDirectional.centerStart,
                     child: Text(
                       AppTranslations.translate('frequency', lang),
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  
-                  // Every X hours option
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Text(AppTranslations.translate('hour', lang), style: const TextStyle(fontSize: 15)),
-                      const SizedBox(width: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade400),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: DropdownButton<int>(
+                  const SizedBox(height: 10),
+
+                  // Daily option
+                  _buildFrequencyOption(
+                    type: 'daily',
+                    active: _frequencyType == 'daily',
+                    label: AppTranslations.translate('every', lang),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        DropdownButton<int>(
                           value: _hoursValue,
                           underline: const SizedBox(),
                           style: const TextStyle(color: Colors.black, fontSize: 14),
                           dropdownColor: Colors.white,
                           items: List.generate(24, (i) => i + 1).map((v) {
-                            return DropdownMenuItem<int>(
-                              value: v,
-                              child: Text('$v'),
-                            );
+                            return DropdownMenuItem<int>(value: v, child: Text('$v'));
                           }).toList(),
                           onChanged: (v) {
-                            if (v != null) {
-                              setState(() {
-                                _frequencyType = 'hourly';
-                                _hoursValue = v;
-                              });
-                            }
+                            if (v != null) setState(() { _hoursValue = v; });
                           },
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(AppTranslations.translate('every', lang), style: const TextStyle(fontSize: 15)),
-                    ],
+                        const SizedBox(width: 6),
+                        Text(AppTranslations.translate('hour', lang),
+                            style: const TextStyle(fontSize: 14)),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  
-                  // Every week option
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade400),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: DropdownButton<int>(
-                          value: _weeklyFrequencyTimes,
-                          underline: const SizedBox(),
-                          style: const TextStyle(color: Colors.black, fontSize: 14),
-                          dropdownColor: Colors.white,
-                          items: List<int>.generate(7, (i) => i + 1)
-                              .map((v) => DropdownMenuItem<int>(
-                                    value: v,
-                                    child: Text(_getFrequencyLabel(v, lang)),
-                                  ))
-                              .toList(),
-                          onChanged: (v) {
-                            if (v != null) {
-                              setState(() {
-                                _frequencyType = 'weekly';
-                                _weeklyFrequencyTimes = v;
-                              });
-                            }
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(AppTranslations.translate('every_week', lang), style: const TextStyle(fontSize: 15)),
-                    ],
+                  const SizedBox(height: 8),
+
+                  // Weekly option
+                  _buildFrequencyOption(
+                    type: 'weekly',
+                    active: _frequencyType == 'weekly',
+                    label: AppTranslations.translate('every_week', lang),
+                    trailing: DropdownButton<int>(
+                      value: _weeklyFrequencyTimes,
+                      underline: const SizedBox(),
+                      style: const TextStyle(color: Colors.black, fontSize: 14),
+                      dropdownColor: Colors.white,
+                      items: List<int>.generate(7, (i) => i + 1)
+                          .map((v) => DropdownMenuItem<int>(
+                                value: v,
+                                child: Text(_getFrequencyLabel(v, lang)),
+                              ))
+                          .toList(),
+                      onChanged: (v) {
+                        if (v != null) setState(() { _weeklyFrequencyTimes = v; });
+                      },
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  
-                  // Every month option
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade400),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: DropdownButton<int>(
-                          value: _monthlyFrequencyTimes,
-                          underline: const SizedBox(),
-                          style: const TextStyle(color: Colors.black, fontSize: 14),
-                          dropdownColor: Colors.white,
-                          items: List<int>.generate(7, (i) => i + 1)
-                              .map((v) => DropdownMenuItem<int>(
-                                    value: v,
-                                    child: Text(_getFrequencyLabel(v, lang)),
-                                  ))
-                              .toList(),
-                          onChanged: (v) {
-                            if (v != null) {
-                              setState(() {
-                                _frequencyType = 'monthly';
-                                _monthlyFrequencyTimes = v;
-                              });
-                            }
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(AppTranslations.translate('every_month', lang), style: const TextStyle(fontSize: 15)),
-                    ],
+                  const SizedBox(height: 8),
+
+                  // Monthly option – max 4 times per month
+                  _buildFrequencyOption(
+                    type: 'monthly',
+                    active: _frequencyType == 'monthly',
+                    label: AppTranslations.translate('every_month', lang),
+                    trailing: DropdownButton<int>(
+                      value: _monthlyFrequencyTimes,
+                      underline: const SizedBox(),
+                      style: const TextStyle(color: Colors.black, fontSize: 14),
+                      dropdownColor: Colors.white,
+                      items: List<int>.generate(4, (i) => i + 1)
+                          .map((v) => DropdownMenuItem<int>(
+                                value: v,
+                                child: Text(_getFrequencyLabel(v, lang)),
+                              ))
+                          .toList(),
+                      onChanged: (v) {
+                        if (v != null) setState(() { _monthlyFrequencyTimes = v; });
+                      },
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -391,7 +403,7 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                     decoration: InputDecoration(
                       labelText: AppTranslations.translate('medication_type_optional', lang)
                     ),
-                    value: _chronicDisease,
+                    initialValue: _chronicDisease,
                     style: const TextStyle(color: Colors.black),
                     dropdownColor: Colors.white,
                     items: <DropdownMenuItem<String>>[

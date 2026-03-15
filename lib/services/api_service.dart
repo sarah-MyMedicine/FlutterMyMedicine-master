@@ -1,7 +1,8 @@
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-import 'package:flutter/material.dart';
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 
 class ApiService {
   ApiService._privateConstructor();
@@ -24,11 +25,69 @@ class ApiService {
   late http.Client _httpClient;
   String? _authToken;
   String? _userId;
+  String? _resolvedAuthBaseUrl;
 
   Future<void> init() async {
     _httpClient = http.Client();
     await _loadAuthToken();
     debugPrint('[ApiService] Initialized with baseUrl: $_baseUrl');
+  }
+
+  List<String> _authBaseUrlCandidates() {
+    if (_resolvedAuthBaseUrl != null && _resolvedAuthBaseUrl!.isNotEmpty) {
+      return [_resolvedAuthBaseUrl!];
+    }
+
+    final candidates = <String>[];
+
+    if (_envBaseUrl.isNotEmpty) {
+      candidates.add(_envBaseUrl);
+      return candidates;
+    }
+
+    if (kIsWeb) {
+      candidates.add(_defaultBaseUrl);
+      return candidates;
+    }
+
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      // Emulator default + desktop fallback.
+      candidates.add('http://10.0.2.2:5000/api');
+      candidates.add('http://localhost:5000/api');
+      return candidates;
+    }
+
+    candidates.add(_defaultBaseUrl);
+    return candidates;
+  }
+
+  Future<http.Response> _postAuthWithFailover(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
+    final candidates = _authBaseUrlCandidates();
+    Exception? lastError;
+
+    for (final base in candidates) {
+      try {
+        final response = await _httpClient
+            .post(
+              Uri.parse('$base$path'),
+              headers: _getHeaders(),
+              body: jsonEncode(body),
+            )
+            .timeout(const Duration(seconds: 6));
+
+        _resolvedAuthBaseUrl = base;
+        return response;
+      } on TimeoutException {
+        lastError = Exception('Request timed out for $base');
+      } catch (e) {
+        lastError = Exception(e.toString());
+      }
+    }
+
+    throw lastError ?? Exception('Unable to reach authentication server');
   }
 
   String _extractApiError(http.Response response, String fallback) {
@@ -80,16 +139,15 @@ class ApiService {
     required String userType,
   }) async {
     try {
-      final response = await _httpClient.post(
-        Uri.parse('$_baseUrl/auth/register'),
-        headers: _getHeaders(),
-        body: jsonEncode({
+      final response = await _postAuthWithFailover(
+        '/auth/register',
+        {
           'username': username,
           'password': password,
           'name': name,
           'userType': userType,
-        }),
-      ).timeout(const Duration(seconds: 15));
+        },
+      );
 
       if (response.statusCode == 201) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -99,6 +157,10 @@ class ApiService {
       } else {
         throw Exception(_extractApiError(response, 'Registration failed'));
       }
+    } on TimeoutException {
+      throw Exception(
+        'انتهت مهلة الاتصال بالخادم. تأكد أن الـ backend يعمل وأن عنوان API صحيح.',
+      );
     } catch (e) {
       debugPrint('[ApiService] Registration error: $e');
       rethrow;
@@ -110,14 +172,13 @@ class ApiService {
     required String password,
   }) async {
     try {
-      final response = await _httpClient.post(
-        Uri.parse('$_baseUrl/auth/login'),
-        headers: _getHeaders(),
-        body: jsonEncode({
+      final response = await _postAuthWithFailover(
+        '/auth/login',
+        {
           'username': username,
           'password': password,
-        }),
-      ).timeout(const Duration(seconds: 15));
+        },
+      );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -127,6 +188,10 @@ class ApiService {
       } else {
         throw Exception(_extractApiError(response, 'Login failed'));
       }
+    } on TimeoutException {
+      throw Exception(
+        'انتهت مهلة الاتصال بالخادم. تأكد أن الـ backend يعمل وأن عنوان API صحيح.',
+      );
     } catch (e) {
       debugPrint('[ApiService] Login error: $e');
       rethrow;
@@ -699,6 +764,114 @@ class ApiService {
       }
     } catch (e) {
       debugPrint('[ApiService] Notify missed doses error: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> sendEmergencyAlert({
+    required String patientUsername,
+    String classification = 'siren',
+    String? message,
+  }) async {
+    if (!isAuthenticated()) throw Exception('Not authenticated');
+
+    try {
+      final response = await _httpClient
+          .post(
+            Uri.parse('$_baseUrl/caregiver/notify-emergency'),
+            headers: _getHeaders(),
+            body: jsonEncode({
+              'patientUsername': patientUsername,
+              'classification': classification,
+              if (message != null && message.trim().isNotEmpty) 'message': message.trim(),
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        debugPrint('[ApiService] Emergency alert sent: ${data['alertId']}');
+        return data;
+      }
+
+      throw Exception(_extractApiError(response, 'Failed to send emergency alert'));
+    } catch (e) {
+      debugPrint('[ApiService] Send emergency alert error: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getCaregiverAlerts(String caregiverUsername) async {
+    if (!isAuthenticated()) throw Exception('Not authenticated');
+
+    try {
+      final response = await _httpClient
+          .get(
+            Uri.parse('$_baseUrl/caregiver/alerts/$caregiverUsername'),
+            headers: _getHeaders(),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final List<dynamic> alerts = data['alerts'] as List<dynamic>? ?? <dynamic>[];
+        return alerts.cast<Map<String, dynamic>>();
+      }
+
+      throw Exception(_extractApiError(response, 'Failed to load caregiver alerts'));
+    } catch (e) {
+      debugPrint('[ApiService] Get caregiver alerts error: $e');
+      return [];
+    }
+  }
+
+  Future<void> markEmergencyAlertAsRead(String alertId) async {
+    if (!isAuthenticated()) throw Exception('Not authenticated');
+
+    try {
+      final response = await _httpClient
+          .patch(
+            Uri.parse('$_baseUrl/caregiver/alerts/$alertId/read'),
+            headers: _getHeaders(),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode != 200) {
+        throw Exception(_extractApiError(response, 'Failed to mark alert as read'));
+      }
+    } catch (e) {
+      debugPrint('[ApiService] Mark emergency alert as read error: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> registerFcmToken(String fcmToken) async {
+    if (!isAuthenticated()) throw Exception('Not authenticated');
+
+    final response = await _httpClient
+        .post(
+          Uri.parse('$_baseUrl/caregiver/register-fcm-token'),
+          headers: _getHeaders(),
+          body: jsonEncode({'fcmToken': fcmToken}),
+        )
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode != 200) {
+      throw Exception(_extractApiError(response, 'Failed to register FCM token'));
+    }
+  }
+
+  Future<void> clearFcmToken() async {
+    if (!isAuthenticated()) throw Exception('Not authenticated');
+
+    final response = await _httpClient
+        .post(
+          Uri.parse('$_baseUrl/caregiver/clear-fcm-token'),
+          headers: _getHeaders(),
+        )
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode != 200) {
+      throw Exception(_extractApiError(response, 'Failed to clear FCM token'));
     }
   }
 

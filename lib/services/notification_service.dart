@@ -91,7 +91,17 @@ class NotificationService {
           importance: Importance.max,
           enableVibration: true,
           playSound: true,
-          sound: RawResourceAndroidNotificationSound('notification'),
+        ),
+      );
+
+      await androidImpl?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'caregiver_alerts',
+          'Caregiver Alerts',
+          description: 'Emergency and adherence alerts sent to caregivers',
+          importance: Importance.max,
+          enableVibration: true,
+          playSound: true,
         ),
       );
       debugPrint('[NotificationService] Medicine channel created/verified');
@@ -122,6 +132,58 @@ class NotificationService {
     }
 
     _initialized = true;
+  }
+
+  Future<Map<String, bool?>> getReminderReliabilityStatus() async {
+    await init();
+
+    bool? notificationsEnabled;
+    bool? exactAlarmsEnabled;
+
+    try {
+      final androidImpl = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      if (androidImpl != null) {
+        notificationsEnabled = await androidImpl.areNotificationsEnabled();
+        exactAlarmsEnabled = await androidImpl.canScheduleExactNotifications();
+      } else {
+        notificationsEnabled = true;
+        exactAlarmsEnabled = true;
+      }
+    } catch (e) {
+      debugPrint('[NotificationService] Failed to read reliability status: $e');
+    }
+
+    return {
+      'notificationsEnabled': notificationsEnabled,
+      'exactAlarmsEnabled': exactAlarmsEnabled,
+    };
+  }
+
+  Future<bool?> requestNotificationsPermission() async {
+    await init();
+
+    try {
+      final androidImpl = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      return await androidImpl?.requestNotificationsPermission();
+    } catch (e) {
+      debugPrint('[NotificationService] Failed to request notification permission: $e');
+      return null;
+    }
+  }
+
+  Future<bool?> requestExactAlarmPermission() async {
+    await init();
+
+    try {
+      final androidImpl = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      return await androidImpl?.requestExactAlarmsPermission();
+    } catch (e) {
+      debugPrint('[NotificationService] Failed to request exact alarm permission: $e');
+      return null;
+    }
   }
 
   int _idFor(String prefix, int offset) => prefix.hashCode ^ offset;
@@ -201,9 +263,10 @@ class NotificationService {
               'Medicine reminders',
               channelDescription: 'Reminders to take medicines',
               importance: Importance.max,
-              priority: Priority.high,
+              priority: Priority.max,
               playSound: true,
               fullScreenIntent: true,
+              visibility: NotificationVisibility.public,
               audioAttributesUsage: AudioAttributesUsage.alarm,
             ),
             iOS: DarwinNotificationDetails(),
@@ -242,9 +305,10 @@ class NotificationService {
                 'Medicine reminders',
                 channelDescription: 'Reminders to take medicines',
                 importance: Importance.max,
-                priority: Priority.high,
+                priority: Priority.max,
                 playSound: true,
                 fullScreenIntent: true,
+                visibility: NotificationVisibility.public,
               ),
               iOS: DarwinNotificationDetails(),
             ),
@@ -313,9 +377,10 @@ class NotificationService {
             'Medicine reminders',
             channelDescription: 'Reminders to take medicines',
             importance: Importance.max,
-            priority: Priority.high,
+            priority: Priority.max,
             playSound: true,
             fullScreenIntent: true,
+            visibility: NotificationVisibility.public,
             audioAttributesUsage: AudioAttributesUsage.alarm,
           ),
           iOS: DarwinNotificationDetails(),
@@ -498,9 +563,10 @@ class NotificationService {
             'Medicine reminders',
             channelDescription: 'Reminders to take medicines',
             importance: Importance.max,
-            priority: Priority.high,
+            priority: Priority.max,
             playSound: true,
             fullScreenIntent: true,
+            visibility: NotificationVisibility.public,
             audioAttributesUsage: AudioAttributesUsage.alarm,
           ),
           iOS: DarwinNotificationDetails(),
@@ -573,9 +639,11 @@ class NotificationService {
           'Medicine reminders',
           channelDescription: 'Reminders to take medicines',
           importance: Importance.max,
-          priority: Priority.high,
+          priority: Priority.max,
           playSound: true,
           fullScreenIntent: true,
+          visibility: NotificationVisibility.public,
+          audioAttributesUsage: AudioAttributesUsage.alarm,
         ),
         iOS: DarwinNotificationDetails(),
       ),
@@ -618,9 +686,12 @@ class NotificationService {
           'Medicine reminders',
           channelDescription: 'Reminders to take medicines',
           importance: Importance.max,
-          priority: Priority.high,
+          priority: Priority.max,
           playSound: true,
           enableVibration: true,
+          fullScreenIntent: true,
+          visibility: NotificationVisibility.public,
+          audioAttributesUsage: AudioAttributesUsage.alarm,
         ),
         iOS: DarwinNotificationDetails(
           sound: 'default.caf',
@@ -645,9 +716,9 @@ class NotificationService {
       body: body,
       notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
-          'health_alerts',
-          'Health Alerts',
-          channelDescription: 'Immediate health alerts',
+          'caregiver_alerts',
+          'Caregiver Alerts',
+          channelDescription: 'Emergency and adherence alerts sent to caregivers',
           importance: Importance.max,
           priority: Priority.high,
           playSound: true,
