@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../providers/settings_provider.dart';
+import '../services/patient_data_sync_service.dart';
+import '../utils/translations.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -11,10 +13,21 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+  static const String _invalidCredentialsMessage =
+      'Either the username or password is wrong. Please try again';
+
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
+
+  String _localizedLoginError(String? rawMessage, String language) {
+    if (rawMessage == _invalidCredentialsMessage) {
+      return AppTranslations.translate('invalid_login_credentials', language);
+    }
+
+    return rawMessage ?? 'فشل تسجيل الدخول. تحقق من بياناتك';
+  }
   
   @override
   void dispose() {
@@ -47,9 +60,24 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _isLoading = false);
     
     if (success) {
+      try {
+        await PatientDataSyncService()
+            .syncAfterAuthentication(
+              context: context,
+              username:
+                  userProvider.username ?? _usernameController.text.trim().toLowerCase(),
+            )
+            .timeout(const Duration(seconds: 8));
+      } catch (e) {
+        debugPrint('[Login] Post-auth sync skipped due timeout/error: $e');
+        await PatientDataSyncService().reloadProvidersFromLocal(context);
+      }
+
+      if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/home');
     } else {
-      final errorMessage = userProvider.lastError ?? 'فشل تسجيل الدخول. تحقق من بياناتك';
+      final language = Provider.of<SettingsProvider>(context, listen: false).language;
+      final errorMessage = _localizedLoginError(userProvider.lastError, language);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(errorMessage),

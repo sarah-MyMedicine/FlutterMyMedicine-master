@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../services/notification_service.dart';
+import '../services/patient_data_sync_service.dart';
 
 class BloodPressureReading {
   final int systolic;
@@ -65,6 +66,7 @@ class BloodPressureProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final payload = _readings.map((r) => r.toJson()).toList();
     await prefs.setString(_storageKey, jsonEncode(payload));
+    await PatientDataSyncService().syncLocalToCloudIfAuthenticated();
   }
 
   void add(int sys, int dia, {int? targetSystolic, int? targetDiastolic, DateTime? when}) async {

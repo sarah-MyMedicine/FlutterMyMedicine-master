@@ -10,11 +10,17 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-producti
 
 router.post('/register', async (req, res) => {
   try {
-    const { username, password, name, userType } = req.body;
+    const { username, password, name, userType, registrationSource } = req.body;
 
     // Validate input
     if (!username || !password || !name || !userType) {
       return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    if (registrationSource !== 'signin_button') {
+      return res.status(400).json({
+        message: 'Account creation is only allowed from the sign in button',
+      });
     }
 
     if (userType !== 'patient' && userType !== 'caregiver') {
@@ -89,13 +95,17 @@ router.post('/login', async (req, res) => {
     // Find user
     const user = await User.findOne({ username: username.toLowerCase() });
     if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({
+        message: 'Either the username or password is wrong. Please try again',
+      });
     }
 
     // Check password
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({
+        message: 'Either the username or password is wrong. Please try again',
+      });
     }
 
     // Generate JWT token
@@ -125,44 +135,6 @@ router.post('/logout', (req, res) => {
   // Since we're using JWT, logout is handled on client side
   // by removing the token from storage
   res.json({ success: true, message: 'Logged out successfully' });
-});
-
-// ============ PASSWORD RESET ============
-
-router.post('/reset-password', async (req, res) => {
-  try {
-    const { username, newPassword } = req.body;
-    
-    if (!username || !newPassword) {
-      return res.status(400).json({ message: 'Username and new password required' });
-    }
-    
-    if (newPassword.length < 6) {
-      return res.status(400).json({ message: 'Password must be at least 6 characters' });
-    }
-    
-    const user = await User.findOne({ username: username.toLowerCase() });
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    
-    // Hash new password
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    user.password = hashedPassword;
-    user.updatedAt = Date.now();
-    await user.save();
-    
-    console.log(`[Auth] Password reset for user: ${username}`);
-    
-    res.json({ 
-      success: true, 
-      message: 'Password reset successfully',
-      username: user.username
-    });
-  } catch (error) {
-    console.error('[Auth] Password reset error:', error);
-    res.status(500).json({ message: 'Password reset failed' });
-  }
 });
 
 module.exports = router;

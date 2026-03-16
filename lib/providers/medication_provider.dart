@@ -4,13 +4,14 @@ import 'dart:convert';
 import 'dart:math';
 import '../services/notification_service.dart';
 import '../services/api_service.dart';
+import '../services/patient_data_sync_service.dart';
 
 class MedicationProvider extends ChangeNotifier {
   static const String _storageKey = 'medications_v1';
   static const String _missedDosesKey = 'missed_doses_tracking';
-  static const int _scheduleHorizonDays = 90;
-  static const int _minScheduledOccurrences = 60;
-  static const int _maxScheduledOccurrences = 720;
+  static const int _scheduleHorizonDays = 14;
+  static const int _minScheduledOccurrences = 1;
+  static const int _maxScheduledOccurrences = 14;
 
   // Each item may include an optional imagePath (local file path to a photo)
   // We also store a prefix id so we can cancel scheduled notifications when removing
@@ -104,8 +105,25 @@ class MedicationProvider extends ChangeNotifier {
   }
 
   Future<void> _restoreMedicationSchedules() async {
+    await NotificationService().resetTrackedMedicationSchedules();
+
+    final schedulableItems = _items.where((item) {
+      final prefix = item['notifPrefix'];
+      final name = item['name'];
+      final dose = item['dose'];
+      return prefix != null && prefix.isNotEmpty && name != null && dose != null;
+    }).toList();
+
+    final perMedicationBudget = schedulableItems.isEmpty
+        ? 0
+        : max(
+            1,
+            NotificationService.recurringMedicationAlarmBudget ~/
+                schedulableItems.length,
+          );
+
     final now = DateTime.now();
-    for (final item in _items) {
+    for (final item in schedulableItems) {
       final prefix = item['notifPrefix'];
       final name = item['name'];
       final dose = item['dose'];
@@ -116,14 +134,13 @@ class MedicationProvider extends ChangeNotifier {
       if (firstOccurrence == null) continue;
 
       try {
-        await NotificationService().cancelForPrefix(prefix);
         await NotificationService().scheduleRepeatedOccurrences(
           prefix: prefix,
           title: 'موعد تناول $name',
           body: '$dose · كل $intervalHours ساعة',
           firstOccurrence: firstOccurrence,
           intervalHours: intervalHours,
-          occurrences: _occurrencesForInterval(intervalHours),
+          occurrences: min(_occurrencesForInterval(intervalHours), perMedicationBudget),
         );
       } catch (e) {
         debugPrint('[MedicationProvider] Failed to restore schedule for $name: $e');
@@ -137,6 +154,9 @@ class MedicationProvider extends ChangeNotifier {
 
     if (raw == null || raw.isEmpty) {
       _items.clear();
+      _consecutiveMissedDoses.clear();
+      _lastExpectedDoseTime.clear();
+      _hasNotifiedForCurrentMissed.clear();
       notifyListeners();
       return;
     }
@@ -164,6 +184,9 @@ class MedicationProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('[MedicationProvider.load] Failed to parse saved medications: $e');
       _items.clear();
+      _consecutiveMissedDoses.clear();
+      _lastExpectedDoseTime.clear();
+      _hasNotifiedForCurrentMissed.clear();
     }
 
     final prefixesFixed = _ensureUniquePrefixes();
@@ -196,11 +219,13 @@ class MedicationProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final payload = _items.map((item) => Map<String, String?>.from(item)).toList();
     await prefs.setString(_storageKey, jsonEncode(payload));
+    await PatientDataSyncService().syncLocalToCloudIfAuthenticated();
   }
   
   Future<void> _saveMissedDosesTracking() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_missedDosesKey, jsonEncode(_consecutiveMissedDoses));
+    await PatientDataSyncService().syncLocalToCloudIfAuthenticated();
   }
 
   Future<void> add(String name, String dose, {String? imagePath, int intervalHours = 24, String? startTime, String? startDate, String? chronicDisease}) async {

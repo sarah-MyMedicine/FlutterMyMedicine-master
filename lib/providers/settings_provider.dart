@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/patient_data_sync_service.dart';
 
 enum PatientGender { male, female }
 
@@ -31,6 +32,10 @@ class SettingsProvider extends ChangeNotifier {
   int get targetDiastolic => _targetDiastolic;
   int get targetBloodSugar => _targetBloodSugar;
   String get language => _language;
+
+  Future<void> _syncCloud() async {
+    await PatientDataSyncService().syncLocalToCloudIfAuthenticated();
+  }
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -69,6 +74,7 @@ class SettingsProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('settings_name', _name);
     notifyListeners();
+    await _syncCloud();
   }
 
   Future<void> setAge(int? v) async {
@@ -80,6 +86,7 @@ class SettingsProvider extends ChangeNotifier {
       await prefs.setInt('settings_age', v);
     }
     notifyListeners();
+    await _syncCloud();
   }
 
   Future<void> setGender(PatientGender? v) async {
@@ -91,6 +98,7 @@ class SettingsProvider extends ChangeNotifier {
       await prefs.setString('settings_gender', v == PatientGender.male ? 'male' : 'female');
     }
     notifyListeners();
+    await _syncCloud();
   }
 
   Future<void> setCountry(String? v) async {
@@ -102,6 +110,7 @@ class SettingsProvider extends ChangeNotifier {
       await prefs.setString('settings_country', v);
     }
     notifyListeners();
+    await _syncCloud();
   }
 
   Future<void> setProvince(String? v) async {
@@ -113,6 +122,7 @@ class SettingsProvider extends ChangeNotifier {
       await prefs.setString('settings_province', v);
     }
     notifyListeners();
+    await _syncCloud();
   }
 
   Future<void> setThemeColor(Color c) async {
@@ -120,6 +130,7 @@ class SettingsProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('settings_theme_color', c.value);
     notifyListeners();
+    await _syncCloud();
   }
 
   Future<void> toggleChronicDisease(String disease) async {
@@ -140,6 +151,7 @@ class SettingsProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList('settings_chronic_diseases', _chronicDiseases);
     notifyListeners();
+    await _syncCloud();
   }
 
   Future<void> setDrugKnowledge(bool v) async {
@@ -147,6 +159,7 @@ class SettingsProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('settings_drug_knowledge', v);
     notifyListeners();
+    await _syncCloud();
   }
 
   Future<void> setVibrationPattern(String v) async {
@@ -154,6 +167,7 @@ class SettingsProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('settings_vibration', v);
     notifyListeners();
+    await _syncCloud();
   }
 
   Future<void> setTargetSystolic(int v) async {
@@ -161,6 +175,7 @@ class SettingsProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('settings_target_systolic', v);
     notifyListeners();
+    await _syncCloud();
   }
 
   Future<void> setTargetDiastolic(int v) async {
@@ -168,6 +183,7 @@ class SettingsProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('settings_target_diastolic', v);
     notifyListeners();
+    await _syncCloud();
   }
 
   Future<void> setTargetBloodSugar(int v) async {
@@ -175,6 +191,7 @@ class SettingsProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('settings_target_blood_sugar', v);
     notifyListeners();
+    await _syncCloud();
   }
 
   Future<void> setLanguage(String lang) async {
@@ -182,5 +199,6 @@ class SettingsProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('settings_language', lang);
     notifyListeners();
+    await _syncCloud();
   }
 }

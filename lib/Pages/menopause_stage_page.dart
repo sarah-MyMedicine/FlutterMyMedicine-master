@@ -522,7 +522,7 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
             // Calcium and Magnesium section
             _buildNutritionSection(
               AppTranslations.translate('calcium_magnesium', lang),
-              ['🥛', '🧀', '🥦', '🥕', '🍌', '🌰'],
+              ['🥛', '🥦', '🌰', '🐟', '🌾', '🌻'],
               [
                 AppTranslations.translate('milk_cheese', lang),
                 AppTranslations.translate('leafy_vegetables', lang),
@@ -537,7 +537,7 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
             // Phytoestrogen section
             _buildNutritionSection(
               AppTranslations.translate('phytoestrogen', lang),
-              ['🫘', '🌾', '🥬', '🍎', '🥔', '🫐'],
+              ['🫘', '🫛', '🌻', '🍎', '🌾', '🌰'],
               [
                 AppTranslations.translate('beans_lentils', lang),
                 AppTranslations.translate('soy_products', lang),
@@ -552,7 +552,7 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
             // Heart health section
             _buildNutritionSection(
               AppTranslations.translate('healthy_heart', lang),
-              ['🐟', '🫒', '🥗', '❤️', '🍇', '🥑'],
+              ['🐟', '🫒', '🥗', '🍇', '🌰', '🌻'],
               [
                 AppTranslations.translate('fatty_fish', lang),
                 AppTranslations.translate('healthy_oils', lang),

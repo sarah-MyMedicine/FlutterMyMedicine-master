@@ -36,6 +36,10 @@ const UserSchema = new mongoose.Schema({
     type: String,
     default: null,
   },
+  patientData: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {},
+  },
   createdAt: {
     type: Date,
     default: Date.now,

@@ -428,6 +428,80 @@ class HomePage extends StatelessWidget {
                           
                           // Calculate overall adherence
                           final overallScore = adherenceProvider.calculateOverallAdherence(medData, daysToCheck: 30);
+
+                          if (overallScore == null) {
+                            return Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.blueGrey.withOpacity(0.8),
+                                    Colors.blueGrey.withOpacity(0.6)
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black12,
+                                    blurRadius: 6,
+                                  ),
+                                ],
+                              ),
+                              child: const Row(
+                                children: [
+                                  Icon(
+                                    Icons.hourglass_top,
+                                    size: 48,
+                                    color: Colors.white,
+                                  ),
+                                  SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'نسبة الالتزام بالأدوية',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                        SizedBox(height: 4),
+                                        Text(
+                                          'سيبدأ حساب الالتزام بعد تسجيل أول جرعة',
+                                          style: TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Column(
+                                    children: [
+                                      Text(
+                                        '--',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 32,
+                                        ),
+                                      ),
+                                      Text(
+                                        'آخر 30 يوم',
+                                        style: TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
                           
                           // Determine color based on score
                           Color scoreColor;

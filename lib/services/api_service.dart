@@ -11,9 +11,15 @@ class ApiService {
 
   static const String _defaultBaseUrl = 'http://localhost:5000/api';
   static const String _envBaseUrl = String.fromEnvironment('API_BASE_URL');
+  static const Duration _authTimeout = Duration(seconds: 8);
+  static const String _lastAuthBaseUrlKey = 'last_auth_base_url';
 
   // Use --dart-define=API_BASE_URL=http://<ip>:5000/api for physical devices.
-  static String get _baseUrl {
+  String get _baseUrl {
+    if (_resolvedAuthBaseUrl != null && _resolvedAuthBaseUrl!.isNotEmpty) {
+      return _resolvedAuthBaseUrl!;
+    }
+
     if (_envBaseUrl.isNotEmpty) return _envBaseUrl;
     if (kIsWeb) return _defaultBaseUrl;
     if (defaultTargetPlatform == TargetPlatform.android) {
@@ -21,7 +27,7 @@ class ApiService {
     }
     return _defaultBaseUrl;
   }
-  
+
   late http.Client _httpClient;
   String? _authToken;
   String? _userId;
@@ -34,30 +40,38 @@ class ApiService {
   }
 
   List<String> _authBaseUrlCandidates() {
-    if (_resolvedAuthBaseUrl != null && _resolvedAuthBaseUrl!.isNotEmpty) {
-      return [_resolvedAuthBaseUrl!];
+    final candidates = <String>[];
+    final seen = <String>{};
+
+    void addCandidate(String url) {
+      if (url.isEmpty || seen.contains(url)) return;
+      seen.add(url);
+      candidates.add(url);
     }
 
-    final candidates = <String>[];
+    if (_resolvedAuthBaseUrl != null && _resolvedAuthBaseUrl!.isNotEmpty) {
+      addCandidate(_resolvedAuthBaseUrl!);
+    }
 
     if (_envBaseUrl.isNotEmpty) {
-      candidates.add(_envBaseUrl);
-      return candidates;
+      addCandidate(_envBaseUrl);
     }
 
     if (kIsWeb) {
-      candidates.add(_defaultBaseUrl);
+      addCandidate(_defaultBaseUrl);
       return candidates;
     }
 
     if (defaultTargetPlatform == TargetPlatform.android) {
-      // Emulator default + desktop fallback.
-      candidates.add('http://10.0.2.2:5000/api');
-      candidates.add('http://localhost:5000/api');
+      // Prefer localhost variants first for real devices when adb reverse is active,
+      // then emulator host mapping.
+      addCandidate('http://127.0.0.1:5000/api');
+      addCandidate('http://localhost:5000/api');
+      addCandidate('http://10.0.2.2:5000/api');
       return candidates;
     }
 
-    candidates.add(_defaultBaseUrl);
+    addCandidate(_defaultBaseUrl);
     return candidates;
   }
 
@@ -66,7 +80,7 @@ class ApiService {
     Map<String, dynamic> body,
   ) async {
     final candidates = _authBaseUrlCandidates();
-    Exception? lastError;
+    final failures = <String>[];
 
     for (final base in candidates) {
       try {
@@ -76,18 +90,23 @@ class ApiService {
               headers: _getHeaders(),
               body: jsonEncode(body),
             )
-            .timeout(const Duration(seconds: 6));
+            .timeout(_authTimeout);
 
         _resolvedAuthBaseUrl = base;
+        await _saveResolvedAuthBaseUrl(base);
         return response;
       } on TimeoutException {
-        lastError = Exception('Request timed out for $base');
+        failures.add('$base -> timeout');
       } catch (e) {
-        lastError = Exception(e.toString());
+        failures.add('$base -> ${e.toString()}');
       }
     }
 
-    throw lastError ?? Exception('Unable to reach authentication server');
+    final attempted = candidates.join(', ');
+    final details = failures.isEmpty ? 'No connection details available.' : failures.join(' | ');
+    throw Exception(
+      'Unable to reach authentication server. Tried: $attempted. $details',
+    );
   }
 
   String _extractApiError(http.Response response, String fallback) {
@@ -107,7 +126,15 @@ class ApiService {
     final prefs = await SharedPreferences.getInstance();
     _authToken = prefs.getString('auth_token');
     _userId = prefs.getString('user_id');
-    debugPrint('[ApiService] Loaded auth token: ${_authToken != null ? 'Yes' : 'No'}');
+    _resolvedAuthBaseUrl = prefs.getString(_lastAuthBaseUrlKey);
+    debugPrint(
+      '[ApiService] Loaded auth token: ${_authToken != null ? 'Yes' : 'No'}',
+    );
+  }
+
+  Future<void> _saveResolvedAuthBaseUrl(String baseUrl) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_lastAuthBaseUrlKey, baseUrl);
   }
 
   Future<void> _saveAuthToken(String token, String userId) async {
@@ -137,17 +164,16 @@ class ApiService {
     required String password,
     required String name,
     required String userType,
+    required String registrationSource,
   }) async {
     try {
-      final response = await _postAuthWithFailover(
-        '/auth/register',
-        {
-          'username': username,
-          'password': password,
-          'name': name,
-          'userType': userType,
-        },
-      );
+      final response = await _postAuthWithFailover('/auth/register', {
+        'username': username,
+        'password': password,
+        'name': name,
+        'userType': userType,
+        'registrationSource': registrationSource,
+      });
 
       if (response.statusCode == 201) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -172,13 +198,10 @@ class ApiService {
     required String password,
   }) async {
     try {
-      final response = await _postAuthWithFailover(
-        '/auth/login',
-        {
-          'username': username,
-          'password': password,
-        },
-      );
+      final response = await _postAuthWithFailover('/auth/login', {
+        'username': username,
+        'password': password,
+      });
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -218,16 +241,62 @@ class ApiService {
   bool isAuthenticated() => _authToken != null && _userId != null;
   String? get userId => _userId;
 
+  // ==================== PATIENT DATA SYNC ====================
+
+  Future<Map<String, dynamic>> getPatientDataSnapshot() async {
+    if (!isAuthenticated()) throw Exception('Not authenticated');
+
+    try {
+      final response = await _httpClient
+          .get(Uri.parse('$_baseUrl/patient-data'), headers: _getHeaders())
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final snapshot = data['data'];
+        if (snapshot is Map<String, dynamic>) {
+          return snapshot;
+        }
+        return <String, dynamic>{};
+      }
+
+      throw Exception('Failed to fetch patient data: ${response.body}');
+    } catch (e) {
+      debugPrint('[ApiService] Get patient data error: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> savePatientDataSnapshot(Map<String, dynamic> data) async {
+    if (!isAuthenticated()) throw Exception('Not authenticated');
+
+    try {
+      final response = await _httpClient
+          .put(
+            Uri.parse('$_baseUrl/patient-data'),
+            headers: _getHeaders(),
+            body: jsonEncode({'data': data}),
+          )
+          .timeout(const Duration(seconds: 25));
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to save patient data: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('[ApiService] Save patient data error: $e');
+      rethrow;
+    }
+  }
+
   // ==================== MEDICATIONS ====================
 
   Future<List<Map<String, dynamic>>> getMedications() async {
     if (!isAuthenticated()) throw Exception('Not authenticated');
-    
+
     try {
-      final response = await _httpClient.get(
-        Uri.parse('$_baseUrl/medications'),
-        headers: _getHeaders(),
-      ).timeout(const Duration(seconds: 15));
+      final response = await _httpClient
+          .get(Uri.parse('$_baseUrl/medications'), headers: _getHeaders())
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
@@ -252,18 +321,20 @@ class ApiService {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
     try {
-      final response = await _httpClient.post(
-        Uri.parse('$_baseUrl/medications'),
-        headers: _getHeaders(),
-        body: jsonEncode({
-          'name': name,
-          'dose': dose,
-          'intervalHours': intervalHours,
-          'nextDose': nextDose.toIso8601String(),
-          'notes': notes,
-          'quantity': quantity,
-        }),
-      ).timeout(const Duration(seconds: 15));
+      final response = await _httpClient
+          .post(
+            Uri.parse('$_baseUrl/medications'),
+            headers: _getHeaders(),
+            body: jsonEncode({
+              'name': name,
+              'dose': dose,
+              'intervalHours': intervalHours,
+              'nextDose': nextDose.toIso8601String(),
+              'notes': notes,
+              'quantity': quantity,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 201) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -290,18 +361,20 @@ class ApiService {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
     try {
-      final response = await _httpClient.put(
-        Uri.parse('$_baseUrl/medications/$medicationId'),
-        headers: _getHeaders(),
-        body: jsonEncode({
-          'name': name,
-          'dose': dose,
-          'intervalHours': intervalHours,
-          'nextDose': nextDose.toIso8601String(),
-          'notes': notes,
-          'quantity': quantity,
-        }),
-      ).timeout(const Duration(seconds: 15));
+      final response = await _httpClient
+          .put(
+            Uri.parse('$_baseUrl/medications/$medicationId'),
+            headers: _getHeaders(),
+            body: jsonEncode({
+              'name': name,
+              'dose': dose,
+              'intervalHours': intervalHours,
+              'nextDose': nextDose.toIso8601String(),
+              'notes': notes,
+              'quantity': quantity,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -320,10 +393,12 @@ class ApiService {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
     try {
-      final response = await _httpClient.delete(
-        Uri.parse('$_baseUrl/medications/$medicationId'),
-        headers: _getHeaders(),
-      ).timeout(const Duration(seconds: 15));
+      final response = await _httpClient
+          .delete(
+            Uri.parse('$_baseUrl/medications/$medicationId'),
+            headers: _getHeaders(),
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode != 200) {
         throw Exception('Failed to delete medication: ${response.body}');
@@ -341,16 +416,17 @@ class ApiService {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
     try {
-      final response = await _httpClient.get(
-        Uri.parse('$_baseUrl/blood-pressure'),
-        headers: _getHeaders(),
-      ).timeout(const Duration(seconds: 15));
+      final response = await _httpClient
+          .get(Uri.parse('$_baseUrl/blood-pressure'), headers: _getHeaders())
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
         return data.cast<Map<String, dynamic>>();
       } else {
-        throw Exception('Failed to fetch blood pressure records: ${response.body}');
+        throw Exception(
+          'Failed to fetch blood pressure records: ${response.body}',
+        );
       }
     } catch (e) {
       debugPrint('[ApiService] Get blood pressure error: $e');
@@ -367,23 +443,27 @@ class ApiService {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
     try {
-      final response = await _httpClient.post(
-        Uri.parse('$_baseUrl/blood-pressure'),
-        headers: _getHeaders(),
-        body: jsonEncode({
-          'systolic': systolic,
-          'diastolic': diastolic,
-          'timestamp': timestamp.toIso8601String(),
-          'notes': notes,
-        }),
-      ).timeout(const Duration(seconds: 15));
+      final response = await _httpClient
+          .post(
+            Uri.parse('$_baseUrl/blood-pressure'),
+            headers: _getHeaders(),
+            body: jsonEncode({
+              'systolic': systolic,
+              'diastolic': diastolic,
+              'timestamp': timestamp.toIso8601String(),
+              'notes': notes,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 201) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         debugPrint('[ApiService] Blood pressure record added: ${data['id']}');
         return data;
       } else {
-        throw Exception('Failed to add blood pressure record: ${response.body}');
+        throw Exception(
+          'Failed to add blood pressure record: ${response.body}',
+        );
       }
     } catch (e) {
       debugPrint('[ApiService] Add blood pressure error: $e');
@@ -397,16 +477,17 @@ class ApiService {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
     try {
-      final response = await _httpClient.get(
-        Uri.parse('$_baseUrl/blood-sugar'),
-        headers: _getHeaders(),
-      ).timeout(const Duration(seconds: 15));
+      final response = await _httpClient
+          .get(Uri.parse('$_baseUrl/blood-sugar'), headers: _getHeaders())
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
         return data.cast<Map<String, dynamic>>();
       } else {
-        throw Exception('Failed to fetch blood sugar records: ${response.body}');
+        throw Exception(
+          'Failed to fetch blood sugar records: ${response.body}',
+        );
       }
     } catch (e) {
       debugPrint('[ApiService] Get blood sugar error: $e');
@@ -423,16 +504,18 @@ class ApiService {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
     try {
-      final response = await _httpClient.post(
-        Uri.parse('$_baseUrl/blood-sugar'),
-        headers: _getHeaders(),
-        body: jsonEncode({
-          'value': value,
-          'unit': unit,
-          'timestamp': timestamp.toIso8601String(),
-          'notes': notes,
-        }),
-      ).timeout(const Duration(seconds: 15));
+      final response = await _httpClient
+          .post(
+            Uri.parse('$_baseUrl/blood-sugar'),
+            headers: _getHeaders(),
+            body: jsonEncode({
+              'value': value,
+              'unit': unit,
+              'timestamp': timestamp.toIso8601String(),
+              'notes': notes,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 201) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -456,19 +539,23 @@ class ApiService {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
     try {
-      final response = await _httpClient.post(
-        Uri.parse('$_baseUrl/adherence/record'),
-        headers: _getHeaders(),
-        body: jsonEncode({
-          'medicationId': medicationId,
-          'timestamp': timestamp.toIso8601String(),
-        }),
-      ).timeout(const Duration(seconds: 15));
+      final response = await _httpClient
+          .post(
+            Uri.parse('$_baseUrl/adherence/record'),
+            headers: _getHeaders(),
+            body: jsonEncode({
+              'medicationId': medicationId,
+              'timestamp': timestamp.toIso8601String(),
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode != 201) {
         throw Exception('Failed to record adherence: ${response.body}');
       }
-      debugPrint('[ApiService] Adherence recorded for medication: $medicationId');
+      debugPrint(
+        '[ApiService] Adherence recorded for medication: $medicationId',
+      );
     } catch (e) {
       debugPrint('[ApiService] Record adherence error: $e');
       rethrow;
@@ -479,10 +566,9 @@ class ApiService {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
     try {
-      final response = await _httpClient.get(
-        Uri.parse('$_baseUrl/adherence/stats'),
-        headers: _getHeaders(),
-      ).timeout(const Duration(seconds: 15));
+      final response = await _httpClient
+          .get(Uri.parse('$_baseUrl/adherence/stats'), headers: _getHeaders())
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -502,10 +588,9 @@ class ApiService {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
     try {
-      final response = await _httpClient.get(
-        Uri.parse('$_baseUrl/appointments'),
-        headers: _getHeaders(),
-      ).timeout(const Duration(seconds: 15));
+      final response = await _httpClient
+          .get(Uri.parse('$_baseUrl/appointments'), headers: _getHeaders())
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
@@ -529,17 +614,19 @@ class ApiService {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
     try {
-      final response = await _httpClient.post(
-        Uri.parse('$_baseUrl/appointments'),
-        headers: _getHeaders(),
-        body: jsonEncode({
-          'title': title,
-          'dateTime': dateTime.toIso8601String(),
-          'location': location,
-          'notes': notes,
-          'doctorName': doctorName,
-        }),
-      ).timeout(const Duration(seconds: 15));
+      final response = await _httpClient
+          .post(
+            Uri.parse('$_baseUrl/appointments'),
+            headers: _getHeaders(),
+            body: jsonEncode({
+              'title': title,
+              'dateTime': dateTime.toIso8601String(),
+              'location': location,
+              'notes': notes,
+              'doctorName': doctorName,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 201) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -558,10 +645,12 @@ class ApiService {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
     try {
-      final response = await _httpClient.delete(
-        Uri.parse('$_baseUrl/appointments/$appointmentId'),
-        headers: _getHeaders(),
-      ).timeout(const Duration(seconds: 15));
+      final response = await _httpClient
+          .delete(
+            Uri.parse('$_baseUrl/appointments/$appointmentId'),
+            headers: _getHeaders(),
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode != 200) {
         throw Exception('Failed to delete appointment: ${response.body}');
@@ -577,17 +666,21 @@ class ApiService {
 
   Future<Map<String, dynamic>> generateInvitation(String username) async {
     if (!isAuthenticated()) throw Exception('Not authenticated');
-    
+
     try {
-      final response = await _httpClient.post(
-        Uri.parse('$_baseUrl/caregiver/generate-invitation'),
-        headers: _getHeaders(),
-        body: jsonEncode({'username': username}),
-      ).timeout(const Duration(seconds: 15));
+      final response = await _httpClient
+          .post(
+            Uri.parse('$_baseUrl/caregiver/generate-invitation'),
+            headers: _getHeaders(),
+            body: jsonEncode({'username': username}),
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        debugPrint('[ApiService] Invitation generated: ${data['invitationCode']}');
+        debugPrint(
+          '[ApiService] Invitation generated: ${data['invitationCode']}',
+        );
         return data;
       } else {
         throw Exception('Failed to generate invitation: ${response.body}');
@@ -598,14 +691,18 @@ class ApiService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getPendingInvitations(String username) async {
+  Future<List<Map<String, dynamic>>> getPendingInvitations(
+    String username,
+  ) async {
     if (!isAuthenticated()) throw Exception('Not authenticated');
-    
+
     try {
-      final response = await _httpClient.get(
-        Uri.parse('$_baseUrl/caregiver/invitations/$username'),
-        headers: _getHeaders(),
-      ).timeout(const Duration(seconds: 15));
+      final response = await _httpClient
+          .get(
+            Uri.parse('$_baseUrl/caregiver/invitations/$username'),
+            headers: _getHeaders(),
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -625,22 +722,26 @@ class ApiService {
     required String caregiverUsername,
   }) async {
     if (!isAuthenticated()) throw Exception('Not authenticated');
-    
+
     try {
-      final response = await _httpClient.post(
-        Uri.parse('$_baseUrl/caregiver/accept-invitation'),
-        headers: _getHeaders(),
-        body: jsonEncode({
-          'invitationCode': invitationCode,
-          'caregiverUsername': caregiverUsername,
-        }),
-      ).timeout(const Duration(seconds: 15));
+      final response = await _httpClient
+          .post(
+            Uri.parse('$_baseUrl/caregiver/accept-invitation'),
+            headers: _getHeaders(),
+            body: jsonEncode({
+              'invitationCode': invitationCode,
+              'caregiverUsername': caregiverUsername,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         debugPrint('[ApiService] Invitation accepted: $invitationCode');
         return true;
       } else {
-        debugPrint('[ApiService] Failed to accept invitation: ${response.body}');
+        debugPrint(
+          '[ApiService] Failed to accept invitation: ${response.body}',
+        );
         return false;
       }
     } catch (e) {
@@ -651,13 +752,15 @@ class ApiService {
 
   Future<bool> rejectInvitation(String invitationCode) async {
     if (!isAuthenticated()) throw Exception('Not authenticated');
-    
+
     try {
-      final response = await _httpClient.post(
-        Uri.parse('$_baseUrl/caregiver/reject-invitation'),
-        headers: _getHeaders(),
-        body: jsonEncode({'invitationCode': invitationCode}),
-      ).timeout(const Duration(seconds: 15));
+      final response = await _httpClient
+          .post(
+            Uri.parse('$_baseUrl/caregiver/reject-invitation'),
+            headers: _getHeaders(),
+            body: jsonEncode({'invitationCode': invitationCode}),
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         debugPrint('[ApiService] Invitation rejected: $invitationCode');
@@ -671,14 +774,18 @@ class ApiService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getLinkedPatients(String caregiverUsername) async {
+  Future<List<Map<String, dynamic>>> getLinkedPatients(
+    String caregiverUsername,
+  ) async {
     if (!isAuthenticated()) throw Exception('Not authenticated');
-    
+
     try {
-      final response = await _httpClient.get(
-        Uri.parse('$_baseUrl/caregiver/patients/$caregiverUsername'),
-        headers: _getHeaders(),
-      ).timeout(const Duration(seconds: 15));
+      final response = await _httpClient
+          .get(
+            Uri.parse('$_baseUrl/caregiver/patients/$caregiverUsername'),
+            headers: _getHeaders(),
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -693,14 +800,18 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>?> getLinkedCaregiver(String patientUsername) async {
+  Future<Map<String, dynamic>?> getLinkedCaregiver(
+    String patientUsername,
+  ) async {
     if (!isAuthenticated()) throw Exception('Not authenticated');
-    
+
     try {
-      final response = await _httpClient.get(
-        Uri.parse('$_baseUrl/caregiver/caregiver/$patientUsername'),
-        headers: _getHeaders(),
-      ).timeout(const Duration(seconds: 15));
+      final response = await _httpClient
+          .get(
+            Uri.parse('$_baseUrl/caregiver/caregiver/$patientUsername'),
+            headers: _getHeaders(),
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -719,16 +830,18 @@ class ApiService {
     required String caregiverUsername,
   }) async {
     if (!isAuthenticated()) throw Exception('Not authenticated');
-    
+
     try {
-      final response = await _httpClient.post(
-        Uri.parse('$_baseUrl/caregiver/unlink'),
-        headers: _getHeaders(),
-        body: jsonEncode({
-          'patientUsername': patientUsername,
-          'caregiverUsername': caregiverUsername,
-        }),
-      ).timeout(const Duration(seconds: 15));
+      final response = await _httpClient
+          .post(
+            Uri.parse('$_baseUrl/caregiver/unlink'),
+            headers: _getHeaders(),
+            body: jsonEncode({
+              'patientUsername': patientUsername,
+              'caregiverUsername': caregiverUsername,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         debugPrint('[ApiService] Caregiver unlinked');
@@ -747,17 +860,19 @@ class ApiService {
     required String medicationName,
   }) async {
     if (!isAuthenticated()) throw Exception('Not authenticated');
-    
+
     try {
-      final response = await _httpClient.post(
-        Uri.parse('$_baseUrl/caregiver/notify-missed-dose'),
-        headers: _getHeaders(),
-        body: jsonEncode({
-          'patientUsername': patientUsername,
-          'consecutiveMissed': consecutiveMissed,
-          'medicationName': medicationName,
-        }),
-      ).timeout(const Duration(seconds: 15));
+      final response = await _httpClient
+          .post(
+            Uri.parse('$_baseUrl/caregiver/notify-missed-dose'),
+            headers: _getHeaders(),
+            body: jsonEncode({
+              'patientUsername': patientUsername,
+              'consecutiveMissed': consecutiveMissed,
+              'medicationName': medicationName,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         debugPrint('[ApiService] Missed dose notification sent');
@@ -782,7 +897,8 @@ class ApiService {
             body: jsonEncode({
               'patientUsername': patientUsername,
               'classification': classification,
-              if (message != null && message.trim().isNotEmpty) 'message': message.trim(),
+              if (message != null && message.trim().isNotEmpty)
+                'message': message.trim(),
             }),
           )
           .timeout(const Duration(seconds: 15));
@@ -793,14 +909,18 @@ class ApiService {
         return data;
       }
 
-      throw Exception(_extractApiError(response, 'Failed to send emergency alert'));
+      throw Exception(
+        _extractApiError(response, 'Failed to send emergency alert'),
+      );
     } catch (e) {
       debugPrint('[ApiService] Send emergency alert error: $e');
       rethrow;
     }
   }
 
-  Future<List<Map<String, dynamic>>> getCaregiverAlerts(String caregiverUsername) async {
+  Future<List<Map<String, dynamic>>> getCaregiverAlerts(
+    String caregiverUsername,
+  ) async {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
     try {
@@ -813,11 +933,14 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final List<dynamic> alerts = data['alerts'] as List<dynamic>? ?? <dynamic>[];
+        final List<dynamic> alerts =
+            data['alerts'] as List<dynamic>? ?? <dynamic>[];
         return alerts.cast<Map<String, dynamic>>();
       }
 
-      throw Exception(_extractApiError(response, 'Failed to load caregiver alerts'));
+      throw Exception(
+        _extractApiError(response, 'Failed to load caregiver alerts'),
+      );
     } catch (e) {
       debugPrint('[ApiService] Get caregiver alerts error: $e');
       return [];
@@ -836,7 +959,9 @@ class ApiService {
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode != 200) {
-        throw Exception(_extractApiError(response, 'Failed to mark alert as read'));
+        throw Exception(
+          _extractApiError(response, 'Failed to mark alert as read'),
+        );
       }
     } catch (e) {
       debugPrint('[ApiService] Mark emergency alert as read error: $e');
@@ -856,7 +981,9 @@ class ApiService {
         .timeout(const Duration(seconds: 15));
 
     if (response.statusCode != 200) {
-      throw Exception(_extractApiError(response, 'Failed to register FCM token'));
+      throw Exception(
+        _extractApiError(response, 'Failed to register FCM token'),
+      );
     }
   }
 

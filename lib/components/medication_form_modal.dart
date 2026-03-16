@@ -401,17 +401,17 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
                     decoration: InputDecoration(
-                      labelText: AppTranslations.translate('medication_type_optional', lang)
+                      labelText: AppTranslations.translate('medication_type', lang)
                     ),
                     initialValue: _chronicDisease,
                     style: const TextStyle(color: Colors.black),
                     dropdownColor: Colors.white,
                     items: <DropdownMenuItem<String>>[
                       DropdownMenuItem<String>(
-                        value: null,
+                        value: 'عام',
                         child: Text(
                           AppTranslations.translate('general_medication', lang),
-                          style: const TextStyle(color: Colors.black54)
+                          style: const TextStyle(color: Colors.black)
                         ),
                       ),
                       DropdownMenuItem<String>(
@@ -429,6 +429,8 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                         ),
                       ),
                     ],
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? AppTranslations.translate('required_field', lang) : null,
                     onChanged: (v) => setState(() => _chronicDisease = v),
                   ),
                 ],

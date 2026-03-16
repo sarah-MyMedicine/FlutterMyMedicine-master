@@ -5,6 +5,7 @@ import '../providers/user_provider.dart';
 import '../utils/translations.dart';
 import 'profile_page.dart';
 import 'reminder_reliability_check_page.dart';
+import 'login_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -40,6 +41,38 @@ class _SettingsPageState extends State<SettingsPage> {
     _countryCtrl.dispose();
     _provinceCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _logout(String lang) async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(AppTranslations.translate('logout_confirm_title', lang)),
+        content: Text(AppTranslations.translate('logout_confirm_message', lang)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(AppTranslations.translate('cancel', lang)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: Text(AppTranslations.translate('logout', lang)),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldLogout != true) return;
+
+    await Provider.of<UserProvider>(context, listen: false).logout(context: context);
+
+    if (!mounted) return;
+
+    Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginPage()),
+      (route) => false,
+    );
   }
 
   @override
@@ -115,6 +148,25 @@ class _SettingsPageState extends State<SettingsPage> {
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: Colors.blue.shade700,
                                           foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(vertical: 12),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: OutlinedButton.icon(
+                                        onPressed: () => _logout(lang),
+                                        icon: const Icon(Icons.logout, size: 18),
+                                        label: Text(
+                                          AppTranslations.translate('logout', lang),
+                                        ),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: Colors.red,
+                                          side: const BorderSide(color: Colors.red),
                                           padding: const EdgeInsets.symmetric(vertical: 12),
                                           shape: RoundedRectangleBorder(
                                             borderRadius: BorderRadius.circular(8),

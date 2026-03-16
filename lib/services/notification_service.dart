@@ -18,6 +18,9 @@ class NotificationService {
   static final NotificationService _instance = NotificationService._privateConstructor();
   factory NotificationService() => _instance;
 
+  static const int recurringMedicationAlarmBudget = 420;
+  static const int _maxOccurrencesPerPrefix = 14;
+
   final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
   bool _initialized = false;
 
@@ -188,6 +191,59 @@ class NotificationService {
 
   int _idFor(String prefix, int offset) => prefix.hashCode ^ offset;
 
+  bool _isAlarmLimitException(PlatformException error) {
+    final message = error.message ?? '';
+    return message.contains('Maximum limit of concurrent alarms 500 reached');
+  }
+
+  Future<int> _trackedMedicationAlarmCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    var count = 0;
+
+    for (final key in prefs.getKeys()) {
+      if (!key.startsWith('notifs_')) continue;
+      final raw = prefs.getString(key);
+      if (raw == null || raw.isEmpty) continue;
+
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is List) {
+          count += decoded.whereType<num>().length;
+        }
+      } catch (_) {}
+    }
+
+    return count;
+  }
+
+  Future<void> resetTrackedMedicationSchedules() async {
+    await init();
+
+    final prefs = await SharedPreferences.getInstance();
+    final trackedKeys = prefs.getKeys().where((key) => key.startsWith('notifs_')).toList();
+
+    for (final key in trackedKeys) {
+      final raw = prefs.getString(key);
+      if (raw != null && raw.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(raw);
+          if (decoded is List) {
+            for (final value in decoded.whereType<num>()) {
+              final id = value.toInt();
+              await _plugin.cancel(id: id);
+              _activeTimers[id]?.cancel();
+              _activeTimers.remove(id);
+            }
+          }
+        } catch (e) {
+          debugPrint('[NotificationService] Failed to clear tracked ids for $key: $e');
+        }
+      }
+
+      await prefs.remove(key);
+    }
+  }
+
   // Track active timers for testing/fallback purposes
   final Map<int, Timer> _activeTimers = {};
 
@@ -202,14 +258,29 @@ class NotificationService {
     await init();
     debugPrint('[NotificationService] scheduleRepeatedOccurrences called: prefix=$prefix, title=$title, firstOccurrence=$firstOccurrence, intervalHours=$intervalHours, occurrences=$occurrences');
 
+    await cancelForPrefix(prefix);
+
     final prefs = await SharedPreferences.getInstance();
     final key = 'notifs_$prefix';
+
+    final trackedCount = await _trackedMedicationAlarmCount();
+    final availableSlots = recurringMedicationAlarmBudget - trackedCount;
+    final safeOccurrences = min(
+      min(occurrences, _maxOccurrencesPerPrefix),
+      max(0, availableSlots),
+    );
+
+    if (safeOccurrences <= 0) {
+      await prefs.remove(key);
+      debugPrint('[NotificationService] No remaining tracked alarm budget for prefix=$prefix; skipping schedule');
+      return;
+    }
 
     final List<int> ids = [];
     int scheduledCount = 0;
     bool isFirstOccurrence = true;
 
-    for (var i = 0; i < occurrences; i++) {
+    for (var i = 0; i < safeOccurrences; i++) {
       final scheduled = firstOccurrence.add(Duration(hours: intervalHours * i));
       final now = DateTime.now();
       // Add a 5-second safety buffer to ensure the scheduled time is sufficiently in the future
@@ -284,6 +355,14 @@ class NotificationService {
         }
       } on PlatformException catch (e) {
         debugPrint('[NotificationService] PlatformException for id=$id: ${e.code} - ${e.message}');
+        if (_isAlarmLimitException(e)) {
+          debugPrint('[NotificationService] Alarm limit reached while scheduling prefix=$prefix. Stopping further schedules for this medication.');
+          if (isFirstOccurrence) {
+            _scheduleTimerFallback(id, title, body, scheduled, payload);
+            isFirstOccurrence = false;
+          }
+          break;
+        }
         if (e.code == 'exact_alarms_not_permitted') {
           debugPrint('[NotificationService] Retrying with inexactAllowWhileIdle for id=$id');
           await _plugin.zonedSchedule(
@@ -592,6 +671,8 @@ class NotificationService {
 
   Future<void> cancelById(int id, String prefix) async {
     await _plugin.cancel(id: id);
+    _activeTimers[id]?.cancel();
+    _activeTimers.remove(id);
     final prefs = await SharedPreferences.getInstance();
     final key = 'notifs_$prefix';
     if (!prefs.containsKey(key)) return;
@@ -599,7 +680,11 @@ class NotificationService {
     if (raw == null) return;
     final List<dynamic> ids = jsonDecode(raw);
     ids.removeWhere((element) => element == id);
-    await prefs.setString(key, jsonEncode(ids));
+    if (ids.isEmpty) {
+      await prefs.remove(key);
+    } else {
+      await prefs.setString(key, jsonEncode(ids));
+    }
   }
 
   Future<int> scheduleOneOff({
@@ -628,28 +713,37 @@ class NotificationService {
       return id;
     }
     
-    await _plugin.zonedSchedule(
-      id: id,
-      title: title,
-      body: body,
-      scheduledDate: tzDateTime,
-      notificationDetails: const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'medicine_channel',
-          'Medicine reminders',
-          channelDescription: 'Reminders to take medicines',
-          importance: Importance.max,
-          priority: Priority.max,
-          playSound: true,
-          fullScreenIntent: true,
-          visibility: NotificationVisibility.public,
-          audioAttributesUsage: AudioAttributesUsage.alarm,
+    try {
+      await _plugin.zonedSchedule(
+        id: id,
+        title: title,
+        body: body,
+        scheduledDate: tzDateTime,
+        notificationDetails: const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'medicine_channel',
+            'Medicine reminders',
+            channelDescription: 'Reminders to take medicines',
+            importance: Importance.max,
+            priority: Priority.max,
+            playSound: true,
+            fullScreenIntent: true,
+            visibility: NotificationVisibility.public,
+            audioAttributesUsage: AudioAttributesUsage.alarm,
+          ),
+          iOS: DarwinNotificationDetails(),
         ),
-        iOS: DarwinNotificationDetails(),
-      ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      payload: payload,
-    );
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        payload: payload,
+      );
+    } on PlatformException catch (e) {
+      if (_isAlarmLimitException(e)) {
+        debugPrint('[NotificationService] Alarm limit reached for one-off schedule. Using in-memory timer fallback for id=$id');
+        _scheduleTimerFallback(id, title, body, when, payload);
+        return id;
+      }
+      rethrow;
+    }
     return id;
   }
 
@@ -675,33 +769,54 @@ class NotificationService {
     
     final id = when.millisecondsSinceEpoch & 0x7fffffff;
     
-    await _plugin.zonedSchedule(
-      id: id,
-      title: 'تذكير: $medicationName',
-      body: message,
-      scheduledDate: scheduledDate,
-      notificationDetails: NotificationDetails(
-        android: AndroidNotificationDetails(
-          'medicine_channel',
-          'Medicine reminders',
-          channelDescription: 'Reminders to take medicines',
-          importance: Importance.max,
-          priority: Priority.max,
-          playSound: true,
-          enableVibration: true,
-          fullScreenIntent: true,
-          visibility: NotificationVisibility.public,
-          audioAttributesUsage: AudioAttributesUsage.alarm,
+    try {
+      await _plugin.zonedSchedule(
+        id: id,
+        title: 'تذكير: $medicationName',
+        body: message,
+        scheduledDate: scheduledDate,
+        notificationDetails: NotificationDetails(
+          android: AndroidNotificationDetails(
+            'medicine_channel',
+            'Medicine reminders',
+            channelDescription: 'Reminders to take medicines',
+            importance: Importance.max,
+            priority: Priority.max,
+            playSound: true,
+            enableVibration: true,
+            fullScreenIntent: true,
+            visibility: NotificationVisibility.public,
+            audioAttributesUsage: AudioAttributesUsage.alarm,
+          ),
+          iOS: DarwinNotificationDetails(
+            sound: 'default.caf',
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
         ),
-        iOS: DarwinNotificationDetails(
-          sound: 'default.caf',
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        ),
-      ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-    );
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      );
+    } on PlatformException catch (e) {
+      if (_isAlarmLimitException(e)) {
+        debugPrint('[NotificationService] Alarm limit reached for skipped reminder. Using in-memory timer fallback for id=$id');
+        _scheduleTimerFallback(
+          id,
+          'تذكير: $medicationName',
+          message,
+          when,
+          jsonEncode({
+            'prefix': 'skipped_$medicationName',
+            'name': medicationName,
+            'dose': message,
+            'id': id,
+            'scheduled': when.millisecondsSinceEpoch,
+          }),
+        );
+      } else {
+        rethrow;
+      }
+    }
     
     debugPrint('[NotificationService] Scheduled motivational reminder for $medicationName in 1 hour');
   }

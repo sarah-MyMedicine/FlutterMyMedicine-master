@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../providers/settings_provider.dart';
+import '../services/patient_data_sync_service.dart';
+import '../utils/translations.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -11,6 +13,8 @@ class RegisterPage extends StatefulWidget {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
+  static const String _usernameExistsBackendMessage = 'Username already exists';
+
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -19,6 +23,14 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+
+  String _localizedRegisterError(String? rawMessage, String language) {
+    if (rawMessage == _usernameExistsBackendMessage) {
+      return AppTranslations.translate('username_exists_bilingual', language);
+    }
+
+    return rawMessage ?? 'فشل التسجيل. تحقق من البيانات وحاول مرة أخرى';
+  }
   
   @override
   void dispose() {
@@ -70,6 +82,7 @@ class _RegisterPageState extends State<RegisterPage> {
       password: _passwordController.text,
       name: _nameController.text.trim(),
       userType: _selectedUserType,
+      fromSignInButton: true,
     );
     
     if (!mounted) return;
@@ -77,9 +90,24 @@ class _RegisterPageState extends State<RegisterPage> {
     setState(() => _isLoading = false);
     
     if (success) {
+      try {
+        await PatientDataSyncService()
+            .syncAfterAuthentication(
+              context: context,
+              username:
+                  userProvider.username ?? _usernameController.text.trim().toLowerCase(),
+            )
+            .timeout(const Duration(seconds: 8));
+      } catch (e) {
+        debugPrint('[Register] Post-auth sync skipped due timeout/error: $e');
+        await PatientDataSyncService().reloadProvidersFromLocal(context);
+      }
+
+      if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/home');
     } else {
-      final errorMessage = userProvider.lastError ?? 'فشل التسجيل. تحقق من البيانات وحاول مرة أخرى';
+      final language = Provider.of<SettingsProvider>(context, listen: false).language;
+      final errorMessage = _localizedRegisterError(userProvider.lastError, language);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(errorMessage),

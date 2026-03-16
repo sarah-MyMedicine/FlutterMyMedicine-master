@@ -7,21 +7,29 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../providers/settings_provider.dart';
 import '../utils/translations.dart';
+import '../services/patient_data_sync_service.dart';
 
 class LabResult {
   final String imagePath;
   final String description;
+  final String? imageBase64;
 
-  LabResult({required this.imagePath, required this.description});
+  LabResult({
+    required this.imagePath,
+    required this.description,
+    this.imageBase64,
+  });
 
   Map<String, dynamic> toJson() => {
     'imagePath': imagePath,
     'description': description,
+    'imageBase64': imageBase64,
   };
 
   factory LabResult.fromJson(Map<String, dynamic> json) => LabResult(
     imagePath: json['imagePath'] ?? '',
     description: json['description'] ?? '',
+    imageBase64: json['imageBase64']?.toString(),
   );
 }
 
@@ -53,23 +61,63 @@ class _LabResultsPageState extends State<LabResultsPage> {
       final parsed = decoded
           .whereType<Map>()
           .map((item) => LabResult.fromJson(Map<String, dynamic>.from(item)))
-          .where((item) => item.imagePath.isNotEmpty)
+          .where((item) => item.imagePath.isNotEmpty || (item.imageBase64?.isNotEmpty ?? false))
           .toList();
+
+      final hydrated = <LabResult>[];
+      for (final result in parsed) {
+        hydrated.add(await _ensureLocalImageAvailability(result));
+      }
 
       if (!mounted) return;
       setState(() {
         _labResults
           ..clear()
-          ..addAll(parsed);
+          ..addAll(hydrated);
       });
     } catch (e) {
       debugPrint('Failed to load lab results: $e');
     }
   }
 
+  Future<LabResult> _ensureLocalImageAvailability(LabResult result) async {
+    if (result.imagePath.isNotEmpty) {
+      final existing = File(result.imagePath);
+      if (await existing.exists()) {
+        return result;
+      }
+    }
+
+    final base64 = result.imageBase64;
+    if (base64 == null || base64.isEmpty) return result;
+
+    try {
+      final bytes = base64Decode(base64);
+      final docsDir = await getApplicationDocumentsDirectory();
+      final targetDir = Directory('${docsDir.path}${Platform.pathSeparator}lab_results_images');
+      if (!await targetDir.exists()) {
+        await targetDir.create(recursive: true);
+      }
+
+      final targetPath =
+          '${targetDir.path}${Platform.pathSeparator}lab_sync_${DateTime.now().microsecondsSinceEpoch}.jpg';
+      await File(targetPath).writeAsBytes(bytes, flush: true);
+
+      return LabResult(
+        imagePath: targetPath,
+        description: result.description,
+        imageBase64: result.imageBase64,
+      );
+    } catch (e) {
+      debugPrint('Failed to hydrate synced lab image: $e');
+      return result;
+    }
+  }
+
   Future<void> _saveImages() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_labResultsKey, jsonEncode(_labResults.map((r) => r.toJson()).toList()));
+    await PatientDataSyncService().syncLocalToCloudIfAuthenticated();
   }
 
   Future<String> _persistImageLocally(String sourcePath) async {
@@ -101,6 +149,8 @@ class _LabResultsPageState extends State<LabResultsPage> {
 
       if (image != null) {
         final persistentPath = await _persistImageLocally(image.path);
+        final imageBytes = await File(persistentPath).readAsBytes();
+        final imageBase64 = base64Encode(imageBytes);
 
         // Show dialog to add description
         final description = await _showDescriptionDialog(context);
@@ -109,6 +159,7 @@ class _LabResultsPageState extends State<LabResultsPage> {
             _labResults.add(LabResult(
               imagePath: persistentPath,
               description: description,
+              imageBase64: imageBase64,
             ));
           });
           await _saveImages();
@@ -222,6 +273,7 @@ class _LabResultsPageState extends State<LabResultsPage> {
         _labResults[index] = LabResult(
           imagePath: _labResults[index].imagePath,
           description: newDescription,
+          imageBase64: _labResults[index].imageBase64,
         );
       });
       await _saveImages();

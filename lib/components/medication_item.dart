@@ -85,153 +85,186 @@ class MedicationItem extends StatelessWidget {
         final lang = sp.language;
         
         return Card(
-          child: ListTile(
-            leading: imagePath != null
-                ? ClipOval(
-                    child: Image.file(
-                      File(imagePath!),
-                      width: 40,
-                      height: 40,
-                      fit: BoxFit.cover,
-                      cacheWidth: 80,
-                      cacheHeight: 80,
-                    ),
-                  )
-                : CircleAvatar(
-                    backgroundColor:
-                        Theme.of(context).colorScheme.secondary.withAlpha(38),
-                    child: Icon(Icons.medication, color: Theme.of(context).colorScheme.secondary),
-                  ),
-            title: Text(name, style: Theme.of(context).textTheme.titleLarge),
-            subtitle: Consumer<AdherenceProvider>(
-              builder: (context, adherenceProvider, child) {
-                // Calculate adherence score
-                final intervalHrs = int.tryParse(intervalHours ?? '24') ?? 24;
-                DateTime? medStartDate;
-                if (startDate != null) {
-                  try {
-                    medStartDate = DateTime.parse(startDate!);
-                  } catch (e) {
-                    medStartDate = null;
-                  }
-                }
-                
-                final adherenceScore = adherenceProvider.calculateMedicationAdherence(
-                  medicationName: name,
-                  intervalHours: intervalHrs,
-                  startDate: medStartDate,
-                  daysToCheck: 30,
-                );
-                
-                // Determine color based on score
-                Color? scoreColor;
-                IconData? scoreIcon;
-                if (adherenceScore >= 80) {
-                  scoreColor = Colors.green[700];
-                  scoreIcon = Icons.check_circle;
-                } else if (adherenceScore >= 60) {
-                  scoreColor = Colors.orange[700];
-                  scoreIcon = Icons.warning;
-                } else {
-                  scoreColor = Colors.red[700];
-                  scoreIcon = Icons.error;
-                }
-                
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('$dose · ${_getFrequencyText(lang)}${startTime != null ? ' · $startTime' : ''}', style: Theme.of(context).textTheme.bodyMedium),
-                    if (chronicDisease != null && chronicDisease!.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4.0),
-                        child: Row(
-                          children: [
-                            Icon(_getMedicationTypeIcon(), size: 14, color: _getMedicationTypeColor()),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                _getMedicationTypeText(lang),
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: _getMedicationTypeColor().withOpacity(0.8),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 8, 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: imagePath != null
+                        ? ClipOval(
+                            child: Image.file(
+                              File(imagePath!),
+                              width: 40,
+                              height: 40,
+                              fit: BoxFit.cover,
+                              cacheWidth: 80,
+                              cacheHeight: 80,
                             ),
-                          ],
-                        ),
-                      ),
-                    if (missedDosesCount > 0)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4.0),
-                        child: Row(
-                          children: [
-                            Icon(Icons.notifications_active, size: 14, color: Colors.red[700]),
-                            const SizedBox(width: 4),
-                            Text(
-                              missedDosesCount == 1
-                                  ? AppTranslations.translate('missed_dose', lang)
-                                  : '${AppTranslations.translate('missed_doses', lang)}: $missedDosesCount',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.red[700],
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4.0),
-                      child: Row(
-                        children: [
-                          Icon(scoreIcon, size: 14, color: scoreColor),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${AppTranslations.translate('adherence', lang)}: ${adherenceScore.toStringAsFixed(0)}%',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: scoreColor,
-                              fontWeight: FontWeight.w500,
+                          )
+                        : CircleAvatar(
+                            backgroundColor:
+                                Theme.of(context).colorScheme.secondary.withAlpha(38),
+                            child: Icon(
+                              Icons.medication,
+                              color: Theme.of(context).colorScheme.secondary,
                             ),
                           ),
-                        ],
-                      ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Consumer<AdherenceProvider>(
+                      builder: (context, adherenceProvider, child) {
+                        final intervalHrs = int.tryParse(intervalHours ?? '24') ?? 24;
+                        DateTime? medStartDate;
+                        if (startDate != null) {
+                          try {
+                            medStartDate = DateTime.parse(startDate!);
+                          } catch (e) {
+                            medStartDate = null;
+                          }
+                        }
+
+                        final adherenceScore = adherenceProvider.calculateMedicationAdherence(
+                          medicationName: name,
+                          intervalHours: intervalHrs,
+                          startDate: medStartDate,
+                          daysToCheck: 30,
+                        );
+
+                        Color? scoreColor;
+                        IconData? scoreIcon;
+                        if (adherenceScore != null) {
+                          if (adherenceScore >= 80) {
+                            scoreColor = Colors.green[700];
+                            scoreIcon = Icons.check_circle;
+                          } else if (adherenceScore >= 60) {
+                            scoreColor = Colors.orange[700];
+                            scoreIcon = Icons.warning;
+                          } else {
+                            scoreColor = Colors.red[700];
+                            scoreIcon = Icons.error;
+                          }
+                        }
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(name, style: Theme.of(context).textTheme.titleLarge),
+                            const SizedBox(height: 2),
+                            Text(
+                              '$dose · ${_getFrequencyText(lang)}${startTime != null ? ' · $startTime' : ''}',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                            if (chronicDisease != null && chronicDisease!.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4.0),
+                                child: Row(
+                                  children: [
+                                    Icon(_getMedicationTypeIcon(), size: 14, color: _getMedicationTypeColor()),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        _getMedicationTypeText(lang),
+                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          color: _getMedicationTypeColor().withOpacity(0.8),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            if (missedDosesCount > 0)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4.0),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.notifications_active, size: 14, color: Colors.red[700]),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        missedDosesCount == 1
+                                            ? AppTranslations.translate('missed_dose', lang)
+                                            : '${AppTranslations.translate('missed_doses', lang)}: $missedDosesCount',
+                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          color: Colors.red[700],
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4.0),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    adherenceScore == null ? Icons.hourglass_top : scoreIcon,
+                                    size: 14,
+                                    color: adherenceScore == null ? Colors.grey[700] : scoreColor,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      adherenceScore == null
+                                          ? AppTranslations.translate('adherence_waiting_first_dose', lang)
+                                          : '${AppTranslations.translate('adherence', lang)}: ${adherenceScore.toStringAsFixed(0)}%',
+                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: adherenceScore == null ? Colors.grey[700] : scoreColor,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
-                  ],
-                );
-              },
-            ),
-            trailing: PopupMenuButton<String>(
-              onSelected: (value) {
-                if (value == 'edit') {
-                  onEdit?.call();
-                } else if (value == 'delete') {
-                  onDelete?.call();
-                }
-              },
-              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                PopupMenuItem<String>(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      const Icon(Icons.edit, size: 18),
-                      const SizedBox(width: 12),
-                      Text(AppTranslations.translate('edit', lang)),
+                  ),
+                  PopupMenuButton<String>(
+                    onSelected: (value) {
+                      if (value == 'edit') {
+                        onEdit?.call();
+                      } else if (value == 'delete') {
+                        onDelete?.call();
+                      }
+                    },
+                    itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                      PopupMenuItem<String>(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            const Icon(Icons.edit, size: 18),
+                            const SizedBox(width: 12),
+                            Text(AppTranslations.translate('edit', lang)),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem<String>(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            const Icon(Icons.delete, size: 18, color: Colors.red),
+                            const SizedBox(width: 12),
+                            Text(AppTranslations.translate('delete', lang), style: const TextStyle(color: Colors.red)),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
-                ),
-                PopupMenuItem<String>(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      const Icon(Icons.delete, size: 18, color: Colors.red),
-                      const SizedBox(width: 12),
-                      Text(AppTranslations.translate('delete', lang), style: const TextStyle(color: Colors.red)),
-                    ],
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-            onTap: onTap,
           ),
         );
       },

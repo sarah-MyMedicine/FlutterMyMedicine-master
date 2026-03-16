@@ -46,6 +46,7 @@ class AuthService extends ChangeNotifier {
         password: password,
         name: name,
         userType: userType,
+        registrationSource: 'signin_button',
       );
 
       _isAuthenticated = true;

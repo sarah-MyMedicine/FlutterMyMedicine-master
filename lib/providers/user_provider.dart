@@ -1,6 +1,7 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
+import '../services/patient_data_sync_service.dart';
 import '../services/push_notification_service.dart';
 
 class UserProvider extends ChangeNotifier {
@@ -11,7 +12,7 @@ class UserProvider extends ChangeNotifier {
   String? _password;
   String? _lastError;
   bool _isLoggedIn = false;
-  
+
   String? get username => _username;
   String? get name => _name;
   String? get userType => _userType;
@@ -24,18 +25,24 @@ class UserProvider extends ChangeNotifier {
 
   String _friendlyError(Object error) {
     final raw = error.toString().replaceFirst('Exception: ', '').trim();
+    if (raw == 'Username already exists') {
+      return 'This username is given, please choose another one\nاسم المستخدم مستخدم بالفعل، يرجى اختيار اسم آخر';
+    }
+    if (raw.contains('Unable to reach authentication server')) {
+      return 'تعذر الوصول إلى خادم المصادقة. تأكد من تشغيل الـ Backend. إذا كنت تستخدم هاتف Android حقيقيًا، وصّل الهاتف ثم نفّذ: adb reverse tcp:5000 tcp:5000 أو شغّل التطبيق مع --dart-define=API_BASE_URL=http://<IP>:5000/api';
+    }
     if (raw.contains('timed out') || raw.contains('TimeoutException')) {
-      return 'انتهت مهلة الاتصال بالخادم. تأكد من تشغيل الـ Backend وصحة عنوان API.';
+      return 'انتهت مهلة الاتصال بالخادم. تأكد من تشغيل الـ Backend. على الهاتف الحقيقي استخدم adb reverse tcp:5000 tcp:5000 أو شغّل التطبيق مع --dart-define=API_BASE_URL=http://<IP>:5000/api';
     }
     if (raw.contains('Connection refused') ||
         raw.contains('Failed host lookup') ||
         raw.contains('SocketException')) {
-      return 'تعذر الاتصال بالخادم. تأكد من تشغيل الـ Backend وصحة عنوان API.';
+      return 'تعذر الاتصال بالخادم. تأكد من تشغيل الـ Backend. على الهاتف الحقيقي استخدم adb reverse tcp:5000 tcp:5000 أو شغّل التطبيق مع --dart-define=API_BASE_URL=http://<IP>:5000/api';
     }
     if (raw.isEmpty) return 'حدث خطأ غير متوقع.';
     return raw;
   }
-  
+
   Future<void> loadUserFromStorage() async {
     final prefs = await SharedPreferences.getInstance();
     _username = prefs.getString('username');
@@ -46,14 +53,21 @@ class UserProvider extends ChangeNotifier {
     _isLoggedIn = _username != null;
     notifyListeners();
   }
-  
+
   Future<bool> register({
     required String username,
     required String password,
     required String name,
     required String userType,
+    required bool fromSignInButton,
   }) async {
     _lastError = null;
+    if (!fromSignInButton) {
+      _lastError = 'Account creation is only allowed from the sign in button';
+      notifyListeners();
+      return false;
+    }
+
     try {
       final apiService = ApiService();
       final response = await apiService.register(
@@ -61,10 +75,12 @@ class UserProvider extends ChangeNotifier {
         password: password,
         name: name,
         userType: userType,
+        registrationSource: 'signin_button',
       );
-      
+
       await _saveUserData(
-        username: response['username']?.toString() ?? username.trim().toLowerCase(),
+        username:
+            response['username']?.toString() ?? username.trim().toLowerCase(),
         name: response['name']?.toString() ?? name,
         userType: response['userType']?.toString() ?? userType,
         userId: response['userId'],
@@ -72,7 +88,7 @@ class UserProvider extends ChangeNotifier {
       );
 
       await PushNotificationService().syncTokenToBackend();
-      
+
       return true;
     } catch (e) {
       _lastError = _friendlyError(e);
@@ -81,7 +97,7 @@ class UserProvider extends ChangeNotifier {
       return false;
     }
   }
-  
+
   Future<bool> login({
     required String username,
     required String password,
@@ -93,9 +109,10 @@ class UserProvider extends ChangeNotifier {
         username: username.trim().toLowerCase(),
         password: password,
       );
-      
+
       await _saveUserData(
-        username: response['username']?.toString() ?? username.trim().toLowerCase(),
+        username:
+            response['username']?.toString() ?? username.trim().toLowerCase(),
         name: response['name']?.toString() ?? '',
         userType: response['userType']?.toString() ?? '',
         userId: response['userId'],
@@ -103,7 +120,7 @@ class UserProvider extends ChangeNotifier {
       );
 
       await PushNotificationService().syncTokenToBackend();
-      
+
       return true;
     } catch (e) {
       _lastError = _friendlyError(e);
@@ -112,7 +129,7 @@ class UserProvider extends ChangeNotifier {
       return false;
     }
   }
-  
+
   Future<void> _saveUserData({
     required String username,
     required String name,
@@ -126,7 +143,7 @@ class UserProvider extends ChangeNotifier {
     await prefs.setString('userType', userType);
     await prefs.setString('userId', userId);
     await prefs.setString('password', password);
-    
+
     _username = username;
     _name = name;
     _userType = userType;
@@ -135,11 +152,27 @@ class UserProvider extends ChangeNotifier {
     _isLoggedIn = true;
     notifyListeners();
   }
-  
-  Future<void> logout() async {
+
+  Future<void> logout({BuildContext? context}) async {
+    final currentUsername = _username;
+
+    // Fire-and-forget: token clear is best-effort, never block logout on it
+    PushNotificationService().clearTokenFromBackend().catchError((_) {});
+
     try {
-      await PushNotificationService().clearTokenFromBackend();
+      await ApiService().logout().timeout(const Duration(seconds: 3));
     } catch (_) {}
+
+    if (context != null) {
+      await PatientDataSyncService().clearLocalDataForLogout(
+        username: currentUsername,
+        context: context,
+      );
+    } else {
+      await PatientDataSyncService().clearLocalDataForLogout(
+        username: currentUsername,
+      );
+    }
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('username');
@@ -147,7 +180,8 @@ class UserProvider extends ChangeNotifier {
     await prefs.remove('userType');
     await prefs.remove('userId');
     await prefs.remove('password');
-    
+    await prefs.remove('patient_data_owner_username');
+
     _username = null;
     _name = null;
     _userType = null;

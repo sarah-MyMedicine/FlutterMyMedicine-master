@@ -12,7 +12,7 @@ const app = express();
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '25mb' }));
 
 // MongoDB Connection
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/mymedicine';
@@ -51,6 +51,9 @@ app.use('/api/auth', require('./routes/auth'));
 
 // Caregiver routes
 app.use('/api/caregiver', require('./routes/caregiver'));
+
+// Patient data sync routes
+app.use('/api/patient-data', require('./routes/patient_data'));
 
 // Admin routes (protected by API key)
 app.use('/api/admin', require('./routes/admin'));

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/patient_data_sync_service.dart';
 
 class Appointment {
   final String id;
@@ -108,5 +109,6 @@ class AppointmentProvider extends ChangeNotifier {
         .map((a) => '${a.id}|||${a.doctorName}|||${a.specialty}|||${a.appointmentDateTime.toIso8601String()}|||${a.notes}')
         .toList();
     await prefs.setStringList('appointments', appointmentStrings);
+    await PatientDataSyncService().syncLocalToCloudIfAuthenticated();
   }
 }
