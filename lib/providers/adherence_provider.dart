@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
@@ -31,8 +33,65 @@ class AdherenceLog {
       );
 }
 
+class MedicationRankTier {
+  final String title;
+  final int requiredDays;
+
+  const MedicationRankTier({required this.title, required this.requiredDays});
+}
+
+class MedicationRankStatus {
+  final int streakDays;
+  final MedicationRankTier? currentTier;
+  final MedicationRankTier? nextTier;
+
+  const MedicationRankStatus({
+    required this.streakDays,
+    required this.currentTier,
+    required this.nextTier,
+  });
+
+  bool get hasRank => currentTier != null;
+  bool get isHighestRank => currentTier != null && nextTier == null;
+}
+
+class _ScheduledMedication {
+  final String key;
+  final int intervalHours;
+  final DateTime firstOccurrence;
+
+  const _ScheduledMedication({
+    required this.key,
+    required this.intervalHours,
+    required this.firstOccurrence,
+  });
+}
+
+class _ScheduledDoseResult {
+  final DateTime scheduledAt;
+  final bool taken;
+
+  const _ScheduledDoseResult({required this.scheduledAt, required this.taken});
+}
+
 class AdherenceProvider extends ChangeNotifier {
   List<AdherenceLog> _logs = [];
+  static const List<MedicationRankTier> _rankTiers = [
+    MedicationRankTier(title: 'المعدّل', requiredDays: 3),
+    MedicationRankTier(title: 'السبع', requiredDays: 7),
+    MedicationRankTier(title: 'الذيب', requiredDays: 30),
+    MedicationRankTier(title: 'الملك', requiredDays: 90),
+  ];
+
+  void _syncCloudInBackground() {
+    unawaited(
+      PatientDataSyncService()
+          .syncLocalToCloudIfAuthenticated()
+          .catchError((e) {
+            debugPrint('[AdherenceProvider] Background sync failed: $e');
+          }),
+    );
+  }
 
   int _parseIntervalHours(dynamic value) {
     if (value is int) return value;
@@ -46,6 +105,255 @@ class AdherenceProvider extends ChangeNotifier {
     if (value is DateTime) return value;
     if (value is String) return DateTime.tryParse(value);
     return null;
+  }
+
+  String _medicationKey(String name, String dose) => '$name::$dose';
+
+  DateTime? _resolveFirstOccurrence({
+    required Map<String, dynamic> medication,
+    required DateTime now,
+    required DateTime windowStart,
+  }) {
+    final startTime = medication['startTime']?.toString();
+    if (startTime == null || startTime.isEmpty) return null;
+
+    final parts = startTime.split(':');
+    if (parts.length != 2) return null;
+
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return null;
+
+    final name = medication['name']?.toString().trim() ?? '';
+    final dose = medication['dose']?.toString().trim() ?? '';
+    final startDate = _parseStartDate(medication['startDate']);
+    final relevantLogs = _logs
+        .where(
+          (log) =>
+              log.taken &&
+              log.medicationName == name &&
+              (dose.isEmpty || log.dose == dose),
+        )
+        .toList()
+      ..sort((a, b) => a.when.compareTo(b.when));
+
+    final baseDate = startDate ??
+        (relevantLogs.isNotEmpty ? relevantLogs.first.when : now);
+
+    var firstOccurrence = DateTime(
+      baseDate.year,
+      baseDate.month,
+      baseDate.day,
+      hour,
+      minute,
+    );
+
+    final intervalHours = _parseIntervalHours(medication['intervalHours']);
+    final safeIntervalHours = intervalHours <= 0 ? 24 : intervalHours;
+
+    while (
+        firstOccurrence.isBefore(windowStart.subtract(Duration(hours: safeIntervalHours)))) {
+      firstOccurrence = firstOccurrence.add(Duration(hours: safeIntervalHours));
+    }
+
+    return firstOccurrence.isAfter(now) ? null : firstOccurrence;
+  }
+
+  List<_ScheduledMedication> _buildSchedules(
+    List<Map<String, dynamic>> medications,
+    DateTime windowStart,
+    DateTime now,
+  ) {
+    final schedules = <_ScheduledMedication>[];
+
+    for (final medication in medications) {
+      final name = medication['name']?.toString().trim() ?? '';
+      if (name.isEmpty) continue;
+
+      final dose = medication['dose']?.toString().trim() ?? '';
+      final intervalHours = _parseIntervalHours(medication['intervalHours']);
+      final safeIntervalHours = intervalHours <= 0 ? 24 : intervalHours;
+      final firstOccurrence = _resolveFirstOccurrence(
+        medication: medication,
+        now: now,
+        windowStart: windowStart,
+      );
+
+      if (firstOccurrence == null) continue;
+
+      schedules.add(
+        _ScheduledMedication(
+          key: _medicationKey(name, dose),
+          intervalHours: safeIntervalHours,
+          firstOccurrence: firstOccurrence,
+        ),
+      );
+    }
+
+    return schedules;
+  }
+
+  List<_ScheduledDoseResult> _buildScheduledDoseResults(
+    List<_ScheduledMedication> schedules,
+    DateTime windowStart,
+    DateTime now,
+  ) {
+    final takenByMedication = <String, List<DateTime>>{};
+
+    for (final log in _logs.where((entry) => entry.taken)) {
+      final key = _medicationKey(log.medicationName, log.dose);
+      final bucket = takenByMedication.putIfAbsent(key, () => <DateTime>[]);
+      bucket.add(log.when);
+    }
+
+    for (final entry in takenByMedication.values) {
+      entry.sort();
+    }
+
+    final results = <_ScheduledDoseResult>[];
+
+    for (final schedule in schedules) {
+      final takenLogs = takenByMedication[schedule.key] ?? const <DateTime>[];
+      var logIndex = 0;
+      var occurrence = schedule.firstOccurrence;
+
+      while (occurrence.isBefore(windowStart)) {
+        occurrence = occurrence.add(Duration(hours: schedule.intervalHours));
+      }
+
+      while (!occurrence.isAfter(now)) {
+        final nextOccurrence = occurrence.add(
+          Duration(hours: schedule.intervalHours),
+        );
+        final matchWindowStart = occurrence.subtract(const Duration(hours: 1));
+        var matched = false;
+
+        while (
+            logIndex < takenLogs.length && takenLogs[logIndex].isBefore(matchWindowStart)) {
+          logIndex++;
+        }
+
+        if (logIndex < takenLogs.length) {
+          final candidate = takenLogs[logIndex];
+          if (!candidate.isBefore(matchWindowStart) &&
+              candidate.isBefore(nextOccurrence)) {
+            matched = true;
+            logIndex++;
+          }
+        }
+
+        results.add(
+          _ScheduledDoseResult(scheduledAt: occurrence, taken: matched),
+        );
+        occurrence = nextOccurrence;
+      }
+    }
+
+    return results;
+  }
+
+  bool _hasPendingDoseLaterToday(_ScheduledMedication schedule, DateTime now) {
+    final tomorrow = DateTime(now.year, now.month, now.day + 1);
+    var occurrence = schedule.firstOccurrence;
+
+    while (occurrence.isBefore(now)) {
+      occurrence = occurrence.add(Duration(hours: schedule.intervalHours));
+    }
+
+    return occurrence.isAfter(now) && occurrence.isBefore(tomorrow);
+  }
+
+  int _calculatePerfectDayStreak(
+    List<_ScheduledMedication> schedules,
+    List<_ScheduledDoseResult> results,
+    DateTime now,
+  ) {
+    if (schedules.isEmpty) return 0;
+
+    final dosesByDay = <DateTime, List<_ScheduledDoseResult>>{};
+    for (final result in results) {
+      final dayKey = DateTime(
+        result.scheduledAt.year,
+        result.scheduledAt.month,
+        result.scheduledAt.day,
+      );
+      dosesByDay.putIfAbsent(dayKey, () => <_ScheduledDoseResult>[]).add(result);
+    }
+
+    var streak = 0;
+    final today = DateTime(now.year, now.month, now.day);
+
+    for (var offset = 0; offset < _rankTiers.last.requiredDays; offset++) {
+      final dayStart = today.subtract(Duration(days: offset));
+      final dayEnd = offset == 0 ? now : dayStart.add(const Duration(days: 1));
+
+      if (offset == 0 &&
+          schedules.any((schedule) => _hasPendingDoseLaterToday(schedule, now))) {
+        continue;
+      }
+
+      final hasActiveMedication = schedules.any(
+        (schedule) => !schedule.firstOccurrence.isAfter(dayEnd),
+      );
+
+      if (!hasActiveMedication) {
+        if (streak == 0) {
+          continue;
+        }
+        break;
+      }
+
+      final dayResults = dosesByDay[dayStart] ?? const <_ScheduledDoseResult>[];
+      final missedAny = dayResults.any((result) => !result.taken);
+      if (missedAny) {
+        break;
+      }
+
+      streak++;
+    }
+
+    return streak;
+  }
+
+  MedicationRankStatus calculateRankStatus(
+    List<Map<String, dynamic>> medications,
+  ) {
+    final now = DateTime.now();
+    final windowStart = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(Duration(days: _rankTiers.last.requiredDays - 1));
+
+    final schedules = _buildSchedules(medications, windowStart, now);
+    if (schedules.isEmpty) {
+      return MedicationRankStatus(
+        streakDays: 0,
+        currentTier: null,
+        nextTier: _rankTiers.first,
+      );
+    }
+
+    final results = _buildScheduledDoseResults(schedules, windowStart, now);
+    final streakDays = _calculatePerfectDayStreak(schedules, results, now);
+
+    MedicationRankTier? currentTier;
+    MedicationRankTier? nextTier;
+
+    for (final tier in _rankTiers) {
+      if (streakDays >= tier.requiredDays) {
+        currentTier = tier;
+      } else {
+        nextTier = tier;
+        break;
+      }
+    }
+
+    return MedicationRankStatus(
+      streakDays: streakDays,
+      currentTier: currentTier,
+      nextTier: nextTier,
+    );
   }
 
   List<AdherenceLog> get logs {
@@ -89,7 +397,7 @@ class AdherenceProvider extends ChangeNotifier {
   Future<void> _saveToPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('adherence_records', jsonEncode(_logs.map((log) => log.toJson()).toList()));
-    await PatientDataSyncService().syncLocalToCloudIfAuthenticated();
+    _syncCloudInBackground();
   }
 
   /// Record that a medication was taken

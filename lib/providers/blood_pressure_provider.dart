@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
@@ -30,6 +32,16 @@ class BloodPressureReading {
 class BloodPressureProvider extends ChangeNotifier {
   static const String _storageKey = 'blood_pressure_readings_v1';
   final List<BloodPressureReading> _readings = [];
+
+  void _syncCloudInBackground() {
+    unawaited(
+      PatientDataSyncService()
+          .syncLocalToCloudIfAuthenticated()
+          .catchError((e) {
+            debugPrint('[BloodPressureProvider] Background sync failed: $e');
+          }),
+    );
+  }
 
   List<BloodPressureReading> get readings => List.unmodifiable(_readings);
 
@@ -66,7 +78,7 @@ class BloodPressureProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final payload = _readings.map((r) => r.toJson()).toList();
     await prefs.setString(_storageKey, jsonEncode(payload));
-    await PatientDataSyncService().syncLocalToCloudIfAuthenticated();
+    _syncCloudInBackground();
   }
 
   void add(int sys, int dia, {int? targetSystolic, int? targetDiastolic, DateTime? when}) async {

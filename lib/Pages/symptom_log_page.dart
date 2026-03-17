@@ -154,7 +154,7 @@ class _SymptomLogPageState extends State<SymptomLogPage> {
             ),
           );
         },
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
         itemCount: _entries.length,
       ),
     );

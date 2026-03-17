@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
@@ -29,15 +31,15 @@ class UserProvider extends ChangeNotifier {
       return 'This username is given, please choose another one\nاسم المستخدم مستخدم بالفعل، يرجى اختيار اسم آخر';
     }
     if (raw.contains('Unable to reach authentication server')) {
-      return 'تعذر الوصول إلى خادم المصادقة. تأكد من تشغيل الـ Backend. إذا كنت تستخدم هاتف Android حقيقيًا، وصّل الهاتف ثم نفّذ: adb reverse tcp:5000 tcp:5000 أو شغّل التطبيق مع --dart-define=API_BASE_URL=http://<IP>:5000/api';
+      return 'تعذر الوصول إلى خادم المصادقة. تأكد من تشغيل الـ Backend وأن الهاتف والكمبيوتر على نفس شبكة Wi-Fi، أو استخدم رابط Backend منشور (Public URL) عبر --dart-define=API_BASE_URL=https://<your-backend-domain>/api';
     }
     if (raw.contains('timed out') || raw.contains('TimeoutException')) {
-      return 'انتهت مهلة الاتصال بالخادم. تأكد من تشغيل الـ Backend. على الهاتف الحقيقي استخدم adb reverse tcp:5000 tcp:5000 أو شغّل التطبيق مع --dart-define=API_BASE_URL=http://<IP>:5000/api';
+      return 'انتهت مهلة الاتصال بالخادم. تأكد من تشغيل الـ Backend وأن الهاتف والكمبيوتر على نفس شبكة Wi-Fi، أو استخدم رابط Backend منشور (Public URL) عبر --dart-define=API_BASE_URL=https://<your-backend-domain>/api';
     }
     if (raw.contains('Connection refused') ||
         raw.contains('Failed host lookup') ||
         raw.contains('SocketException')) {
-      return 'تعذر الاتصال بالخادم. تأكد من تشغيل الـ Backend. على الهاتف الحقيقي استخدم adb reverse tcp:5000 tcp:5000 أو شغّل التطبيق مع --dart-define=API_BASE_URL=http://<IP>:5000/api';
+      return 'تعذر الاتصال بالخادم. تأكد من تشغيل الـ Backend وأن الهاتف والكمبيوتر على نفس شبكة Wi-Fi، أو استخدم رابط Backend منشور (Public URL) عبر --dart-define=API_BASE_URL=https://<your-backend-domain>/api';
     }
     if (raw.isEmpty) return 'حدث خطأ غير متوقع.';
     return raw;
@@ -87,7 +89,7 @@ class UserProvider extends ChangeNotifier {
         password: password,
       );
 
-      await PushNotificationService().syncTokenToBackend();
+      unawaited(PushNotificationService().syncTokenToBackend());
 
       return true;
     } catch (e) {
@@ -119,7 +121,7 @@ class UserProvider extends ChangeNotifier {
         password: password,
       );
 
-      await PushNotificationService().syncTokenToBackend();
+      unawaited(PushNotificationService().syncTokenToBackend());
 
       return true;
     } catch (e) {

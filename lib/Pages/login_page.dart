@@ -67,7 +67,7 @@ class _LoginPageState extends State<LoginPage> {
               username:
                   userProvider.username ?? _usernameController.text.trim().toLowerCase(),
             )
-            .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 5));
       } catch (e) {
         debugPrint('[Login] Post-auth sync skipped due timeout/error: $e');
         await PatientDataSyncService().reloadProvidersFromLocal(context);

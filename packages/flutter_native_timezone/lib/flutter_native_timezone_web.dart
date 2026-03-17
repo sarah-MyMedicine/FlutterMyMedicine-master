@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
-import 'package:js/js.dart';
 
 ///
 /// The plugin class for the web, acts as the plugin inside bits
@@ -36,24 +35,11 @@ class FlutterNativeTimezonePlugin {
   /// local time zone when running on the web.
   ///
   String _getLocalTimeZone() {
-    return jsDateTimeFormat()
-        .resolvedOptions()
-        .timeZone;
+    final timeZoneName = DateTime.now().timeZoneName;
+    if (timeZoneName.isEmpty) {
+      return 'UTC';
+    }
+    return timeZoneName;
   }
-}
-
-@JS('Intl.DateTimeFormat')
-external _JSDateTimeFormat jsDateTimeFormat();
-
-@JS()
-abstract class _JSDateTimeFormat {
-  @JS()
-  external _JSResolvedOptions resolvedOptions();
-}
-
-@JS()
-abstract class _JSResolvedOptions {
-  @JS()
-  external String get timeZone;
 }
 

@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
+const { config } = require('../config/env');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_SECRET = config.jwtSecret;
 
 const authMiddleware = (req, res, next) => {
   try {

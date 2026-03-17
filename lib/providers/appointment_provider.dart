@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/patient_data_sync_service.dart';
@@ -40,6 +42,16 @@ class Appointment {
 
 class AppointmentProvider extends ChangeNotifier {
   List<Appointment> _appointments = [];
+
+  void _syncCloudInBackground() {
+    unawaited(
+      PatientDataSyncService()
+          .syncLocalToCloudIfAuthenticated()
+          .catchError((e) {
+            debugPrint('[AppointmentProvider] Background sync failed: $e');
+          }),
+    );
+  }
 
   List<Appointment> get appointments => List.unmodifiable(_appointments);
 
@@ -109,6 +121,6 @@ class AppointmentProvider extends ChangeNotifier {
         .map((a) => '${a.id}|||${a.doctorName}|||${a.specialty}|||${a.appointmentDateTime.toIso8601String()}|||${a.notes}')
         .toList();
     await prefs.setStringList('appointments', appointmentStrings);
-    await PatientDataSyncService().syncLocalToCloudIfAuthenticated();
+    _syncCloudInBackground();
   }
 }

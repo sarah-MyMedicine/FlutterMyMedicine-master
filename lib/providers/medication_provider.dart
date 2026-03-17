@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
@@ -26,6 +28,16 @@ class MedicationProvider extends ChangeNotifier {
   // Track if we've already notified for current missed doses (to avoid spam)
   final Map<String, bool> _hasNotifiedForCurrentMissed = {};
   final Random _random = Random();
+
+  void _syncCloudInBackground() {
+    unawaited(
+      PatientDataSyncService()
+          .syncLocalToCloudIfAuthenticated()
+          .catchError((e) {
+            debugPrint('[MedicationProvider] Background sync failed: $e');
+          }),
+    );
+  }
 
   List<Map<String, String?>> get items => List.unmodifiable(_items);
 
@@ -219,13 +231,13 @@ class MedicationProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final payload = _items.map((item) => Map<String, String?>.from(item)).toList();
     await prefs.setString(_storageKey, jsonEncode(payload));
-    await PatientDataSyncService().syncLocalToCloudIfAuthenticated();
+    _syncCloudInBackground();
   }
   
   Future<void> _saveMissedDosesTracking() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_missedDosesKey, jsonEncode(_consecutiveMissedDoses));
-    await PatientDataSyncService().syncLocalToCloudIfAuthenticated();
+    _syncCloudInBackground();
   }
 
   Future<void> add(String name, String dose, {String? imagePath, int intervalHours = 24, String? startTime, String? startDate, String? chronicDisease}) async {
@@ -361,6 +373,19 @@ class MedicationProvider extends ChangeNotifier {
     final String prefix = (existing['notifPrefix'] == null || existing['notifPrefix']!.isEmpty)
         ? _generateUniquePrefix()
         : existing['notifPrefix']!;
+
+    final previousInterval = int.tryParse(existing['intervalHours'] ?? '24') ?? 24;
+    final previousStartTime = existing['startTime'] ?? '';
+    final previousStartDate = existing['startDate'] ?? '';
+
+    final normalizedStartTime = startTime ?? '';
+    final normalizedStartDate = startDate ?? '';
+
+    final timingChanged =
+        previousInterval != intervalHours ||
+        previousStartTime != normalizedStartTime ||
+        previousStartDate != normalizedStartDate;
+
     _items[index] = {
       'name': name,
       'dose': dose,
@@ -370,46 +395,34 @@ class MedicationProvider extends ChangeNotifier {
       'startDate': startDate,
       'chronicDisease': chronicDisease,
       'notifPrefix': prefix,
-      'lastTaken': existing['lastTaken'],
+      'lastTaken': timingChanged ? null : existing['lastTaken'],
     };
 
     await _saveToPrefs();
+
+    if (timingChanged) {
+      _consecutiveMissedDoses[prefix] = 0;
+      _hasNotifiedForCurrentMissed[prefix] = false;
+      _lastExpectedDoseTime.remove(prefix);
+      await _saveMissedDosesTracking();
+    }
 
     // Reschedule notifications only for this same medication entry.
     try {
       await NotificationService().cancelForPrefix(prefix);
 
-      if (startTime != null) {
-        final parts = startTime.split(':');
-        if (parts.length == 2) {
-          final h = int.tryParse(parts[0]);
-          final m = int.tryParse(parts[1]);
-          if (h != null && m != null) {
-            final now = DateTime.now();
-            DateTime scheduled = DateTime(now.year, now.month, now.day, h, m);
+      final now = DateTime.now();
+      final firstDue = _calculateNextDoseFromItem(_items[index], now);
 
-            if (startDate != null) {
-              try {
-                final base = DateTime.parse(startDate);
-                scheduled = DateTime(base.year, base.month, base.day, h, m);
-              } catch (_) {}
-            }
-
-            var firstDue = scheduled;
-            while (!firstDue.isAfter(now)) {
-              firstDue = firstDue.add(Duration(hours: intervalHours));
-            }
-
-            await NotificationService().scheduleRepeatedOccurrences(
-              prefix: prefix,
-              title: 'موعد تناول $name',
-              body: '$dose · كل $intervalHours ساعة',
-              firstOccurrence: firstDue,
-              intervalHours: intervalHours,
-              occurrences: _occurrencesForInterval(intervalHours),
-            );
-          }
-        }
+      if (firstDue != null) {
+        await NotificationService().scheduleRepeatedOccurrences(
+          prefix: prefix,
+          title: 'موعد تناول $name',
+          body: '$dose · كل $intervalHours ساعة',
+          firstOccurrence: firstDue,
+          intervalHours: intervalHours,
+          occurrences: _occurrencesForInterval(intervalHours),
+        );
       }
     } catch (e) {
       debugPrint('[MedicationProvider.updateAt] Failed to reschedule $name: $e');

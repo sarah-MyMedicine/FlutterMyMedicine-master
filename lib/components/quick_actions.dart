@@ -62,7 +62,7 @@ class MyMedicinesTile extends StatelessWidget {
       builder: (context, medProv, _) {
         final items = medProv.items;
         return Consumer<SettingsProvider>(
-          builder: (context, sp, __) {
+          builder: (context, sp, _) {
             final lang = sp.language;
             
             return GestureDetector(

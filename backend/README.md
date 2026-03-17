@@ -39,8 +39,10 @@ Edit `.env`:
 ```env
 NODE_ENV=development
 PORT=5000
+HOST=0.0.0.0
 MONGO_URI=mongodb://localhost:27017/mymedicine
 JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+ADMIN_API_KEY=your-super-secret-admin-key-change-this-in-production
 ```
 
 ### 3. Start MongoDB
@@ -69,6 +71,93 @@ npm start
 ```
 
 The server will start on `http://localhost:5000`
+
+For Android emulators use:
+
+```bash
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5000/api
+```
+
+For a physical Android device on the same Wi-Fi network, either reverse the port:
+
+```bash
+adb reverse tcp:5000 tcp:5000
+```
+
+or start the app with your computer's LAN IP. The backend now prints reachable LAN URLs on startup, for example:
+
+```bash
+flutter run --dart-define=API_BASE_URL=http://192.168.1.25:5000/api
+```
+
+If you want extra failover addresses, pass a comma-separated list:
+
+```bash
+flutter run --dart-define=API_BASE_URL=http://192.168.1.25:5000/api --dart-define=API_BASE_URL_FALLBACKS=http://10.0.2.2:5000/api,http://127.0.0.1:5000/api
+```
+
+For a stronger backend than a laptop-local MongoDB instance, move MongoDB to Atlas and keep the Node server running on a stable host or VM with the `MONGO_URI` set to your Atlas connection string.
+
+## Deployment
+
+This backend is prepared for hosted deployment in three ways:
+
+- `render.yaml` in the repository root for Render.
+- `backend/Dockerfile` for Docker-compatible hosts.
+- Production config validation in `backend/config/env.js` so weak secrets fail fast.
+
+### Required production environment variables
+
+```env
+NODE_ENV=production
+HOST=0.0.0.0
+PORT=5000
+MONGO_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/mymedicine?retryWrites=true&w=majority
+JWT_SECRET=<strong-random-secret>
+ADMIN_API_KEY=<strong-random-secret>
+TRUST_PROXY=1
+```
+
+### Optional production environment variables
+
+```env
+CORS_ALLOWED_ORIGINS=https://your-web-app.example.com,https://your-admin.example.com
+FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
+APP_VERSION=1.0.0
+RELEASE_ID=deploy-001
+REQUEST_BODY_LIMIT=25mb
+KEEP_ALIVE_TIMEOUT_MS=65000
+HEADERS_TIMEOUT_MS=66000
+REQUEST_TIMEOUT_MS=30000
+```
+
+### Render
+
+1. Push the repository to GitHub.
+2. Create a new Render Blueprint or Web Service from the repo.
+3. Use the generated `render.yaml`.
+4. Set `MONGO_URI` to MongoDB Atlas.
+5. Set `CORS_ALLOWED_ORIGINS` only if you will serve browser clients.
+6. Verify `https://<your-domain>/api/health` after deploy.
+
+### Railway
+
+1. Create a Railway project from the repo.
+2. Set the root directory to `backend`.
+3. Use either the included `Dockerfile` or the commands `npm ci` and `npm start`.
+4. Add the production environment variables listed above.
+5. Verify `/api/health` after deploy.
+
+### Docker
+
+From the repository root:
+
+```bash
+docker build -t mymedicine-backend ./backend
+docker run --env-file ./backend/.env -p 5000:5000 mymedicine-backend
+```
+
+For production, do not use the local `.env`; provide hosted values for `MONGO_URI`, `JWT_SECRET`, and `ADMIN_API_KEY`.
 
 ## API Endpoints
 

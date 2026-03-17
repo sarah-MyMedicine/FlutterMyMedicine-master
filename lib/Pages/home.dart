@@ -22,8 +22,57 @@ import 'mother_fetus_care_page.dart';
 import 'health_report_page.dart';
 import 'lab_results_page.dart';
 
+class _RankPresentation {
+  final Color startColor;
+  final Color endColor;
+  final IconData icon;
+
+  const _RankPresentation({
+    required this.startColor,
+    required this.endColor,
+    required this.icon,
+  });
+}
+
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
+
+  _RankPresentation _rankPresentation(MedicationRankStatus status) {
+    final rank = status.currentTier?.title;
+    if (rank == 'الملك') {
+      return const _RankPresentation(
+        startColor: Color(0xFF7A4B00),
+        endColor: Color(0xFFF4C542),
+        icon: Icons.workspace_premium,
+      );
+    }
+    if (rank == 'الذيب') {
+      return const _RankPresentation(
+        startColor: Color(0xFF455A64),
+        endColor: Color(0xFF78909C),
+        icon: Icons.bolt,
+      );
+    }
+    if (rank == 'السبع') {
+      return const _RankPresentation(
+        startColor: Color(0xFF1565C0),
+        endColor: Color(0xFF42A5F5),
+        icon: Icons.local_fire_department,
+      );
+    }
+    if (rank == 'المعدّل') {
+      return const _RankPresentation(
+        startColor: Color(0xFF00695C),
+        endColor: Color(0xFF26A69A),
+        icon: Icons.verified,
+      );
+    }
+    return const _RankPresentation(
+      startColor: Color(0xFF546E7A),
+      endColor: Color(0xFF90A4AE),
+      icon: Icons.flag,
+    );
+  }
 
   Future<void> _handleEmergencyTap(BuildContext context, String lang) async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
@@ -583,6 +632,149 @@ class HomePage extends StatelessWidget {
                                     const Text(
                                       'آخر 30 يوم',
                                       style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      Consumer3<MedicationProvider, AdherenceProvider, SettingsProvider>(
+                        builder: (context, medProvider, adherenceProvider, settings, _) {
+                          final medications = medProvider.items;
+                          if (medications.isEmpty) {
+                            return const SizedBox.shrink();
+                          }
+
+                          final rankStatus = adherenceProvider.calculateRankStatus(
+                            medications
+                                .map(
+                                  (item) => <String, dynamic>{
+                                    'name': item['name'] ?? '',
+                                    'dose': item['dose'] ?? '',
+                                    'intervalHours': item['intervalHours'] ?? '24',
+                                    'startDate': item['startDate'],
+                                    'startTime': item['startTime'],
+                                  },
+                                )
+                                .toList(),
+                          );
+                          final rankTheme = _rankPresentation(rankStatus);
+                          final lang = settings.language;
+
+                          String helperText;
+                          if (rankStatus.isHighestRank) {
+                            helperText = AppTranslations.translate(
+                              'medication_rank_highest',
+                              lang,
+                            );
+                          } else if (rankStatus.nextTier != null) {
+                            final remainingDays =
+                                rankStatus.nextTier!.requiredDays - rankStatus.streakDays;
+                            helperText =
+                                '${AppTranslations.translate('medication_rank_next', lang)} ${rankStatus.nextTier!.title} · $remainingDays ${AppTranslations.translate('days', lang)}';
+                          } else {
+                            helperText = AppTranslations.translate(
+                              'medication_rank_start',
+                              lang,
+                            );
+                          }
+
+                          return Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  rankTheme.startColor,
+                                  rankTheme.endColor,
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                              boxShadow: const [
+                                BoxShadow(color: Colors.black12, blurRadius: 8),
+                              ],
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: 56,
+                                  height: 56,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.16),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    rankTheme.icon,
+                                    color: Colors.white,
+                                    size: 30,
+                                  ),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        AppTranslations.translate(
+                                          'medication_rank_title',
+                                          lang,
+                                        ),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        rankStatus.currentTier?.title ??
+                                            AppTranslations.translate(
+                                              'medication_rank_unranked',
+                                              lang,
+                                            ),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 26,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        helperText,
+                                        style: const TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      '${rankStatus.streakDays}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 30,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                      AppTranslations.translate(
+                                        'medication_rank_streak',
+                                        lang,
+                                      ),
+                                      style: const TextStyle(
                                         color: Colors.white70,
                                         fontSize: 11,
                                       ),

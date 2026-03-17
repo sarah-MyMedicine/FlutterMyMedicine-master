@@ -98,13 +98,40 @@ class MedicationItem extends StatelessWidget {
                     height: 40,
                     child: imagePath != null
                         ? ClipOval(
-                            child: Image.file(
-                              File(imagePath!),
-                              width: 40,
-                              height: 40,
-                              fit: BoxFit.cover,
-                              cacheWidth: 80,
-                              cacheHeight: 80,
+                            child: Builder(
+                              builder: (context) {
+                                final file = File(imagePath!);
+                                if (file.existsSync()) {
+                                  try {
+                                    return Image.file(
+                                      file,
+                                      width: 40,
+                                      height: 40,
+                                      fit: BoxFit.cover,
+                                      cacheWidth: 80,
+                                      cacheHeight: 80,
+                                    );
+                                  } catch (e) {
+                                    // If loading fails, show default icon
+                                    return CircleAvatar(
+                                      backgroundColor: Theme.of(context).colorScheme.secondary.withAlpha(38),
+                                      child: Icon(
+                                        Icons.medication,
+                                        color: Theme.of(context).colorScheme.secondary,
+                                      ),
+                                    );
+                                  }
+                                } else {
+                                  // If file does not exist, show default icon
+                                  return CircleAvatar(
+                                    backgroundColor: Theme.of(context).colorScheme.secondary.withAlpha(38),
+                                    child: Icon(
+                                      Icons.medication,
+                                      color: Theme.of(context).colorScheme.secondary,
+                                    ),
+                                  );
+                                }
+                              },
                             ),
                           )
                         : CircleAvatar(

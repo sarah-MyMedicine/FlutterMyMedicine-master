@@ -2,6 +2,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 class ApiService {
@@ -11,7 +12,11 @@ class ApiService {
 
   static const String _defaultBaseUrl = 'http://localhost:5000/api';
   static const String _envBaseUrl = String.fromEnvironment('API_BASE_URL');
-  static const Duration _authTimeout = Duration(seconds: 8);
+  static const String _envFallbackBaseUrls = String.fromEnvironment(
+    'API_BASE_URL_FALLBACKS',
+  );
+  static const Duration _authTimeout = Duration(seconds: 4);
+  static const Duration _healthCheckTimeout = Duration(seconds: 2);
   static const String _lastAuthBaseUrlKey = 'last_auth_base_url';
 
   // Use --dart-define=API_BASE_URL=http://<ip>:5000/api for physical devices.
@@ -39,6 +44,18 @@ class ApiService {
     debugPrint('[ApiService] Initialized with baseUrl: $_baseUrl');
   }
 
+  List<String> _configuredFallbackBaseUrls() {
+    if (_envFallbackBaseUrls.trim().isEmpty) {
+      return const <String>[];
+    }
+
+    return _envFallbackBaseUrls
+        .split(',')
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .toList(growable: false);
+  }
+
   List<String> _authBaseUrlCandidates() {
     final candidates = <String>[];
     final seen = <String>{};
@@ -55,6 +72,10 @@ class ApiService {
 
     if (_envBaseUrl.isNotEmpty) {
       addCandidate(_envBaseUrl);
+    }
+
+    for (final candidate in _configuredFallbackBaseUrls()) {
+      addCandidate(candidate);
     }
 
     if (kIsWeb) {
@@ -75,34 +96,295 @@ class ApiService {
     return candidates;
   }
 
+  Future<bool> _isBaseUrlReachable(
+    String baseUrl, {
+    Duration? timeout,
+  }) async {
+    try {
+      final response = await _httpClient
+          .get(Uri.parse('$baseUrl/health'), headers: _getHeaders())
+          .timeout(timeout ?? _healthCheckTimeout);
+      return response.statusCode >= 200 && response.statusCode < 300;
+    } on TimeoutException {
+      return false;
+    } on SocketException {
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<String?> _resolveReachableBaseUrl({bool forceRefresh = false}) async {
+    if (!forceRefresh &&
+        _resolvedAuthBaseUrl != null &&
+        _resolvedAuthBaseUrl!.isNotEmpty &&
+        await _isBaseUrlReachable(_resolvedAuthBaseUrl!)) {
+      return _resolvedAuthBaseUrl;
+    }
+
+    final candidates = <String>[];
+    final seen = <String>{};
+
+    void addCandidate(String url) {
+      if (url.isEmpty || !seen.add(url)) return;
+      candidates.add(url);
+    }
+
+    for (final candidate in _authBaseUrlCandidates()) {
+      addCandidate(candidate);
+    }
+
+    final lanCandidates = await _discoverReachableLanBaseUrls();
+    for (final candidate in lanCandidates) {
+      addCandidate(candidate);
+    }
+
+    for (final candidate in candidates) {
+      if (!await _isBaseUrlReachable(candidate)) {
+        continue;
+      }
+
+      if (_resolvedAuthBaseUrl != candidate) {
+        _resolvedAuthBaseUrl = candidate;
+        await _saveResolvedAuthBaseUrl(candidate);
+        debugPrint('[ApiService] Switched backend to $candidate');
+      }
+      return candidate;
+    }
+
+    return null;
+  }
+
+  bool _isPrivateIpv4(String value) {
+    final parts = value.split('.');
+    if (parts.length != 4) return false;
+
+    final octets = parts.map(int.tryParse).toList(growable: false);
+    if (octets.any((part) => part == null)) return false;
+
+    final a = octets[0]!;
+    final b = octets[1]!;
+
+    if (a == 10) return true;
+    if (a == 172 && b >= 16 && b <= 31) return true;
+    if (a == 192 && b == 168) return true;
+    return false;
+  }
+
+  Future<List<String>> _discoverReachableLanBaseUrls() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      return const <String>[];
+    }
+
+    final prefixes = <String>{};
+
+    try {
+      final interfaces = await NetworkInterface.list(
+        type: InternetAddressType.IPv4,
+        includeLoopback: false,
+      );
+
+      for (final interface in interfaces) {
+        for (final address in interface.addresses) {
+          final value = address.address;
+          if (!_isPrivateIpv4(value)) continue;
+
+          final parts = value.split('.');
+          final prefix = '${parts[0]}.${parts[1]}.${parts[2]}';
+          prefixes.add(prefix);
+        }
+      }
+    } catch (_) {
+      return const <String>[];
+    }
+
+    if (prefixes.isEmpty) {
+      return const <String>[];
+    }
+
+    final reachable = <String>[];
+
+    for (final prefix in prefixes) {
+      final urls = <String>[];
+      for (var host = 2; host <= 254; host++) {
+        urls.add('http://$prefix.$host:5000/api');
+      }
+
+      const int chunkSize = 24;
+      for (var index = 0; index < urls.length; index += chunkSize) {
+        final end = (index + chunkSize < urls.length)
+            ? index + chunkSize
+            : urls.length;
+        final chunk = urls.sublist(index, end);
+
+        final checks = await Future.wait(
+          chunk.map((url) async {
+            final ok = await _isBaseUrlReachable(
+              url,
+              timeout: const Duration(milliseconds: 220),
+            );
+            return ok ? url : null;
+          }),
+        );
+
+        reachable.addAll(checks.whereType<String>());
+        if (reachable.length >= 4) {
+          return reachable.take(4).toList(growable: false);
+        }
+      }
+    }
+
+    return reachable.take(4).toList(growable: false);
+  }
+
+  bool _shouldRetryRequest(Object error) {
+    final message = error.toString();
+    return error is TimeoutException ||
+        error is SocketException ||
+        message.contains('Connection closed before full header was received') ||
+        message.contains('Connection reset by peer') ||
+        message.contains('Failed host lookup');
+  }
+
+  Future<http.Response> _requestWithRecovery({
+    required Future<http.Response> Function(String baseUrl) request,
+    required Duration timeout,
+    bool refreshBaseUrlBeforeRequest = false,
+  }) async {
+    if (refreshBaseUrlBeforeRequest) {
+      await _resolveReachableBaseUrl(forceRefresh: true);
+    }
+
+    Object? lastError;
+
+    for (var attempt = 0; attempt < 2; attempt++) {
+      final baseUrl = _baseUrl;
+
+      try {
+        return await request(baseUrl).timeout(timeout);
+      } catch (error) {
+        lastError = error;
+        if (!_shouldRetryRequest(error) || attempt == 1) {
+          rethrow;
+        }
+
+        final recoveredBaseUrl = await _resolveReachableBaseUrl(forceRefresh: true);
+        if (recoveredBaseUrl == null) {
+          rethrow;
+        }
+      }
+    }
+
+    throw Exception('Request failed: $lastError');
+  }
+
+  Future<http.Response> _getRequest(
+    String path, {
+    Duration timeout = const Duration(seconds: 15),
+  }) {
+    return _requestWithRecovery(
+      request: (baseUrl) =>
+          _httpClient.get(Uri.parse('$baseUrl$path'), headers: _getHeaders()),
+      timeout: timeout,
+    );
+  }
+
+  Future<http.Response> _postRequest(
+    String path, {
+    Map<String, dynamic>? body,
+    Duration timeout = const Duration(seconds: 15),
+    bool refreshBaseUrlBeforeRequest = false,
+  }) {
+    return _requestWithRecovery(
+      request: (baseUrl) => _httpClient.post(
+        Uri.parse('$baseUrl$path'),
+        headers: _getHeaders(),
+        body: body == null ? null : jsonEncode(body),
+      ),
+      timeout: timeout,
+      refreshBaseUrlBeforeRequest: refreshBaseUrlBeforeRequest,
+    );
+  }
+
+  Future<http.Response> _putRequest(
+    String path, {
+    Map<String, dynamic>? body,
+    Duration timeout = const Duration(seconds: 15),
+  }) {
+    return _requestWithRecovery(
+      request: (baseUrl) => _httpClient.put(
+        Uri.parse('$baseUrl$path'),
+        headers: _getHeaders(),
+        body: body == null ? null : jsonEncode(body),
+      ),
+      timeout: timeout,
+    );
+  }
+
+  Future<http.Response> _patchRequest(
+    String path, {
+    Map<String, dynamic>? body,
+    Duration timeout = const Duration(seconds: 15),
+  }) {
+    return _requestWithRecovery(
+      request: (baseUrl) => _httpClient.patch(
+        Uri.parse('$baseUrl$path'),
+        headers: _getHeaders(),
+        body: body == null ? null : jsonEncode(body),
+      ),
+      timeout: timeout,
+    );
+  }
+
   Future<http.Response> _postAuthWithFailover(
     String path,
     Map<String, dynamic> body,
   ) async {
+    await _resolveReachableBaseUrl(forceRefresh: true);
     final candidates = _authBaseUrlCandidates();
+    final seen = <String>{...candidates};
     final failures = <String>[];
 
-    for (final base in candidates) {
-      try {
-        final response = await _httpClient
-            .post(
-              Uri.parse('$base$path'),
-              headers: _getHeaders(),
-              body: jsonEncode(body),
-            )
-            .timeout(_authTimeout);
+    Future<http.Response?> tryCandidates(List<String> urls) async {
+      for (final base in urls) {
+        try {
+          final response = await _httpClient
+              .post(
+                Uri.parse('$base$path'),
+                headers: _getHeaders(),
+                body: jsonEncode(body),
+              )
+              .timeout(_authTimeout);
 
-        _resolvedAuthBaseUrl = base;
-        await _saveResolvedAuthBaseUrl(base);
-        return response;
-      } on TimeoutException {
-        failures.add('$base -> timeout');
-      } catch (e) {
-        failures.add('$base -> ${e.toString()}');
+          _resolvedAuthBaseUrl = base;
+          await _saveResolvedAuthBaseUrl(base);
+          return response;
+        } on TimeoutException {
+          failures.add('$base -> timeout');
+        } catch (e) {
+          failures.add('$base -> ${e.toString()}');
+        }
+      }
+      return null;
+    }
+
+    final primaryResponse = await tryCandidates(candidates);
+    if (primaryResponse != null) {
+      return primaryResponse;
+    }
+
+    final lanCandidates = await _discoverReachableLanBaseUrls();
+    final newLanCandidates = lanCandidates.where((url) => seen.add(url)).toList();
+
+    if (newLanCandidates.isNotEmpty) {
+      debugPrint('[ApiService] Trying discovered LAN backends: $newLanCandidates');
+      final lanResponse = await tryCandidates(newLanCandidates);
+      if (lanResponse != null) {
+        return lanResponse;
       }
     }
 
-    final attempted = candidates.join(', ');
+    final attempted = [...candidates, ...newLanCandidates].join(', ');
     final details = failures.isEmpty ? 'No connection details available.' : failures.join(' | ');
     throw Exception(
       'Unable to reach authentication server. Tried: $attempted. $details',
@@ -223,9 +505,9 @@ class ApiService {
 
   Future<void> logout() async {
     try {
-      await _httpClient.post(
-        Uri.parse('$_baseUrl/auth/logout'),
-        headers: _getHeaders(),
+      await _postRequest(
+        '/auth/logout',
+        timeout: const Duration(seconds: 5),
       );
     } catch (e) {
       debugPrint('[ApiService] Logout error: $e');
@@ -247,9 +529,10 @@ class ApiService {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
     try {
-      final response = await _httpClient
-          .get(Uri.parse('$_baseUrl/patient-data'), headers: _getHeaders())
-          .timeout(const Duration(seconds: 20));
+      final response = await _getRequest(
+        '/patient-data',
+        timeout: const Duration(seconds: 12),
+      );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -271,13 +554,11 @@ class ApiService {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
     try {
-      final response = await _httpClient
-          .put(
-            Uri.parse('$_baseUrl/patient-data'),
-            headers: _getHeaders(),
-            body: jsonEncode({'data': data}),
-          )
-          .timeout(const Duration(seconds: 25));
+      final response = await _putRequest(
+        '/patient-data',
+        body: {'data': data},
+        timeout: const Duration(seconds: 12),
+      );
 
       if (response.statusCode != 200) {
         throw Exception('Failed to save patient data: ${response.body}');
@@ -668,13 +949,10 @@ class ApiService {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
     try {
-      final response = await _httpClient
-          .post(
-            Uri.parse('$_baseUrl/caregiver/generate-invitation'),
-            headers: _getHeaders(),
-            body: jsonEncode({'username': username}),
-          )
-          .timeout(const Duration(seconds: 15));
+      final response = await _postRequest(
+        '/caregiver/generate-invitation',
+        body: {'username': username},
+      );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -697,12 +975,7 @@ class ApiService {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
     try {
-      final response = await _httpClient
-          .get(
-            Uri.parse('$_baseUrl/caregiver/invitations/$username'),
-            headers: _getHeaders(),
-          )
-          .timeout(const Duration(seconds: 15));
+      final response = await _getRequest('/caregiver/invitations/$username');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -724,16 +997,13 @@ class ApiService {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
     try {
-      final response = await _httpClient
-          .post(
-            Uri.parse('$_baseUrl/caregiver/accept-invitation'),
-            headers: _getHeaders(),
-            body: jsonEncode({
-              'invitationCode': invitationCode,
-              'caregiverUsername': caregiverUsername,
-            }),
-          )
-          .timeout(const Duration(seconds: 15));
+      final response = await _postRequest(
+        '/caregiver/accept-invitation',
+        body: {
+          'invitationCode': invitationCode,
+          'caregiverUsername': caregiverUsername,
+        },
+      );
 
       if (response.statusCode == 200) {
         debugPrint('[ApiService] Invitation accepted: $invitationCode');
@@ -754,13 +1024,10 @@ class ApiService {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
     try {
-      final response = await _httpClient
-          .post(
-            Uri.parse('$_baseUrl/caregiver/reject-invitation'),
-            headers: _getHeaders(),
-            body: jsonEncode({'invitationCode': invitationCode}),
-          )
-          .timeout(const Duration(seconds: 15));
+      final response = await _postRequest(
+        '/caregiver/reject-invitation',
+        body: {'invitationCode': invitationCode},
+      );
 
       if (response.statusCode == 200) {
         debugPrint('[ApiService] Invitation rejected: $invitationCode');
@@ -780,12 +1047,9 @@ class ApiService {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
     try {
-      final response = await _httpClient
-          .get(
-            Uri.parse('$_baseUrl/caregiver/patients/$caregiverUsername'),
-            headers: _getHeaders(),
-          )
-          .timeout(const Duration(seconds: 15));
+      final response = await _getRequest(
+        '/caregiver/patients/$caregiverUsername',
+      );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -806,12 +1070,9 @@ class ApiService {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
     try {
-      final response = await _httpClient
-          .get(
-            Uri.parse('$_baseUrl/caregiver/caregiver/$patientUsername'),
-            headers: _getHeaders(),
-          )
-          .timeout(const Duration(seconds: 15));
+      final response = await _getRequest(
+        '/caregiver/caregiver/$patientUsername',
+      );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -832,16 +1093,13 @@ class ApiService {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
     try {
-      final response = await _httpClient
-          .post(
-            Uri.parse('$_baseUrl/caregiver/unlink'),
-            headers: _getHeaders(),
-            body: jsonEncode({
-              'patientUsername': patientUsername,
-              'caregiverUsername': caregiverUsername,
-            }),
-          )
-          .timeout(const Duration(seconds: 15));
+      final response = await _postRequest(
+        '/caregiver/unlink',
+        body: {
+          'patientUsername': patientUsername,
+          'caregiverUsername': caregiverUsername,
+        },
+      );
 
       if (response.statusCode == 200) {
         debugPrint('[ApiService] Caregiver unlinked');
@@ -862,17 +1120,14 @@ class ApiService {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
     try {
-      final response = await _httpClient
-          .post(
-            Uri.parse('$_baseUrl/caregiver/notify-missed-dose'),
-            headers: _getHeaders(),
-            body: jsonEncode({
-              'patientUsername': patientUsername,
-              'consecutiveMissed': consecutiveMissed,
-              'medicationName': medicationName,
-            }),
-          )
-          .timeout(const Duration(seconds: 15));
+      final response = await _postRequest(
+        '/caregiver/notify-missed-dose',
+        body: {
+          'patientUsername': patientUsername,
+          'consecutiveMissed': consecutiveMissed,
+          'medicationName': medicationName,
+        },
+      );
 
       if (response.statusCode == 200) {
         debugPrint('[ApiService] Missed dose notification sent');
@@ -890,18 +1145,15 @@ class ApiService {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
     try {
-      final response = await _httpClient
-          .post(
-            Uri.parse('$_baseUrl/caregiver/notify-emergency'),
-            headers: _getHeaders(),
-            body: jsonEncode({
-              'patientUsername': patientUsername,
-              'classification': classification,
-              if (message != null && message.trim().isNotEmpty)
-                'message': message.trim(),
-            }),
-          )
-          .timeout(const Duration(seconds: 15));
+      final response = await _postRequest(
+        '/caregiver/notify-emergency',
+        body: {
+          'patientUsername': patientUsername,
+          'classification': classification,
+          if (message != null && message.trim().isNotEmpty)
+            'message': message.trim(),
+        },
+      );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -924,12 +1176,9 @@ class ApiService {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
     try {
-      final response = await _httpClient
-          .get(
-            Uri.parse('$_baseUrl/caregiver/alerts/$caregiverUsername'),
-            headers: _getHeaders(),
-          )
-          .timeout(const Duration(seconds: 15));
+      final response = await _getRequest(
+        '/caregiver/alerts/$caregiverUsername',
+      );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -951,12 +1200,9 @@ class ApiService {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
     try {
-      final response = await _httpClient
-          .patch(
-            Uri.parse('$_baseUrl/caregiver/alerts/$alertId/read'),
-            headers: _getHeaders(),
-          )
-          .timeout(const Duration(seconds: 15));
+      final response = await _patchRequest(
+        '/caregiver/alerts/$alertId/read',
+      );
 
       if (response.statusCode != 200) {
         throw Exception(
@@ -972,13 +1218,11 @@ class ApiService {
   Future<void> registerFcmToken(String fcmToken) async {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
-    final response = await _httpClient
-        .post(
-          Uri.parse('$_baseUrl/caregiver/register-fcm-token'),
-          headers: _getHeaders(),
-          body: jsonEncode({'fcmToken': fcmToken}),
-        )
-        .timeout(const Duration(seconds: 15));
+    final response = await _postRequest(
+      '/caregiver/register-fcm-token',
+      body: {'fcmToken': fcmToken},
+      timeout: const Duration(seconds: 6),
+    );
 
     if (response.statusCode != 200) {
       throw Exception(
@@ -990,12 +1234,10 @@ class ApiService {
   Future<void> clearFcmToken() async {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
-    final response = await _httpClient
-        .post(
-          Uri.parse('$_baseUrl/caregiver/clear-fcm-token'),
-          headers: _getHeaders(),
-        )
-        .timeout(const Duration(seconds: 15));
+    final response = await _postRequest(
+      '/caregiver/clear-fcm-token',
+      timeout: const Duration(seconds: 6),
+    );
 
     if (response.statusCode != 200) {
       throw Exception(_extractApiError(response, 'Failed to clear FCM token'));

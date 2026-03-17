@@ -2,11 +2,12 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const LinkInvitation = require('../models/LinkInvitation');
+const { config } = require('../config/env');
 
 // Admin middleware - verify admin credentials
 const adminAuth = (req, res, next) => {
   const adminKey = req.headers['x-admin-key'];
-  if (adminKey !== process.env.ADMIN_API_KEY) {
+  if (!config.adminApiKey || adminKey !== config.adminApiKey) {
     return res.status(403).json({ message: 'Unauthorized - Invalid admin key' });
   }
   next();

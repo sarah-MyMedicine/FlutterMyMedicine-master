@@ -97,7 +97,7 @@ class _RegisterPageState extends State<RegisterPage> {
               username:
                   userProvider.username ?? _usernameController.text.trim().toLowerCase(),
             )
-            .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 5));
       } catch (e) {
         debugPrint('[Register] Post-auth sync skipped due timeout/error: $e');
         await PatientDataSyncService().reloadProvidersFromLocal(context);

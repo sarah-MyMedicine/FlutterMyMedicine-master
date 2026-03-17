@@ -167,12 +167,20 @@ class PatientDataSyncService {
   }
 
   Future<void> _reloadProviders(BuildContext context) async {
-    await context.read<MedicationProvider>().load();
-    await context.read<BloodPressureProvider>().load();
-    await context.read<BloodSugarProvider>().load();
-    await context.read<AppointmentProvider>().load();
-    await context.read<AdherenceProvider>().load();
-    await context.read<SettingsProvider>().load();
+    Future<void> safeLoad(String label, Future<void> Function() loader) async {
+      try {
+        await loader();
+      } catch (e) {
+        debugPrint('[PatientDataSync] Failed to reload $label: $e');
+      }
+    }
+
+    await safeLoad('MedicationProvider', () => context.read<MedicationProvider>().load());
+    await safeLoad('BloodPressureProvider', () => context.read<BloodPressureProvider>().load());
+    await safeLoad('BloodSugarProvider', () => context.read<BloodSugarProvider>().load());
+    await safeLoad('AppointmentProvider', () => context.read<AppointmentProvider>().load());
+    await safeLoad('AdherenceProvider', () => context.read<AdherenceProvider>().load());
+    await safeLoad('SettingsProvider', () => context.read<SettingsProvider>().load());
   }
 
   String _snapshotKeyForUser(String username) =>

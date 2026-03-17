@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,43 +23,45 @@ import 'providers/adherence_provider.dart';
 import 'providers/user_provider.dart';
 import 'theme/app_theme.dart';
 
+Future<void> _safeInit(String label, Future<void> Function() task) async {
+  try {
+    await task();
+    debugPrint('[main] $label initialized');
+  } catch (e) {
+    debugPrint('[main] $label initialization failed: $e');
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   debugPrint('[main] Initializing services...');
-  
-  // Initialize API Service
-  await ApiService().init();
-  debugPrint('[main] ApiService initialized');
-  
-  // Initialize Notification Service
-  await NotificationService().init();
-  debugPrint('[main] NotificationService initialized');
-  
+
+  await _safeInit('ApiService', () => ApiService().init());
+  await _safeInit('NotificationService', () => NotificationService().init());
+
   // Initialize providers
   final settingsProvider = SettingsProvider();
-  await settingsProvider.load();
-  debugPrint('[main] Settings loaded');
-
   final medicationProvider = MedicationProvider();
-  await medicationProvider.load();
-  debugPrint('[main] Medications loaded');
-
   final bloodPressureProvider = BloodPressureProvider();
-  await bloodPressureProvider.load();
-  debugPrint('[main] Blood pressure readings loaded');
-
   final bloodSugarProvider = BloodSugarProvider();
-  await bloodSugarProvider.load();
-  debugPrint('[main] Blood sugar readings loaded');
-
   final userProvider = UserProvider();
-  await userProvider.loadUserFromStorage();
-  debugPrint('[main] User data loaded');
 
-  // Initialize push notifications (supports background/terminated delivery via FCM).
-  await PushNotificationService().initialize(isLoggedIn: userProvider.isLoggedIn);
-  debugPrint('[main] PushNotificationService initialized');
+  await Future.wait([
+    _safeInit('SettingsProvider', () => settingsProvider.load()),
+    _safeInit('MedicationProvider', () => medicationProvider.load()),
+    _safeInit('BloodPressureProvider', () => bloodPressureProvider.load()),
+    _safeInit('BloodSugarProvider', () => bloodSugarProvider.load()),
+    _safeInit('UserProvider', () => userProvider.loadUserFromStorage()),
+  ]);
+
+  // Keep startup responsive: initialize push in background.
+  unawaited(
+    PushNotificationService()
+        .initialize(isLoggedIn: userProvider.isLoggedIn)
+        .then((_) => debugPrint('[main] PushNotificationService initialized'))
+        .catchError((e) => debugPrint('[main] PushNotificationService init failed: $e')),
+  );
   
   runApp(
     MultiProvider(

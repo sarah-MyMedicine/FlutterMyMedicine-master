@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
@@ -26,6 +28,16 @@ class BloodSugarReading {
 class BloodSugarProvider extends ChangeNotifier {
   static const String _storageKey = 'blood_sugar_readings_v1';
   final List<BloodSugarReading> _readings = [];
+
+  void _syncCloudInBackground() {
+    unawaited(
+      PatientDataSyncService()
+          .syncLocalToCloudIfAuthenticated()
+          .catchError((e) {
+            debugPrint('[BloodSugarProvider] Background sync failed: $e');
+          }),
+    );
+  }
 
   List<BloodSugarReading> get readings => List.unmodifiable(_readings);
 
@@ -62,7 +74,7 @@ class BloodSugarProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final payload = _readings.map((r) => r.toJson()).toList();
     await prefs.setString(_storageKey, jsonEncode(payload));
-    await PatientDataSyncService().syncLocalToCloudIfAuthenticated();
+    _syncCloudInBackground();
   }
 
   void add(int value, {int? targetBloodSugar, DateTime? when}) async {
