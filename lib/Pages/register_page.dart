@@ -24,6 +24,15 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
+  void _showComingSoon(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   String _localizedRegisterError(String? rawMessage, String language) {
     if (rawMessage == _usernameExistsBackendMessage) {
       return AppTranslations.translate('username_exists_bilingual', language);
@@ -70,6 +79,14 @@ class _RegisterPageState extends State<RegisterPage> {
           content: Text('كلمة المرور يجب أن تكون 6 أحرف على الأقل'),
           backgroundColor: Colors.orange,
         ),
+      );
+      return;
+    }
+
+    final lang = Provider.of<SettingsProvider>(context, listen: false).language;
+    if (_selectedUserType == 'caregiver') {
+      _showComingSoon(
+        '${AppTranslations.translate('caregiver', lang)} - ${AppTranslations.translate('coming_soon', lang)}',
       );
       return;
     }
@@ -182,7 +199,10 @@ class _RegisterPageState extends State<RegisterPage> {
                 Expanded(
                   child: GestureDetector(
                     onTap: () {
-                      setState(() => _selectedUserType = 'caregiver');
+                      final lang = Provider.of<SettingsProvider>(context, listen: false).language;
+                      _showComingSoon(
+                        '${AppTranslations.translate('caregiver', lang)} - ${AppTranslations.translate('coming_soon', lang)}',
+                      );
                     },
                     child: Card(
                       elevation: _selectedUserType == 'caregiver' ? 8 : 2,

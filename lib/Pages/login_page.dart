@@ -26,7 +26,7 @@ class _LoginPageState extends State<LoginPage> {
       return AppTranslations.translate('invalid_login_credentials', language);
     }
 
-    return rawMessage ?? 'فشل تسجيل الدخول. تحقق من بياناتك';
+    return rawMessage ?? AppTranslations.translate('login_failed_check_data', language);
   }
   
   @override
@@ -37,10 +37,12 @@ class _LoginPageState extends State<LoginPage> {
   }
   
   Future<void> _login() async {
+    final language = Provider.of<SettingsProvider>(context, listen: false).language;
+
     if (_usernameController.text.isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('الرجاء إدخال اسم المستخدم وكلمة المرور'),
+        SnackBar(
+          content: Text(AppTranslations.translate('please_enter_username_password', language)),
           backgroundColor: Colors.red,
         ),
       );
@@ -76,7 +78,6 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/home');
     } else {
-      final language = Provider.of<SettingsProvider>(context, listen: false).language;
       final errorMessage = _localizedLoginError(userProvider.lastError, language);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -90,6 +91,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final sp = Provider.of<SettingsProvider>(context);
+    final lang = sp.language;
     
     return Scaffold(
       body: Container(
@@ -113,20 +115,20 @@ class _LoginPageState extends State<LoginPage> {
                   children: [
                     Icon(Icons.medical_services, size: 80, color: sp.themeColor),
                     const SizedBox(height: 16),
-                    const Text(
-                      'دوائي',
+                    Text(
+                      AppTranslations.translate('app_name', lang),
                       style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      'تسجيل الدخول',
+                    Text(
+                      AppTranslations.translate('login', lang),
                       style: TextStyle(fontSize: 18, color: Colors.grey),
                     ),
                     const SizedBox(height: 24),
                     TextField(
                       controller: _usernameController,
                       decoration: InputDecoration(
-                        labelText: 'اسم المستخدم',
+                        labelText: AppTranslations.translate('username', lang),
                         prefixIcon: const Icon(Icons.person),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       ),
@@ -137,7 +139,7 @@ class _LoginPageState extends State<LoginPage> {
                       controller: _passwordController,
                       obscureText: _obscurePassword,
                       decoration: InputDecoration(
-                        labelText: 'كلمة المرور',
+                        labelText: AppTranslations.translate('password', lang),
                         prefixIcon: const Icon(Icons.lock),
                         suffixIcon: IconButton(
                           icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
@@ -162,7 +164,10 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         child: _isLoading
                             ? const CircularProgressIndicator(color: Colors.white)
-                            : const Text('تسجيل الدخول', style: TextStyle(fontSize: 18)),
+                            : Text(
+                                AppTranslations.translate('login', lang),
+                                style: const TextStyle(fontSize: 18),
+                              ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -171,7 +176,7 @@ class _LoginPageState extends State<LoginPage> {
                         Navigator.pushNamed(context, '/register');
                       },
                       child: Text(
-                        'ليس لديك حساب؟ سجل الآن',
+                        AppTranslations.translate('dont_have_account_register', lang),
                         style: TextStyle(color: sp.themeColor),
                       ),
                     ),

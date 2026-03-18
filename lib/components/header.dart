@@ -24,10 +24,6 @@ class Header extends StatelessWidget {
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: Theme.of(context).colorScheme.onPrimary),
                 ),
               ),
-              IconButton(
-                onPressed: () {},
-                icon: Icon(Icons.notifications, color: Theme.of(context).colorScheme.onPrimary),
-              ),
             ],
           ),
         );

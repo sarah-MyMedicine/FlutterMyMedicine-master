@@ -14,9 +14,12 @@ class WaterTracker extends StatelessWidget {
           children: [
             Icon(Icons.water, color: Theme.of(context).colorScheme.secondary),
             const SizedBox(width: 12),
-            Text('Water: $glasses glasses today', style: Theme.of(context).textTheme.titleLarge),
-            const Spacer(),
-            ElevatedButton(onPressed: () {}, child: const Text('Track'))
+            Expanded(
+              child: Text(
+                'Water: $glasses glasses today',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
           ],
         ),
       ),

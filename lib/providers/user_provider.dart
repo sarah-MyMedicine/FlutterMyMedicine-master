@@ -89,6 +89,10 @@ class UserProvider extends ChangeNotifier {
         password: password,
       );
 
+      await _saveInitialPersonalDetailsName(
+        response['name']?.toString() ?? name,
+      );
+
       unawaited(PushNotificationService().syncTokenToBackend());
 
       return true;
@@ -153,6 +157,14 @@ class UserProvider extends ChangeNotifier {
     _password = password;
     _isLoggedIn = true;
     notifyListeners();
+  }
+
+  Future<void> _saveInitialPersonalDetailsName(String rawName) async {
+    final normalizedName = rawName.trim();
+    if (normalizedName.isEmpty) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('settings_name', normalizedName);
   }
 
   Future<void> logout({BuildContext? context}) async {

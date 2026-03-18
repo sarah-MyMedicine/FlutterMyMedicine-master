@@ -111,7 +111,9 @@ class Footer extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 IconButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                  },
                   icon: Icon(
                     Icons.home,
                     color: Theme.of(context).colorScheme.onSurface,

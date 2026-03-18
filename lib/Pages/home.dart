@@ -8,7 +8,6 @@ import '../components/header.dart';
 import '../components/footer.dart';
 import '../components/medication_list.dart';
 import '../components/ad_banner.dart';
-import '../components/medication_form_modal.dart';
 import '../services/api_service.dart';
 import '../utils/translations.dart';
 import 'blood_pressure_log.dart';
@@ -36,6 +35,8 @@ class _RankPresentation {
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
+
+  static const bool _isEmergencySirenComingSoon = true;
 
   _RankPresentation _rankPresentation(MedicationRankStatus status) {
     final rank = status.currentTier?.title;
@@ -75,6 +76,18 @@ class HomePage extends StatelessWidget {
   }
 
   Future<void> _handleEmergencyTap(BuildContext context, String lang) async {
+    if (_isEmergencySirenComingSoon) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${AppTranslations.translate('send_siren_alert', lang)} - ${AppTranslations.translate('coming_soon', lang)}',
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
     final userProvider = Provider.of<UserProvider>(context, listen: false);
 
     if (!userProvider.isPatient) {
@@ -411,25 +424,6 @@ class HomePage extends StatelessWidget {
                                   },
                                 ),
 
-                              // Dynamic empty tiles based on conditional buttons
-                              if (!showPubertyStage &&
-                                  !showMenopauseStage &&
-                                  !showMotherFetusCare)
-                                _SquareTile(
-                                  icon: Icons.more_horiz,
-                                  label: '',
-                                  onTap: () {},
-                                  empty: true,
-                                ),
-                              if ((!showPubertyStage && !showMenopauseStage) ||
-                                  (!showPubertyStage && !showMotherFetusCare) ||
-                                  (!showMenopauseStage && !showMotherFetusCare))
-                                _SquareTile(
-                                  icon: Icons.more_horiz,
-                                  label: '',
-                                  onTap: () {},
-                                  empty: true,
-                                ),
                             ];
 
                             return GridView.count(
@@ -800,47 +794,6 @@ class HomePage extends StatelessWidget {
         ),
       ),
       bottomNavigationBar: const Footer(),
-      floatingActionButton: Builder(
-        builder: (ctx) {
-          assert(() {
-            return true;
-          }());
-          return FloatingActionButton(
-            heroTag: 'add_med',
-            onPressed: () {
-              // Open add modal (same as footer +)
-              showModalBottomSheet(
-                context: ctx,
-                isScrollControlled: true,
-                builder: (_) => MedicationFormModal(
-                  onSave:
-                      (
-                        name,
-                        dose, {
-                        imagePath,
-                        intervalHours,
-                        startTime,
-                        startDate,
-                        chronicDisease,
-                      }) {
-                        Provider.of<MedicationProvider>(ctx, listen: false).add(
-                          name,
-                          dose,
-                          imagePath: imagePath,
-                          intervalHours: intervalHours ?? 24,
-                          startTime: startTime,
-                          startDate: startDate,
-                          chronicDisease: chronicDisease,
-                        );
-                      },
-                ),
-              );
-            },
-            backgroundColor: Theme.of(context).colorScheme.primary,
-            child: const Icon(Icons.add),
-          );
-        },
-      ),
     );
   }
 }
@@ -919,10 +872,16 @@ class _SquareTile extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            Text(
-              label,
-              style: const TextStyle(fontSize: 12),
-              textAlign: TextAlign.center,
+            Expanded(
+              child: Center(
+                child: Text(
+                  label,
+                  style: const TextStyle(fontSize: 12),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ),
           ],
         ),

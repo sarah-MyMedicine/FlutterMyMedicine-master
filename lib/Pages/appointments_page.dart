@@ -43,16 +43,6 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
                 style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
               ),
               centerTitle: true,
-              actions: const [
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8),
-                  child: Icon(Icons.shield_outlined, color: Colors.white),
-                ),
-                Padding(
-                  padding: EdgeInsets.only(right: 12),
-                  child: Icon(Icons.location_on_outlined, color: Colors.white),
-                ),
-              ],
             ),
             body: Column(
               children: [

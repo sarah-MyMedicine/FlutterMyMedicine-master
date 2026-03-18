@@ -36,11 +36,13 @@ class _ActionButton extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        FloatingActionButton(
-          onPressed: () {},
-          mini: true,
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          heroTag: label,
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primary,
+            shape: BoxShape.circle,
+          ),
           child: Icon(icon, color: Theme.of(context).colorScheme.onPrimary),
         ),
         const SizedBox(height: 6),

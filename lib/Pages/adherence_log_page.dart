@@ -44,10 +44,6 @@ class AdherenceLogPage extends StatelessWidget {
                 icon: Icon(lang == 'ar' ? Icons.arrow_forward : Icons.arrow_back),
                 onPressed: () => Navigator.pop(context),
               ),
-              actions: [
-                IconButton(icon: const Icon(Icons.shield_outlined), onPressed: () {}),
-                IconButton(icon: const Icon(Icons.location_on_outlined), onPressed: () {}),
-              ],
             ),
             backgroundColor: const Color(0xFFF5F5F5),
             body: Consumer<AdherenceProvider>(

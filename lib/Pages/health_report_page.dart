@@ -81,13 +81,11 @@ class _HealthReportPageState extends State<HealthReportPage> {
             actions: [
               PopupMenuButton<int>(
                 initialValue: _selectedDays,
-                child: Chip(
-                  label: Text(
-                    _selectedDays == 7
-                        ? AppTranslations.translate('last_7_days', lang)
-                        : _selectedDays == 30
-                        ? AppTranslations.translate('last_30_days', lang)
-                        : AppTranslations.translate('last_90_days', lang),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  child: Text(
+                    '${_selectedDays}d',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
                 onSelected: (value) {
@@ -158,16 +156,24 @@ class _HealthReportPageState extends State<HealthReportPage> {
                     Text(
                       '${AppTranslations.translate('period', lang)}: ${dateFormat.format(startDate)} - ${dateFormat.format(now)}',
                       style: const TextStyle(color: Colors.white70, fontSize: 14),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 16),
                     // Tab buttons
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _buildTabButton(AppTranslations.translate('blood_pressure_tab', lang), 0, lang),
-                        _buildTabButton(AppTranslations.translate('blood_sugar_tab', lang), 1, lang),
-                        _buildTabButton(AppTranslations.translate('medications_tab', lang), 2, lang),
-                      ],
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildTabButton(AppTranslations.translate('blood_pressure_tab', lang), 0, lang),
+                          const SizedBox(width: 8),
+                          _buildTabButton(AppTranslations.translate('blood_sugar_tab', lang), 1, lang),
+                          const SizedBox(width: 8),
+                          _buildTabButton(AppTranslations.translate('medications_tab', lang), 2, lang),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 8),
                     // Progress indicator
@@ -226,7 +232,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
         });
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected ? Colors.white : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
@@ -238,6 +244,8 @@ class _HealthReportPageState extends State<HealthReportPage> {
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
       ),
     );
@@ -339,9 +347,13 @@ class _HealthReportPageState extends State<HealthReportPage> {
                     children: [
                       const Icon(Icons.favorite, color: Colors.red, size: 20),
                       const SizedBox(width: 8),
-                      Text(
-                        AppTranslations.translate('bp_readings_title', lang),
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      Expanded(
+                        child: Text(
+                          AppTranslations.translate('bp_readings_title', lang),
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                   ),
@@ -400,9 +412,13 @@ class _HealthReportPageState extends State<HealthReportPage> {
                     children: [
                       const Icon(Icons.medication, color: Colors.blue, size: 20),
                       const SizedBox(width: 8),
-                      Text(
-                        AppTranslations.translate('bp_meds_taken_title', lang),
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      Expanded(
+                        child: Text(
+                          AppTranslations.translate('bp_meds_taken_title', lang),
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                   ),
@@ -509,9 +525,13 @@ class _HealthReportPageState extends State<HealthReportPage> {
                     children: [
                       const Icon(Icons.water_drop, color: Colors.orange, size: 20),
                       const SizedBox(width: 8),
-                      Text(
-                        AppTranslations.translate('bs_readings_title', lang),
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      Expanded(
+                        child: Text(
+                          AppTranslations.translate('bs_readings_title', lang),
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                   ),
@@ -568,9 +588,13 @@ class _HealthReportPageState extends State<HealthReportPage> {
                     children: [
                       const Icon(Icons.medication, color: Colors.orange, size: 20),
                       const SizedBox(width: 8),
-                      Text(
-                        AppTranslations.translate('bs_meds_taken_title', lang),
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      Expanded(
+                        child: Text(
+                          AppTranslations.translate('bs_meds_taken_title', lang),
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                   ),
@@ -654,9 +678,13 @@ class _HealthReportPageState extends State<HealthReportPage> {
                 children: [
                   const Icon(Icons.medication_liquid, color: Colors.green, size: 20),
                   const SizedBox(width: 8),
-                  Text(
-                    AppTranslations.translate('other_meds_taken_title', lang),
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  Expanded(
+                    child: Text(
+                      AppTranslations.translate('other_meds_taken_title', lang),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               ),

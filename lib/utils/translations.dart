@@ -17,6 +17,12 @@ class AppTranslations {
       'yes': 'نعم',
       'no': 'لا',
       'optional': 'اختياري',
+      'login': 'تسجيل الدخول',
+      'username': 'اسم المستخدم',
+      'password': 'كلمة المرور',
+      'please_enter_username_password': 'الرجاء إدخال اسم المستخدم وكلمة المرور',
+      'login_failed_check_data': 'فشل تسجيل الدخول. تحقق من بياناتك',
+      'dont_have_account_register': 'ليس لديك حساب؟ سجل الآن',
       
       // Language Selection
       'choose_language': 'اختر اللغة / Choose Language',
@@ -803,6 +809,12 @@ class AppTranslations {
       'yes': 'Yes',
       'no': 'No',
       'optional': 'Optional',
+      'login': 'Login',
+      'username': 'Username',
+      'password': 'Password',
+      'please_enter_username_password': 'Please enter username and password',
+      'login_failed_check_data': 'Login failed. Please check your details',
+      'dont_have_account_register': 'Don\'t have an account? Register now',
       
       // Language Selection
       'choose_language': 'Choose Language / اختر اللغة',

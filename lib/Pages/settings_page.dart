@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/user_provider.dart';
@@ -19,6 +20,51 @@ class _SettingsPageState extends State<SettingsPage> {
   final _ageCtrl = TextEditingController();
   final _countryCtrl = TextEditingController();
   final _provinceCtrl = TextEditingController();
+
+  bool _isRequiredProfileComplete(SettingsProvider sp) {
+    final name = _nameCtrl.text.trim();
+    final age = int.tryParse(_ageCtrl.text.trim());
+    final hasValidName = name.isNotEmpty && name != 'زائر';
+    final hasValidAge = age != null && age > 0;
+    final hasGender = sp.gender != null;
+    return hasValidName && hasValidAge && hasGender;
+  }
+
+  void _showRequiredProfileMessage(String lang) {
+    final message = lang == 'ar'
+        ? 'الاسم والعمر والجنس حقول إلزامية. الرجاء تعبئتها قبل الحفظ.'
+        : 'Name, age, and sex are required fields. Please fill them before saving.';
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
+  Future<void> _runVibrationTest(SettingsProvider sp) async {
+    final pattern = sp.vibrationPattern;
+
+    switch (pattern) {
+      case 'short':
+        await HapticFeedback.lightImpact();
+        break;
+      case 'long':
+        await HapticFeedback.heavyImpact();
+        await Future.delayed(const Duration(milliseconds: 180));
+        await HapticFeedback.heavyImpact();
+        await Future.delayed(const Duration(milliseconds: 180));
+        await HapticFeedback.heavyImpact();
+        break;
+      case 'default':
+      default:
+        await HapticFeedback.mediumImpact();
+        await Future.delayed(const Duration(milliseconds: 120));
+        await HapticFeedback.mediumImpact();
+        break;
+    }
+  }
 
   @override
   void initState() {
@@ -188,7 +234,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         title: AppTranslations.translate('personal_profile', lang),
                         children: [
                           _buildTextField(
-                            label: AppTranslations.translate('name', lang),
+                            label: '${AppTranslations.translate('name', lang)} *',
                             controller: _nameCtrl,
                             hint: AppTranslations.translate('visitor', lang),
                             onChanged: (v) => sp.setName(v),
@@ -198,7 +244,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             children: [
                               Expanded(
                                 child: _buildTextField(
-                                  label: AppTranslations.translate('age', lang),
+                                  label: '${AppTranslations.translate('age', lang)} *',
                                   controller: _ageCtrl,
                                   hint: '',
                                   keyboardType: TextInputType.number,
@@ -214,7 +260,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      AppTranslations.translate('gender', lang),
+                                      '${AppTranslations.translate('gender', lang)} *',
                                       style: const TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w500,
@@ -364,12 +410,16 @@ class _SettingsPageState extends State<SettingsPage> {
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton.icon(
-                              onPressed: () {
-                                // Test vibration functionality
+                              onPressed: () async {
+                                await _runVibrationTest(sp);
+                                if (!context.mounted) return;
+                                final message = lang == 'ar'
+                                    ? 'تم اختبار الاهتزاز'
+                                    : 'Vibration test completed';
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('اختبار الاهتزاز'),
-                                    duration: Duration(seconds: 1),
+                                  SnackBar(
+                                    content: Text(message),
+                                    duration: const Duration(seconds: 1),
                                   ),
                                 );
                               },
@@ -544,7 +594,11 @@ class _SettingsPageState extends State<SettingsPage> {
                         flex: 2,
                         child: ElevatedButton(
                           onPressed: () {
-                            // Save settings and close
+                            if (!_isRequiredProfileComplete(sp)) {
+                              _showRequiredProfileMessage(lang);
+                              return;
+                            }
+
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text('تم حفظ الإعدادات'),

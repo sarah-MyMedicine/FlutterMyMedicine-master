@@ -60,13 +60,6 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
               icon: Icon(lang == 'ar' ? Icons.arrow_forward : Icons.arrow_back),
               onPressed: () => Navigator.pop(context),
             ),
-            actions: [
-              IconButton(icon: const Icon(Icons.favorite_border), onPressed: () {}),
-              IconButton(
-                icon: const Icon(Icons.location_on_outlined),
-                onPressed: () {},
-              ),
-            ],
           ),
           body: Column(
             children: [

@@ -193,19 +193,25 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
     return Consumer<SettingsProvider>(
       builder: (context, sp, _) {
         final lang = sp.language;
+        final viewInsetsBottom = MediaQuery.of(context).viewInsets.bottom;
         
-        return Padding(
-          padding: MediaQuery.of(context).viewInsets,
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  AppTranslations.translate('add_medication', lang),
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
+        return SafeArea(
+          top: false,
+          child: AnimatedPadding(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+            padding: EdgeInsets.only(bottom: viewInsetsBottom),
+            child: SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    AppTranslations.translate('add_medication', lang),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
             const SizedBox(height: 8),
             if (_imagePath != null)
               Padding(
@@ -469,7 +475,8 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
               },
               child: Text(AppTranslations.translate('save', lang)),
             ),
-              ],
+                ],
+              ),
             ),
           ),
         );
