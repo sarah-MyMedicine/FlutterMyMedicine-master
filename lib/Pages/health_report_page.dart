@@ -443,17 +443,24 @@ class _HealthReportPageState extends State<HealthReportPage> {
                           DataColumn(label: Text(AppTranslations.translate('date_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text(AppTranslations.translate('time_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text(AppTranslations.translate('medication_name', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text(AppTranslations.translate('doctor_name', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text(AppTranslations.translate('dose', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text(AppTranslations.translate('disease_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
                         ],
                         rows: bpMedsTaken.map((log) {
                           final dateFormat = DateFormat('d/M/yyyy', lang == 'ar' ? 'ar' : 'en');
                           final timeFormat = DateFormat('h:mm a', lang == 'ar' ? 'ar' : 'en');
+                          final med = medicationProvider.items.firstWhere(
+                            (m) => m['name'] == log.medicationName,
+                            orElse: () => {},
+                          );
+                          final doctorName = (med['doctorName'] ?? '').trim();
                           return DataRow(
                             cells: [
                               DataCell(Text(dateFormat.format(log.when))),
                               DataCell(Text(timeFormat.format(log.when))),
                               DataCell(Text(log.medicationName, style: const TextStyle(fontWeight: FontWeight.bold))),
+                              DataCell(Text(doctorName.isEmpty ? '-' : doctorName)),
                               DataCell(Text(log.dose)),
                               DataCell(Text(AppTranslations.translate('chronic_disease_hypertension', lang), style: TextStyle(fontSize: 11, color: Colors.red.shade700))),
                             ],
@@ -619,17 +626,24 @@ class _HealthReportPageState extends State<HealthReportPage> {
                           DataColumn(label: Text(AppTranslations.translate('date_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text(AppTranslations.translate('time_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text(AppTranslations.translate('medication_name', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text(AppTranslations.translate('doctor_name', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text(AppTranslations.translate('dose', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text(AppTranslations.translate('disease_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
                         ],
                         rows: sugarMedsTaken.map((log) {
                           final dateFormat = DateFormat('d/M/yyyy', lang == 'ar' ? 'ar' : 'en');
                           final timeFormat = DateFormat('h:mm a', lang == 'ar' ? 'ar' : 'en');
+                          final med = medicationProvider.items.firstWhere(
+                            (m) => m['name'] == log.medicationName,
+                            orElse: () => {},
+                          );
+                          final doctorName = (med['doctorName'] ?? '').trim();
                           return DataRow(
                             cells: [
                               DataCell(Text(dateFormat.format(log.when))),
                               DataCell(Text(timeFormat.format(log.when))),
                               DataCell(Text(log.medicationName, style: const TextStyle(fontWeight: FontWeight.bold))),
+                              DataCell(Text(doctorName.isEmpty ? '-' : doctorName)),
                               DataCell(Text(log.dose)),
                               DataCell(Text(AppTranslations.translate('chronic_disease_diabetes', lang), style: TextStyle(fontSize: 11, color: Colors.orange.shade700))),
                             ],
@@ -709,6 +723,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
                       DataColumn(label: Text(AppTranslations.translate('date_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
                       DataColumn(label: Text(AppTranslations.translate('time_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
                       DataColumn(label: Text(AppTranslations.translate('medication_name', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
+                      DataColumn(label: Text(AppTranslations.translate('doctor_name', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
                       DataColumn(label: Text(AppTranslations.translate('dose', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
                       DataColumn(label: Text(AppTranslations.translate('medication_type_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
                     ],
@@ -719,6 +734,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
                         (m) => m['name'] == log.medicationName,
                         orElse: () => {},
                       );
+                      final doctorName = (med['doctorName'] ?? '').trim();
                       final disease = med.isNotEmpty && med['chronicDisease'] != null 
                           ? med['chronicDisease'] 
                           : AppTranslations.translate('no_medication_type', lang);
@@ -727,6 +743,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
                           DataCell(Text(dateFormat.format(log.when))),
                           DataCell(Text(timeFormat.format(log.when))),
                           DataCell(Text(log.medicationName, style: const TextStyle(fontWeight: FontWeight.bold))),
+                          DataCell(Text(doctorName.isEmpty ? '-' : doctorName)),
                           DataCell(Text(log.dose)),
                           DataCell(Text(_getMedicationTypeText(disease, lang), style: TextStyle(fontSize: 11, color: Colors.green.shade700))),
                         ],

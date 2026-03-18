@@ -79,8 +79,31 @@ class MedicationList extends StatelessWidget {
                           initialStartTime: item['startTime'],
                           initialStartDate: item['startDate'],
                           initialChronicDisease: item['chronicDisease'],
-                          onSave: (name, dose, {imagePath, intervalHours, startTime, startDate, chronicDisease}) {
-                            provider.updateAt(i, name, dose, imagePath: imagePath, intervalHours: intervalHours ?? 24, startTime: startTime, startDate: startDate, chronicDisease: chronicDisease);
+                          initialDoctorName: item['doctorName'],
+                          initialDoctorSpecialty: item['doctorSpecialty'],
+                          onSave: (
+                            name,
+                            dose, {
+                            imagePath,
+                            intervalHours,
+                            startTime,
+                            startDate,
+                            chronicDisease,
+                            doctorName,
+                            doctorSpecialty,
+                          }) {
+                            provider.updateAt(
+                              i,
+                              name,
+                              dose,
+                              imagePath: imagePath,
+                              intervalHours: intervalHours ?? 24,
+                              startTime: startTime,
+                              startDate: startDate,
+                              chronicDisease: chronicDisease,
+                              doctorName: doctorName,
+                              doctorSpecialty: doctorSpecialty,
+                            );
                           },
                         ),
                       );

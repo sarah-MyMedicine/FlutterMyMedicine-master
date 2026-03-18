@@ -41,6 +41,31 @@ class MedicationProvider extends ChangeNotifier {
 
   List<Map<String, String?>> get items => List.unmodifiable(_items);
 
+  List<Map<String, String>> get savedDoctors {
+    final uniqueDoctors = <String, Map<String, String>>{};
+
+    for (final item in _items) {
+      final doctorName = (item['doctorName'] ?? '').trim();
+      if (doctorName.isEmpty) continue;
+
+      final doctorSpecialty = (item['doctorSpecialty'] ?? '').trim();
+      final uniqueKey = '${doctorName.toLowerCase()}|${doctorSpecialty.toLowerCase()}';
+
+      uniqueDoctors.putIfAbsent(
+        uniqueKey,
+        () => {
+          'name': doctorName,
+          'specialty': doctorSpecialty,
+        },
+      );
+    }
+
+    final values = uniqueDoctors.values.toList()
+      ..sort((a, b) => a['name']!.toLowerCase().compareTo(b['name']!.toLowerCase()));
+
+    return values;
+  }
+
   String _generateUniquePrefix() {
     while (true) {
       final candidate =
@@ -240,7 +265,17 @@ class MedicationProvider extends ChangeNotifier {
     _syncCloudInBackground();
   }
 
-  Future<void> add(String name, String dose, {String? imagePath, int intervalHours = 24, String? startTime, String? startDate, String? chronicDisease}) async {
+  Future<void> add(
+    String name,
+    String dose, {
+    String? imagePath,
+    int intervalHours = 24,
+    String? startTime,
+    String? startDate,
+    String? chronicDisease,
+    String? doctorName,
+    String? doctorSpecialty,
+  }) async {
     final prefix = _generateUniquePrefix();
     debugPrint('[MedicationProvider.add] Adding medication: $name, dose: $dose, interval: $intervalHours hours, startTime: $startTime, startDate: $startDate, chronicDisease: $chronicDisease');
 
@@ -252,6 +287,8 @@ class MedicationProvider extends ChangeNotifier {
       'startTime': startTime,
       'startDate': startDate,
       'chronicDisease': chronicDisease,
+      'doctorName': doctorName,
+      'doctorSpecialty': doctorSpecialty,
       'notifPrefix': prefix,
     });
 
@@ -366,7 +403,18 @@ class MedicationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> updateAt(int index, String name, String dose, {String? imagePath, int intervalHours = 24, String? startTime, String? startDate, String? chronicDisease}) async {
+  Future<void> updateAt(
+    int index,
+    String name,
+    String dose, {
+    String? imagePath,
+    int intervalHours = 24,
+    String? startTime,
+    String? startDate,
+    String? chronicDisease,
+    String? doctorName,
+    String? doctorSpecialty,
+  }) async {
     if (index < 0 || index >= _items.length) return;
 
     final existing = _items[index];
@@ -394,6 +442,8 @@ class MedicationProvider extends ChangeNotifier {
       'startTime': startTime,
       'startDate': startDate,
       'chronicDisease': chronicDisease,
+      'doctorName': doctorName,
+      'doctorSpecialty': doctorSpecialty,
       'notifPrefix': prefix,
       'lastTaken': timingChanged ? null : existing['lastTaken'],
     };

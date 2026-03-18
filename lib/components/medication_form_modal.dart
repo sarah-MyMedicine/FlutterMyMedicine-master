@@ -1,12 +1,23 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../providers/medication_provider.dart';
 import '../providers/settings_provider.dart';
 import '../utils/translations.dart';
 
 class MedicationFormModal extends StatefulWidget {
-  // onSave supports optional named params for imagePath, intervalHours, startTime, startDate, and chronicDisease
-  final void Function(String name, String dose, {String? imagePath, int? intervalHours, String? startTime, String? startDate, String? chronicDisease}) onSave;
+  // onSave supports optional named params for imagePath, intervalHours, startTime, startDate, chronicDisease, doctorName, and doctorSpecialty
+  final void Function(
+    String name,
+    String dose, {
+    String? imagePath,
+    int? intervalHours,
+    String? startTime,
+    String? startDate,
+    String? chronicDisease,
+    String? doctorName,
+    String? doctorSpecialty,
+  }) onSave;
   final String? initialName;
   final String? initialDose;
   final String? initialImagePath;
@@ -14,6 +25,8 @@ class MedicationFormModal extends StatefulWidget {
   final String? initialStartTime;
   final String? initialStartDate; // ISO date string e.g. YYYY-MM-DD
   final String? initialChronicDisease;
+  final String? initialDoctorName;
+  final String? initialDoctorSpecialty;
 
   const MedicationFormModal({
     super.key,
@@ -25,6 +38,8 @@ class MedicationFormModal extends StatefulWidget {
     this.initialStartTime,
     this.initialStartDate,
     this.initialChronicDisease,
+    this.initialDoctorName,
+    this.initialDoctorSpecialty,
   });
 
   @override
@@ -32,13 +47,19 @@ class MedicationFormModal extends StatefulWidget {
 }
 
 class _MedicationFormModalState extends State<MedicationFormModal> {
+  static const String _addNewDoctorValue = '__add_new_doctor__';
+
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _doseController;
+  late final TextEditingController _doctorNameController;
+  late final TextEditingController _doctorSpecialtyController;
   String? _imagePath;
   TimeOfDay? _startTime;
   DateTime? _startDate;
   String? _chronicDisease;
+  List<Map<String, String>> _savedDoctors = [];
+  String _selectedDoctorValue = _addNewDoctorValue;
   
   // Frequency selection – exactly one type is active at a time
   String _frequencyType = 'daily'; // 'daily', 'weekly', 'monthly'
@@ -46,13 +67,53 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
   int _weeklyFrequencyTimes = 1;
   int _monthlyFrequencyTimes = 1;
 
+  String _doctorOptionValue(String name, String specialty) => '$name|||$specialty';
+
+  void _loadSavedDoctors() {
+    final medicationProvider = Provider.of<MedicationProvider>(context, listen: false);
+    _savedDoctors = medicationProvider.savedDoctors;
+
+    final initialDoctorName = (widget.initialDoctorName ?? '').trim();
+    final initialDoctorSpecialty = (widget.initialDoctorSpecialty ?? '').trim();
+
+    if (initialDoctorName.isNotEmpty) {
+      final matched = _savedDoctors.where((entry) {
+        return entry['name'] == initialDoctorName &&
+            entry['specialty'] == initialDoctorSpecialty;
+      }).toList();
+
+      if (matched.isNotEmpty) {
+        _selectedDoctorValue = _doctorOptionValue(
+          matched.first['name']!,
+          matched.first['specialty']!,
+        );
+      }
+    }
+  }
+
+  void _onDoctorSelectionChanged(String value) {
+    setState(() {
+      _selectedDoctorValue = value;
+      if (value == _addNewDoctorValue) return;
+
+      final parts = value.split('|||');
+      if (parts.isNotEmpty) {
+        _doctorNameController.text = parts[0];
+      }
+      _doctorSpecialtyController.text = parts.length > 1 ? parts[1] : '';
+    });
+  }
+
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.initialName ?? '');
     _doseController = TextEditingController(text: widget.initialDose ?? '');
+    _doctorNameController = TextEditingController(text: widget.initialDoctorName ?? '');
+    _doctorSpecialtyController = TextEditingController(text: widget.initialDoctorSpecialty ?? '');
     _imagePath = widget.initialImagePath;
     _chronicDisease = widget.initialChronicDisease;
+    _loadSavedDoctors();
 
     // Initialize frequency based on intervalHours
     if (widget.initialIntervalHours != null) {
@@ -135,6 +196,8 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
   void dispose() {
     _nameController.dispose();
     _doseController.dispose();
+    _doctorNameController.dispose();
+    _doctorSpecialtyController.dispose();
     super.dispose();
   }
 
@@ -248,6 +311,49 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                     ),
                     validator: (v) =>
                         (v == null || v.isEmpty) ? AppTranslations.translate('required_field', lang) : null,
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: _selectedDoctorValue,
+                    decoration: InputDecoration(
+                      labelText: AppTranslations.translate('select_saved_doctor_or_add', lang),
+                    ),
+                    items: [
+                      DropdownMenuItem(
+                        value: _addNewDoctorValue,
+                        child: Text(AppTranslations.translate('add_new_doctor', lang)),
+                      ),
+                      ..._savedDoctors.map((entry) {
+                        final doctorName = entry['name'] ?? '';
+                        final doctorSpecialty = entry['specialty'] ?? '';
+                        final label = doctorSpecialty.isEmpty
+                            ? doctorName
+                            : '$doctorName (${AppTranslations.translate('specialty', lang)}: $doctorSpecialty)';
+
+                        return DropdownMenuItem<String>(
+                          value: _doctorOptionValue(doctorName, doctorSpecialty),
+                          child: Text(label, overflow: TextOverflow.ellipsis),
+                        );
+                      }),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) return;
+                      _onDoctorSelectionChanged(value);
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _doctorNameController,
+                    decoration: InputDecoration(
+                      labelText: AppTranslations.translate('doctor_name', lang),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _doctorSpecialtyController,
+                    decoration: InputDecoration(
+                      labelText: AppTranslations.translate('specialty', lang),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   
@@ -457,6 +563,8 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
 
                   // Calculate interval hours from frequency selection
                   final intervalHours = _calculateIntervalHours();
+                  final doctorName = _doctorNameController.text.trim();
+                  final doctorSpecialty = _doctorSpecialtyController.text.trim();
 
                   widget.onSave(
                     _nameController.text.trim(),
@@ -466,6 +574,8 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                     startTime: startTimeStr,
                     startDate: startDateStr,
                     chronicDisease: _chronicDisease,
+                    doctorName: doctorName.isEmpty ? null : doctorName,
+                    doctorSpecialty: doctorSpecialty.isEmpty ? null : doctorSpecialty,
                   );
 
                   Navigator.of(context).pop();

@@ -28,9 +28,29 @@ class Footer extends StatelessWidget {
                   isScrollControlled: true,
                   builder: (_) => MedicationFormModal(
                     initialIntervalHours: null, // force explicit user selection
-                    onSave: (name, dose, {imagePath, intervalHours, startTime, startDate, chronicDisease}) {
+                    onSave: (
+                      name,
+                      dose, {
+                      imagePath,
+                      intervalHours,
+                      startTime,
+                      startDate,
+                      chronicDisease,
+                      doctorName,
+                      doctorSpecialty,
+                    }) {
                       Provider.of<MedicationProvider>(context, listen: false)
-                          .add(name, dose, imagePath: imagePath, intervalHours: intervalHours ?? 24, startTime: startTime, startDate: startDate, chronicDisease: chronicDisease);
+                          .add(
+                            name,
+                            dose,
+                            imagePath: imagePath,
+                            intervalHours: intervalHours ?? 24,
+                            startTime: startTime,
+                            startDate: startDate,
+                            chronicDisease: chronicDisease,
+                            doctorName: doctorName,
+                            doctorSpecialty: doctorSpecialty,
+                          );
                     },
                   ),
                 );
@@ -91,9 +111,29 @@ class Footer extends StatelessWidget {
           initialDose: result.dose,
           initialImagePath: result.imagePath,
           initialIntervalHours: null, // require user choose interval after OCR
-          onSave: (name, dose, {imagePath, intervalHours, startTime, startDate, chronicDisease}) {
+          onSave: (
+            name,
+            dose, {
+            imagePath,
+            intervalHours,
+            startTime,
+            startDate,
+            chronicDisease,
+            doctorName,
+            doctorSpecialty,
+          }) {
             Provider.of<MedicationProvider>(context, listen: false)
-                .add(name, dose, imagePath: imagePath, intervalHours: intervalHours ?? 24, startTime: startTime, startDate: startDate, chronicDisease: chronicDisease);
+                .add(
+                  name,
+                  dose,
+                  imagePath: imagePath,
+                  intervalHours: intervalHours ?? 24,
+                  startTime: startTime,
+                  startDate: startDate,
+                  chronicDisease: chronicDisease,
+                  doctorName: doctorName,
+                  doctorSpecialty: doctorSpecialty,
+                );
           }),
     );
   }
