@@ -12,6 +12,8 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../providers/medication_provider.dart';
 import '../providers/adherence_provider.dart';
+import '../providers/settings_provider.dart';
+import '../utils/translations.dart';
 
 class NotificationService {
   NotificationService._privateConstructor();
@@ -27,6 +29,7 @@ class NotificationService {
   GlobalKey<NavigatorState>? _navigatorKey;
   // Queue payloads that arrive before a Navigator/Context is ready
   final List<Map<String, dynamic>> _pendingTaps = <Map<String, dynamic>>[];
+  final Map<int, DateTime> _handledTapIds = <int, DateTime>{};
 
   // Motivational messages for skipped medications
   final List<String> _skippedMedicationMessages = [
@@ -483,6 +486,24 @@ class NotificationService {
 
   // Handler called when a notification is tapped (or delivered and tapped)
   Future<void> _handleNotificationTap(Map<String, dynamic> data) async {
+    final int? tapId = data['id'] is int
+        ? data['id'] as int
+        : int.tryParse('${data['id']}');
+    if (tapId != null) {
+      final now = DateTime.now();
+      _handledTapIds.removeWhere(
+        (_, handledAt) => now.difference(handledAt) > const Duration(hours: 6),
+      );
+
+      final alreadyHandledAt = _handledTapIds[tapId];
+      if (alreadyHandledAt != null) {
+        debugPrint('[NotificationService] Ignoring duplicate tap handling for id=$tapId');
+        return;
+      }
+
+      _handledTapIds[tapId] = now;
+    }
+
     // Ensure we have a navigator and a context; otherwise, enqueue and retry
     if (_navigatorKey == null || _navigatorKey!.currentContext == null) {
       debugPrint('[NotificationService] Context not ready, enqueueing tap');
@@ -545,13 +566,72 @@ class NotificationService {
                               try {
                                 // Mark taken: reschedule future occurrences starting from now + interval
                                 final medProv = Provider.of<MedicationProvider>(context, listen: false);
-                                medProv.recordTaken(prefix);
-                                
-                                // Record adherence
                                 final adherence = Provider.of<AdherenceProvider>(context, listen: false);
+                                final settings = Provider.of<SettingsProvider>(context, listen: false);
+                                final lang = settings.language;
+                                final prefixValue = prefix;
+
+                                final matchedMedication = medProv.items.firstWhere(
+                                  (item) => item['notifPrefix'] == prefixValue,
+                                  orElse: () => <String, String?>{},
+                                );
+                                final canonicalName =
+                                    (matchedMedication['name'] ?? '').trim().isNotEmpty
+                                        ? matchedMedication['name']!.trim()
+                                        : name;
+                                final canonicalDose =
+                                    (matchedMedication['dose'] ?? '').trim().isNotEmpty
+                                        ? matchedMedication['dose']!.trim()
+                                        : dose.split('·').first.trim();
+
                                 await adherence.recordTaken(
-                                  medicationName: name,
-                                  dose: dose,
+                                  medicationName: canonicalName,
+                                  dose: canonicalDose,
+                                );
+
+                                Future<void> handleTrackerOutcome(
+                                  PillTrackerResult trackerResult, {
+                                  required bool allowRetryAfterRefill,
+                                }) async {
+                                  if (trackerResult.warningAtFive) {
+                                    final remaining = trackerResult.remainingPills ?? 0;
+                                    final warningMessage = lang == 'ar'
+                                      ? 'تبقى $remaining حبات فقط من دواء $name'
+                                      : 'Only $remaining pills are left for $name';
+                                    await showAlertNotification(
+                                      title: AppTranslations.translate('pill_tracker_low_title', lang),
+                                      body: warningMessage,
+                                    );
+                                  }
+
+                                  if (!trackerResult.needsRefillInput) return;
+
+                                  int? refillCount;
+                                  while (refillCount == null) {
+                                    refillCount = await _showRefillPillCountDialog(
+                                      context: context,
+                                      lang: lang,
+                                      medicationName: name,
+                                    );
+                                  }
+
+                                  await medProv.refillPills(prefixValue, refillCount);
+
+                                  if (allowRetryAfterRefill && !trackerResult.doseRecorded) {
+                                    final retryResult = await medProv.recordTaken(prefixValue);
+
+                                    await handleTrackerOutcome(
+                                      retryResult,
+                                      allowRetryAfterRefill: false,
+                                    );
+                                  }
+                                }
+
+                                final trackerResult = await medProv.recordTaken(prefixValue);
+
+                                await handleTrackerOutcome(
+                                  trackerResult,
+                                  allowRetryAfterRefill: true,
                                 );
                               } catch (_) {}
                             }
@@ -603,6 +683,64 @@ class NotificationService {
         );
       },
     );
+  }
+
+  Future<int?> _showRefillPillCountDialog({
+    required BuildContext context,
+    required String lang,
+    required String medicationName,
+  }) async {
+    final controller = TextEditingController();
+    String? errorText;
+
+    final result = await showDialog<int>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Text(AppTranslations.translate('pill_tracker_refill_title', lang)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${AppTranslations.translate('pill_tracker_refill_body', lang)} $medicationName'),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: controller,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: AppTranslations.translate('pill_count_in_package', lang),
+                      hintText: AppTranslations.translate('pill_tracker_refill_hint', lang),
+                      errorText: errorText,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                ElevatedButton(
+                  onPressed: () {
+                    final parsed = int.tryParse(controller.text.trim());
+                    if (parsed == null || parsed <= 0) {
+                      setState(() {
+                        errorText = AppTranslations.translate('pill_tracker_refill_invalid', lang);
+                      });
+                      return;
+                    }
+                    Navigator.of(dialogContext).pop(parsed);
+                  },
+                  child: Text(AppTranslations.translate('pill_tracker_refill_confirm', lang)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    controller.dispose();
+    return result;
   }
 
   void _scheduleFlush() {

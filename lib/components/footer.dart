@@ -38,6 +38,8 @@ class Footer extends StatelessWidget {
                       chronicDisease,
                       doctorName,
                       doctorSpecialty,
+                      pillCount,
+                      warningBarrier,
                     }) {
                       Provider.of<MedicationProvider>(context, listen: false)
                           .add(
@@ -50,6 +52,8 @@ class Footer extends StatelessWidget {
                             chronicDisease: chronicDisease,
                             doctorName: doctorName,
                             doctorSpecialty: doctorSpecialty,
+                            pillCount: pillCount,
+                            warningBarrier: warningBarrier,
                           );
                     },
                   ),
@@ -121,6 +125,8 @@ class Footer extends StatelessWidget {
             chronicDisease,
             doctorName,
             doctorSpecialty,
+            pillCount,
+            warningBarrier,
           }) {
             Provider.of<MedicationProvider>(context, listen: false)
                 .add(
@@ -133,6 +139,8 @@ class Footer extends StatelessWidget {
                   chronicDisease: chronicDisease,
                   doctorName: doctorName,
                   doctorSpecialty: doctorSpecialty,
+                  pillCount: pillCount,
+                  warningBarrier: warningBarrier,
                 );
           }),
     );

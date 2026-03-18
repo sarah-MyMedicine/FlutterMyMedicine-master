@@ -431,6 +431,7 @@ class AdherenceProvider extends ChangeNotifier {
   double? calculateMedicationAdherence({
     required String medicationName,
     required int intervalHours,
+    String? dose,
     DateTime? startDate,
     int daysToCheck = 30,
   }) {
@@ -444,6 +445,7 @@ class AdherenceProvider extends ChangeNotifier {
     // Future taken records are allowed by requirement.
     final takenLogs = _logs.where((log) {
       return log.medicationName == medicationName &&
+          (dose == null || dose.isEmpty || log.dose == dose) &&
           log.taken &&
           log.when.isAfter(effectiveStartDate);
     }).toList();
@@ -486,6 +488,7 @@ class AdherenceProvider extends ChangeNotifier {
       final score = calculateMedicationAdherence(
         medicationName: name,
         intervalHours: intervalHours,
+        dose: med['dose']?.toString(),
         startDate: startDate,
         daysToCheck: daysToCheck,
       );
@@ -516,6 +519,7 @@ class AdherenceProvider extends ChangeNotifier {
       final score = calculateMedicationAdherence(
         medicationName: name,
         intervalHours: intervalHours,
+        dose: med['dose']?.toString(),
         startDate: startDate,
         daysToCheck: daysToCheck,
       );

@@ -396,7 +396,7 @@ class HomePage extends StatelessWidget {
                               if (showMenopauseStage)
                                 _SquareTile(
                                   icon: Icons.spa,
-                                  label: 'مرحلة سن الأمل',
+                                  label: AppTranslations.translate('menopause_stage_title', lang),
                                   iconColor: const Color(0xFF9C27B0),
                                   onTap: () {
                                     Navigator.of(context).push(
@@ -464,6 +464,7 @@ class HomePage extends StatelessWidget {
                             
                             return {
                               'name': item['name'] ?? '',
+                              'dose': item['dose'] ?? '',
                               'intervalHours': int.tryParse(item['intervalHours'] ?? '24') ?? 24,
                               'startDate': startDate,
                             };
@@ -805,7 +806,6 @@ class _SquareTile extends StatelessWidget {
   final int? badge;
   final bool highlight;
   final VoidCallback? onTap;
-  final bool empty;
   final Color? iconColor;
 
   const _SquareTile({
@@ -814,14 +814,11 @@ class _SquareTile extends StatelessWidget {
     this.badge,
     this.highlight = false,
     this.onTap,
-    this.empty = false,
     this.iconColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (empty) return Container();
-
     final bg = highlight ? Colors.red.shade50 : Colors.white;
     final defaultIconColor = highlight ? Colors.white : const Color(0xFF36BBA0);
 

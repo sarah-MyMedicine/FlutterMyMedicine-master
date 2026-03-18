@@ -8,6 +8,22 @@ import '../services/notification_service.dart';
 import '../services/api_service.dart';
 import '../services/patient_data_sync_service.dart';
 
+class PillTrackerResult {
+  final bool doseRecorded;
+  final bool needsRefillInput;
+  final bool warningAtFive;
+  final int? remainingPills;
+  final bool trackingEnabled;
+
+  const PillTrackerResult({
+    required this.doseRecorded,
+    required this.needsRefillInput,
+    required this.warningAtFive,
+    required this.remainingPills,
+    required this.trackingEnabled,
+  });
+}
+
 class MedicationProvider extends ChangeNotifier {
   static const String _storageKey = 'medications_v1';
   static const String _missedDosesKey = 'missed_doses_tracking';
@@ -275,9 +291,12 @@ class MedicationProvider extends ChangeNotifier {
     String? chronicDisease,
     String? doctorName,
     String? doctorSpecialty,
+    int? pillCount,
+    int? warningBarrier,
   }) async {
     final prefix = _generateUniquePrefix();
-    debugPrint('[MedicationProvider.add] Adding medication: $name, dose: $dose, interval: $intervalHours hours, startTime: $startTime, startDate: $startDate, chronicDisease: $chronicDisease');
+    final barrier = warningBarrier ?? 5;
+    debugPrint('[MedicationProvider.add] Adding medication: $name, dose: $dose, interval: $intervalHours hours, startTime: $startTime, startDate: $startDate, chronicDisease: $chronicDisease, warningBarrier: $barrier');
 
     _items.add({
       'name': name,
@@ -289,6 +308,10 @@ class MedicationProvider extends ChangeNotifier {
       'chronicDisease': chronicDisease,
       'doctorName': doctorName,
       'doctorSpecialty': doctorSpecialty,
+      'pillCountRemaining': pillCount?.toString(),
+      'warningBarrier': barrier.toString(),
+      'lowPillWarningSent': (pillCount != null && pillCount <= barrier) ? 'true' : 'false',
+      'refillRequired': (pillCount != null && pillCount <= 0) ? 'true' : 'false',
       'notifPrefix': prefix,
     });
 
@@ -353,14 +376,53 @@ class MedicationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> recordTaken(String prefix) async {
+  Future<PillTrackerResult> recordTaken(String prefix) async {
     // Find medication
     final idx = _items.indexWhere((it) => it['notifPrefix'] == prefix);
-    if (idx == -1) return;
+    if (idx == -1) {
+      return const PillTrackerResult(
+        doseRecorded: false,
+        needsRefillInput: false,
+        warningAtFive: false,
+        remainingPills: null,
+        trackingEnabled: false,
+      );
+    }
 
     final item = _items[idx];
     final intervalStr = item['intervalHours'];
     final interval = int.tryParse(intervalStr ?? '24') ?? 24;
+    final currentPillCount = int.tryParse(item['pillCountRemaining'] ?? '');
+    final warningBarrier = int.tryParse(item['warningBarrier'] ?? '5') ?? 5;
+    final trackingEnabled = true;
+
+    if (currentPillCount == null) {
+      item['refillRequired'] = 'true';
+      await _saveToPrefs();
+      notifyListeners();
+
+      return const PillTrackerResult(
+        doseRecorded: false,
+        needsRefillInput: true,
+        warningAtFive: false,
+        remainingPills: null,
+        trackingEnabled: true,
+      );
+    }
+
+    if (trackingEnabled && currentPillCount <= 0) {
+      item['refillRequired'] = 'true';
+      await _saveToPrefs();
+      notifyListeners();
+
+      return const PillTrackerResult(
+        doseRecorded: false,
+        needsRefillInput: true,
+        warningAtFive: false,
+        remainingPills: 0,
+        trackingEnabled: true,
+      );
+    }
 
     // Cancel existing scheduled notifs and reschedule starting from now+interval
     await NotificationService().cancelForPrefix(prefix);
@@ -377,6 +439,26 @@ class MedicationProvider extends ChangeNotifier {
 
     // Save lastTaken timestamp for UI if desired
     item['lastTaken'] = now.toIso8601String();
+
+    var warningAtBarrier = false;
+    var remainingPills = currentPillCount;
+
+    if (trackingEnabled && currentPillCount > 0) {
+      remainingPills = max(0, currentPillCount - 1);
+      item['pillCountRemaining'] = remainingPills.toString();
+
+      final alreadyWarnedAtBarrier = item['lowPillWarningSent'] == 'true';
+      if (remainingPills == warningBarrier && !alreadyWarnedAtBarrier) {
+        warningAtBarrier = true;
+        item['lowPillWarningSent'] = 'true';
+      }
+
+      if (remainingPills > warningBarrier) {
+        item['lowPillWarningSent'] = 'false';
+      }
+
+      item['refillRequired'] = remainingPills == 0 ? 'true' : 'false';
+    }
     
     // Reset consecutive missed doses counter when dose is taken
     _consecutiveMissedDoses[prefix] = 0;
@@ -386,6 +468,29 @@ class MedicationProvider extends ChangeNotifier {
     await _saveToPrefs();
     await _saveMissedDosesTracking();
 
+    notifyListeners();
+
+    return PillTrackerResult(
+      doseRecorded: true,
+      needsRefillInput: trackingEnabled && remainingPills == 0,
+      warningAtFive: warningAtBarrier,
+      remainingPills: remainingPills,
+      trackingEnabled: trackingEnabled,
+    );
+  }
+
+  Future<void> refillPills(String prefix, int newPillCount) async {
+    final idx = _items.indexWhere((it) => it['notifPrefix'] == prefix);
+    if (idx == -1) return;
+
+    final safeCount = max(0, newPillCount);
+    final item = _items[idx];
+
+    item['pillCountRemaining'] = safeCount.toString();
+    item['refillRequired'] = safeCount == 0 ? 'true' : 'false';
+    item['lowPillWarningSent'] = safeCount <= 5 ? 'true' : 'false';
+
+    await _saveToPrefs();
     notifyListeners();
   }
 
@@ -414,6 +519,8 @@ class MedicationProvider extends ChangeNotifier {
     String? chronicDisease,
     String? doctorName,
     String? doctorSpecialty,
+    int? pillCount,
+    int? warningBarrier,
   }) async {
     if (index < 0 || index >= _items.length) return;
 
@@ -434,6 +541,8 @@ class MedicationProvider extends ChangeNotifier {
         previousStartTime != normalizedStartTime ||
         previousStartDate != normalizedStartDate;
 
+    final barrier = warningBarrier ?? (int.tryParse(existing['warningBarrier'] ?? '5') ?? 5);
+
     _items[index] = {
       'name': name,
       'dose': dose,
@@ -444,6 +553,14 @@ class MedicationProvider extends ChangeNotifier {
       'chronicDisease': chronicDisease,
       'doctorName': doctorName,
       'doctorSpecialty': doctorSpecialty,
+      'pillCountRemaining': pillCount?.toString() ?? existing['pillCountRemaining'],
+      'warningBarrier': barrier.toString(),
+      'lowPillWarningSent': pillCount == null
+        ? (existing['lowPillWarningSent'] ?? 'false')
+        : (pillCount <= barrier ? 'true' : 'false'),
+      'refillRequired': pillCount == null
+        ? (existing['refillRequired'] ?? 'false')
+        : (pillCount <= 0 ? 'true' : 'false'),
       'notifPrefix': prefix,
       'lastTaken': timingChanged ? null : existing['lastTaken'],
     };

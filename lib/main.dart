@@ -156,6 +156,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const MaterialApp(
+        debugShowCheckedModeBanner: false,
         home: Scaffold(
           body: Center(child: CircularProgressIndicator()),
         ),
@@ -181,6 +182,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     return Consumer<SettingsProvider>(
       builder: (context, settingsProvider, _) {
         return MaterialApp(
+          debugShowCheckedModeBanner: false,
           navigatorKey: _navigatorKey,
           title: 'My Medicine',
           theme: AppTheme.theme(settingsProvider.themeColor),

@@ -6,7 +6,7 @@ import '../providers/settings_provider.dart';
 import '../utils/translations.dart';
 
 class MedicationFormModal extends StatefulWidget {
-  // onSave supports optional named params for imagePath, intervalHours, startTime, startDate, chronicDisease, doctorName, and doctorSpecialty
+  // onSave supports optional named params for imagePath, intervalHours, startTime, startDate, chronicDisease, doctorName, doctorSpecialty, pillCount, and warningBarrier
   final void Function(
     String name,
     String dose, {
@@ -17,6 +17,8 @@ class MedicationFormModal extends StatefulWidget {
     String? chronicDisease,
     String? doctorName,
     String? doctorSpecialty,
+    int? pillCount,
+    int? warningBarrier,
   }) onSave;
   final String? initialName;
   final String? initialDose;
@@ -27,6 +29,8 @@ class MedicationFormModal extends StatefulWidget {
   final String? initialChronicDisease;
   final String? initialDoctorName;
   final String? initialDoctorSpecialty;
+  final int? initialPillCount;
+  final int? initialWarningBarrier;
 
   const MedicationFormModal({
     super.key,
@@ -40,6 +44,8 @@ class MedicationFormModal extends StatefulWidget {
     this.initialChronicDisease,
     this.initialDoctorName,
     this.initialDoctorSpecialty,
+    this.initialPillCount,
+    this.initialWarningBarrier,
   });
 
   @override
@@ -54,6 +60,8 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
   late final TextEditingController _doseController;
   late final TextEditingController _doctorNameController;
   late final TextEditingController _doctorSpecialtyController;
+  late final TextEditingController _pillCountController;
+  late final TextEditingController _warningBarrierController;
   String? _imagePath;
   TimeOfDay? _startTime;
   DateTime? _startDate;
@@ -94,7 +102,11 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
   void _onDoctorSelectionChanged(String value) {
     setState(() {
       _selectedDoctorValue = value;
-      if (value == _addNewDoctorValue) return;
+      if (value == _addNewDoctorValue) {
+        _doctorNameController.clear();
+        _doctorSpecialtyController.clear();
+        return;
+      }
 
       final parts = value.split('|||');
       if (parts.isNotEmpty) {
@@ -111,6 +123,12 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
     _doseController = TextEditingController(text: widget.initialDose ?? '');
     _doctorNameController = TextEditingController(text: widget.initialDoctorName ?? '');
     _doctorSpecialtyController = TextEditingController(text: widget.initialDoctorSpecialty ?? '');
+    _pillCountController = TextEditingController(
+      text: widget.initialPillCount?.toString() ?? '',
+    );
+    _warningBarrierController = TextEditingController(
+      text: widget.initialWarningBarrier?.toString() ?? '5',
+    );
     _imagePath = widget.initialImagePath;
     _chronicDisease = widget.initialChronicDisease;
     _loadSavedDoctors();
@@ -198,6 +216,8 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
     _doseController.dispose();
     _doctorNameController.dispose();
     _doctorSpecialtyController.dispose();
+    _pillCountController.dispose();
+    _warningBarrierController.dispose();
     super.dispose();
   }
 
@@ -315,13 +335,22 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     value: _selectedDoctorValue,
+                    isExpanded: true,
+                    style: const TextStyle(color: Colors.black),
+                    dropdownColor: Colors.white,
                     decoration: InputDecoration(
-                      labelText: AppTranslations.translate('select_saved_doctor_or_add', lang),
+                      labelText: AppTranslations.translate('doctor', lang),
+                      helperText: AppTranslations.translate('select_saved_doctor_or_add', lang),
+                      helperMaxLines: 2,
                     ),
                     items: [
                       DropdownMenuItem(
                         value: _addNewDoctorValue,
-                        child: Text(AppTranslations.translate('add_new_doctor', lang)),
+                        child: Text(
+                          AppTranslations.translate('add_new_doctor', lang),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                       ..._savedDoctors.map((entry) {
                         final doctorName = entry['name'] ?? '';
@@ -332,7 +361,11 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
 
                         return DropdownMenuItem<String>(
                           value: _doctorOptionValue(doctorName, doctorSpecialty),
-                          child: Text(label, overflow: TextOverflow.ellipsis),
+                          child: Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         );
                       }),
                     ],
@@ -347,6 +380,8 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                     decoration: InputDecoration(
                       labelText: AppTranslations.translate('doctor_name', lang),
                     ),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? AppTranslations.translate('required_field', lang) : null,
                   ),
                   const SizedBox(height: 8),
                   TextFormField(
@@ -354,6 +389,56 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                     decoration: InputDecoration(
                       labelText: AppTranslations.translate('specialty', lang),
                     ),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? AppTranslations.translate('required_field', lang) : null,
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _pillCountController,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: AppTranslations.translate('pill_count_in_package', lang),
+                          ),
+                          validator: (v) {
+                            final raw = (v ?? '').trim();
+                            if (raw.isEmpty) {
+                              return AppTranslations.translate('pill_count_required', lang);
+                            }
+
+                            final count = int.tryParse(raw);
+                            if (count == null || count <= 0) {
+                              return AppTranslations.translate('pill_count_must_be_positive', lang);
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _warningBarrierController,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: AppTranslations.translate('warning_barrier', lang),
+                          ),
+                          validator: (v) {
+                            final raw = (v ?? '').trim();
+                            if (raw.isEmpty) {
+                              return AppTranslations.translate('warning_barrier_required', lang);
+                            }
+
+                            final barrier = int.tryParse(raw);
+                            if (barrier == null || barrier < 0) {
+                              return AppTranslations.translate('warning_barrier_must_be_valid', lang);
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 16),
                   
@@ -565,6 +650,8 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                   final intervalHours = _calculateIntervalHours();
                   final doctorName = _doctorNameController.text.trim();
                   final doctorSpecialty = _doctorSpecialtyController.text.trim();
+                  final pillCount = int.tryParse(_pillCountController.text.trim());
+                  final warningBarrier = int.tryParse(_warningBarrierController.text.trim());
 
                   widget.onSave(
                     _nameController.text.trim(),
@@ -576,6 +663,8 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                     chronicDisease: _chronicDisease,
                     doctorName: doctorName.isEmpty ? null : doctorName,
                     doctorSpecialty: doctorSpecialty.isEmpty ? null : doctorSpecialty,
+                    pillCount: pillCount,
+                    warningBarrier: warningBarrier,
                   );
 
                   Navigator.of(context).pop();

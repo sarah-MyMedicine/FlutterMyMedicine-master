@@ -81,6 +81,8 @@ class MedicationList extends StatelessWidget {
                           initialChronicDisease: item['chronicDisease'],
                           initialDoctorName: item['doctorName'],
                           initialDoctorSpecialty: item['doctorSpecialty'],
+                          initialPillCount: int.tryParse(item['pillCountRemaining'] ?? ''),
+                          initialWarningBarrier: int.tryParse(item['warningBarrier'] ?? '5'),
                           onSave: (
                             name,
                             dose, {
@@ -91,6 +93,8 @@ class MedicationList extends StatelessWidget {
                             chronicDisease,
                             doctorName,
                             doctorSpecialty,
+                            pillCount,
+                            warningBarrier,
                           }) {
                             provider.updateAt(
                               i,
@@ -103,6 +107,8 @@ class MedicationList extends StatelessWidget {
                               chronicDisease: chronicDisease,
                               doctorName: doctorName,
                               doctorSpecialty: doctorSpecialty,
+                              pillCount: pillCount,
+                              warningBarrier: warningBarrier,
                             );
                           },
                         ),

@@ -260,16 +260,16 @@ class PubertyStageInfoPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Text(
+              const Text(
                 '👏',
                 style: TextStyle(fontSize: 24),
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Text(
-                'نصائح لتعزيز ثقتك بنفسك',
-                style: TextStyle(
+                AppTranslations.translate('tips_boost_confidence', lang),
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFFFF6F00),

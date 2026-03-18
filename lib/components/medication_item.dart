@@ -160,6 +160,7 @@ class MedicationItem extends StatelessWidget {
                         final adherenceScore = adherenceProvider.calculateMedicationAdherence(
                           medicationName: name,
                           intervalHours: intervalHrs,
+                          dose: dose,
                           startDate: medStartDate,
                           daysToCheck: 30,
                         );
