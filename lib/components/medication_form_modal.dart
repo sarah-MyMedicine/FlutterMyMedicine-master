@@ -334,7 +334,7 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: _selectedDoctorValue,
+                    initialValue: _selectedDoctorValue,
                     isExpanded: true,
                     style: const TextStyle(color: Colors.black),
                     dropdownColor: Colors.white,
