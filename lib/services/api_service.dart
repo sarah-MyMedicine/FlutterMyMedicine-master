@@ -503,6 +503,69 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> requestWhatsAppOtp({
+    required String phoneNumber,
+    required String purpose,
+    String? username,
+    String? name,
+    String? userType,
+  }) async {
+    try {
+      final response = await _postAuthWithFailover('/auth/whatsapp/request-otp', {
+        'phoneNumber': phoneNumber,
+        'purpose': purpose,
+        if (username != null) 'username': username,
+        if (name != null) 'name': name,
+        if (userType != null) 'userType': userType,
+      });
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+
+      throw Exception(_extractApiError(response, 'Failed to request WhatsApp OTP'));
+    } on TimeoutException {
+      throw Exception(
+        'انتهت مهلة الاتصال بالخادم أثناء طلب رمز واتساب. تأكد أن الـ backend يعمل وأن عنوان API صحيح.',
+      );
+    } catch (e) {
+      debugPrint('[ApiService] WhatsApp OTP request error: $e');
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> verifyWhatsAppOtp({
+    required String sessionId,
+    required String code,
+  }) async {
+    try {
+      final response = await _postAuthWithFailover('/auth/whatsapp/verify-otp', {
+        'sessionId': sessionId,
+        'code': code,
+      });
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (data['token'] != null && data['userId'] != null) {
+          await _saveAuthToken(
+            data['token'].toString(),
+            data['userId'].toString(),
+          );
+        }
+        return data;
+      }
+
+      throw Exception(_extractApiError(response, 'Failed to verify WhatsApp OTP'));
+    } on TimeoutException {
+      throw Exception(
+        'انتهت مهلة الاتصال بالخادم أثناء التحقق من رمز واتساب. تأكد أن الـ backend يعمل وأن عنوان API صحيح.',
+      );
+    } catch (e) {
+      debugPrint('[ApiService] WhatsApp OTP verify error: $e');
+      rethrow;
+    }
+  }
+
   Future<void> logout() async {
     try {
       await _postRequest(

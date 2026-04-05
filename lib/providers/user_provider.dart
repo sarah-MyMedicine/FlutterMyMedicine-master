@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../services/patient_data_sync_service.dart';
 import '../services/push_notification_service.dart';
+import '../services/whatsapp_auth_service.dart';
 
 class UserProvider extends ChangeNotifier {
   String? _username;
@@ -136,19 +137,77 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
+  Future<WhatsAppOtpRequestResult?> requestWhatsAppOtp({
+    required String phoneNumber,
+    required String purpose,
+    String? username,
+    String? name,
+    String? userType,
+  }) async {
+    _lastError = null;
+
+    try {
+      return await WhatsAppAuthService().requestOtp(
+        phoneNumber: phoneNumber,
+        purpose: purpose,
+        username: username,
+        name: name,
+        userType: userType,
+      );
+    } catch (e) {
+      _lastError = _friendlyError(e);
+      debugPrint('WhatsApp OTP request error: $_lastError');
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<bool> verifyWhatsAppOtp({
+    required String sessionId,
+    required String code,
+  }) async {
+    _lastError = null;
+
+    try {
+      final response = await WhatsAppAuthService().verifyOtp(
+        sessionId: sessionId,
+        code: code,
+      );
+
+      await _saveUserData(
+        username: response.username,
+        name: response.name,
+        userType: response.userType,
+        userId: response.userId,
+        password: null,
+      );
+
+      return true;
+    } catch (e) {
+      _lastError = _friendlyError(e);
+      debugPrint('WhatsApp OTP verify error: $_lastError');
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<void> _saveUserData({
     required String username,
     required String name,
     required String userType,
     required String userId,
-    required String password,
+    required String? password,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('username', username);
     await prefs.setString('name', name);
     await prefs.setString('userType', userType);
     await prefs.setString('userId', userId);
-    await prefs.setString('password', password);
+    if (password != null) {
+      await prefs.setString('password', password);
+    } else {
+      await prefs.remove('password');
+    }
 
     _username = username;
     _name = name;
@@ -172,6 +231,7 @@ class UserProvider extends ChangeNotifier {
 
     // Fire-and-forget: token clear is best-effort, never block logout on it
     PushNotificationService().clearTokenFromBackend().catchError((_) {});
+    WhatsAppAuthService().signOut().catchError((_) {});
 
     try {
       await ApiService().logout().timeout(const Duration(seconds: 3));

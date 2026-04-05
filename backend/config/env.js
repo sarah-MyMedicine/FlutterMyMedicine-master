@@ -39,6 +39,15 @@ const config = {
   mongoUri: process.env.MONGO_URI || 'mongodb://localhost:27017/mymedicine',
   jwtSecret: process.env.JWT_SECRET || 'your-secret-key-change-in-production',
   adminApiKey: process.env.ADMIN_API_KEY || '',
+    whatsappAccessToken: process.env.WHATSAPP_ACCESS_TOKEN || '',
+    whatsappPhoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || '',
+    whatsappTemplateName: process.env.WHATSAPP_TEMPLATE_NAME || '',
+    whatsappTemplateLanguageCode:
+      process.env.WHATSAPP_TEMPLATE_LANGUAGE_CODE || 'en_US',
+    whatsappGraphApiVersion:
+      process.env.WHATSAPP_GRAPH_API_VERSION || 'v21.0',
+    otpExpiryMinutes: readNumber('OTP_EXPIRY_MINUTES', 5),
+    otpMaxAttempts: readNumber('OTP_MAX_ATTEMPTS', 5),
   corsAllowedOrigins: parseOrigins(process.env.CORS_ALLOWED_ORIGINS),
   requestBodyLimit: process.env.REQUEST_BODY_LIMIT || '25mb',
   trustProxy: process.env.TRUST_PROXY || '1',

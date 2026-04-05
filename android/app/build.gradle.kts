@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("kotlin-android")
+    id("com.google.gms.google-services")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
@@ -48,25 +49,16 @@ android {
             isShrinkResources = false
         }
     }
-    
-    dependencies {
-        coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
-    }
 }
 
 flutter {
     source = "../.."
 }
 
-val hasGoogleServicesConfig = listOf(
-    "google-services.json",
-    "src/debug/google-services.json",
-    "src/release/google-services.json",
-    "src/Debug/google-services.json",
-).any { file(it).exists() }
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 
-if (hasGoogleServicesConfig) {
-    apply(plugin = "com.google.gms.google-services")
-} else {
-    logger.warn("google-services.json not found. Firebase push notifications are disabled for this build.")
+    implementation(platform("com.google.firebase:firebase-bom:34.11.0"))
+    implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-messaging")
 }

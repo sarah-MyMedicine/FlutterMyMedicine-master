@@ -1,49 +1,11 @@
-const admin = require('firebase-admin');
-
-let initialized = false;
-
-function _initializeFirebaseAdmin() {
-  if (initialized) return true;
-
-  try {
-    const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
-    const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-
-    if (serviceAccountJson) {
-      const credentials = JSON.parse(serviceAccountJson);
-      admin.initializeApp({
-        credential: admin.credential.cert(credentials),
-      });
-      initialized = true;
-      console.log('[Push] Firebase Admin initialized from FIREBASE_SERVICE_ACCOUNT_JSON');
-      return true;
-    }
-
-    if (serviceAccountPath) {
-      // eslint-disable-next-line global-require, import/no-dynamic-require
-      const credentials = require(serviceAccountPath);
-      admin.initializeApp({
-        credential: admin.credential.cert(credentials),
-      });
-      initialized = true;
-      console.log('[Push] Firebase Admin initialized from FIREBASE_SERVICE_ACCOUNT_PATH');
-      return true;
-    }
-
-    console.warn('[Push] Firebase Admin not configured. Set FIREBASE_SERVICE_ACCOUNT_JSON or FIREBASE_SERVICE_ACCOUNT_PATH.');
-    return false;
-  } catch (error) {
-    console.error('[Push] Firebase Admin initialization failed:', error.message || error);
-    return false;
-  }
-}
+const { admin, initializeFirebaseAdmin } = require('./firebase_admin_service');
 
 async function sendPushNotification({ token, title, body, data = {}, channelId = 'caregiver_alerts' }) {
   if (!token) {
     return { delivered: false, reason: 'missing-token' };
   }
 
-  if (!_initializeFirebaseAdmin()) {
+  if (!initializeFirebaseAdmin()) {
     return { delivered: false, reason: 'not-configured' };
   }
 

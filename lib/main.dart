@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,6 +15,7 @@ import 'services/notification_service.dart';
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
 import 'services/push_notification_service.dart';
+import 'firebase_options.dart';
 import 'providers/medication_provider.dart';
 import 'providers/blood_pressure_provider.dart';
 import 'providers/blood_sugar_provider.dart';
@@ -36,6 +38,13 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   debugPrint('[main] Initializing services...');
+
+  await _safeInit(
+    'Firebase',
+    () => Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    ),
+  );
 
   await _safeInit('ApiService', () => ApiService().init());
   await _safeInit('NotificationService', () => NotificationService().init());

@@ -159,6 +159,62 @@ docker run --env-file ./backend/.env -p 5000:5000 mymedicine-backend
 
 For production, do not use the local `.env`; provide hosted values for `MONGO_URI`, `JWT_SECRET`, and `ADMIN_API_KEY`.
 
+### VPS + MongoDB Atlas
+
+Recommended production path for low long-term cost:
+
+1. Create a MongoDB Atlas cluster and database user.
+2. Add the VPS public IP to Atlas Network Access.
+3. Provision a small Ubuntu VPS (for example 1 vCPU / 1-2 GB RAM).
+4. Point your DNS `api.<your-domain>` record to the VPS public IP.
+5. Copy the repository to the VPS.
+6. On the VPS, run:
+
+```bash
+sudo bash backend/deploy/bootstrap_ubuntu.sh
+```
+
+7. Copy `backend/.env.production.example` to `backend/.env.production` and fill in real values, especially:
+
+```env
+MONGO_URI=...
+JWT_SECRET=...
+ADMIN_API_KEY=...
+FIREBASE_SERVICE_ACCOUNT_JSON=...
+WHATSAPP_ACCESS_TOKEN=...
+WHATSAPP_PHONE_NUMBER_ID=...
+WHATSAPP_TEMPLATE_NAME=...
+```
+
+8. Deploy the backend:
+
+```bash
+cd backend
+chmod +x deploy/deploy_vps.sh
+./deploy/deploy_vps.sh
+```
+
+9. Install the Nginx site:
+
+```bash
+sudo bash backend/deploy/install_nginx_site.sh api.<your-domain>
+```
+
+10. Add TLS with Let's Encrypt:
+
+```bash
+sudo certbot --nginx -d api.<your-domain>
+```
+
+11. Verify:
+
+```bash
+curl http://127.0.0.1:5000/api/health
+curl https://api.<your-domain>/api/health
+```
+
+The Compose file binds the backend to `127.0.0.1:5000`, so it is intended to sit behind Nginx on the VPS.
+
 ## API Endpoints
 
 ### Authentication (`/api/auth`)

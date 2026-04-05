@@ -18,10 +18,27 @@ const UserSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  phoneNumber: {
+    type: String,
+    unique: true,
+    sparse: true,
+    default: null,
+  },
   userType: {
     type: String,
     enum: ['patient', 'caregiver'],
     required: true,
+  },
+  authProvider: {
+    type: String,
+    enum: ['local', 'whatsapp'],
+    default: 'local',
+  },
+  firebaseUid: {
+    type: String,
+    unique: true,
+    sparse: true,
+    default: null,
   },
   caregiverId: {
     type: mongoose.Schema.Types.ObjectId,
