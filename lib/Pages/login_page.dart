@@ -14,7 +14,7 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   static const String _invalidCredentialsMessage =
-      'Either the username or password is wrong. Please try again';
+  'Either the username/email or password is wrong. Please try again';
 
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -42,7 +42,7 @@ class _LoginPageState extends State<LoginPage> {
     if (_usernameController.text.isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppTranslations.translate('please_enter_username_password', language)),
+          content: Text(AppTranslations.translate('please_enter_username_or_email_password', language)),
           backgroundColor: Colors.red,
         ),
       );
@@ -79,6 +79,43 @@ class _LoginPageState extends State<LoginPage> {
       Navigator.pushReplacementNamed(context, '/home');
     } else {
       final errorMessage = _localizedLoginError(userProvider.lastError, language);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _loginWithGoogle() async {
+    setState(() => _isLoading = true);
+
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final success = await userProvider.signInWithGoogle();
+
+    if (!mounted) return;
+
+    setState(() => _isLoading = false);
+
+    if (success) {
+      try {
+        await PatientDataSyncService()
+            .syncAfterAuthentication(
+              context: context,
+              username: userProvider.username ?? '',
+            )
+            .timeout(const Duration(seconds: 5));
+      } catch (e) {
+        debugPrint('[GoogleLogin] Post-auth sync skipped due timeout/error: $e');
+        await PatientDataSyncService().reloadProvidersFromLocal(context);
+      }
+
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, '/home');
+    } else {
+      final language = Provider.of<SettingsProvider>(context, listen: false).language;
+      final errorMessage = userProvider.lastError ?? AppTranslations.translate('google_sign_in_failed', language);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(errorMessage),
@@ -129,6 +166,7 @@ class _LoginPageState extends State<LoginPage> {
                       controller: _usernameController,
                       decoration: InputDecoration(
                         labelText: AppTranslations.translate('username', lang),
+                        hintText: AppTranslations.translate('username_or_email', lang),
                         prefixIcon: const Icon(Icons.person),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       ),
@@ -168,6 +206,33 @@ class _LoginPageState extends State<LoginPage> {
                                 AppTranslations.translate('login', lang),
                                 style: const TextStyle(fontSize: 18),
                               ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        const Expanded(child: Divider()),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(
+                            AppTranslations.translate('or', lang),
+                            style: const TextStyle(color: Colors.grey),
+                          ),
+                        ),
+                        const Expanded(child: Divider()),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: OutlinedButton.icon(
+                        onPressed: _isLoading ? null : _loginWithGoogle,
+                        icon: const Icon(Icons.login),
+                        label: Text(AppTranslations.translate('continue_with_google', lang)),
+                        style: OutlinedButton.styleFrom(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),

@@ -1,12 +1,12 @@
 const express = require('express');
 const router = express.Router();
 
-const User = require('../models/User');
 const { authMiddleware } = require('../middleware/auth');
+const store = require('../services/firestore_store');
 
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const user = await User.findById(req.userId);
+    const user = await store.getUserById(req.userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -30,19 +30,19 @@ router.put('/', authMiddleware, async (req, res) => {
       return res.status(400).json({ message: 'Invalid data payload' });
     }
 
-    const user = await User.findById(req.userId);
+    const user = await store.getUserById(req.userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    user.patientData = data;
-    user.updatedAt = new Date();
-    await user.save();
+    const updated = await store.updateUser(req.userId, {
+      patientData: data,
+    });
 
     res.json({
       success: true,
       message: 'Patient data updated successfully',
-      updatedAt: user.updatedAt,
+      updatedAt: updated.updatedAt,
     });
   } catch (error) {
     console.error('[PatientData] PUT error:', error);

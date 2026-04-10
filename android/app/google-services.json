@@ -1,4 +1,4 @@
-  {
+{
   "project_info": {
     "project_number": "203573212812",
     "project_id": "mymedicine-845a3",
@@ -12,7 +12,20 @@
           "package_name": "com.example.mymedicineapp"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "203573212812-keo8opk51tkr6n69advo0rqhqqt7af7e.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.mymedicineapp",
+            "certificate_hash": "16839b10fb21dabf1c3dadec7b9d43fd5863e1a9"
+          }
+        },
+        {
+          "client_id": "203573212812-ap1nsfoeqd0f94i0p7aad2u9fqp1oufu.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDteaGXRweF3uXJtKcocEs94CRzNYlNtIk"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "203573212812-ap1nsfoeqd0f94i0p7aad2u9fqp1oufu.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

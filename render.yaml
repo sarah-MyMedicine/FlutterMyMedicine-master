@@ -3,7 +3,7 @@ services:
     name: mymedicine-backend
     env: node
     rootDir: backend
-    plan: free
+    plan: starter
     buildCommand: npm ci
     startCommand: npm start
     healthCheckPath: /api/health
@@ -14,8 +14,6 @@ services:
         value: 0.0.0.0
       - key: PORT
         value: 5000
-      - key: MONGO_URI
-        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: ADMIN_API_KEY

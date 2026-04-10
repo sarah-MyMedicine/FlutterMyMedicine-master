@@ -1,41 +1,29 @@
 const express = require('express');
-const router = express.Router();
 const crypto = require('crypto');
-const User = require('../models/User');
-const LinkInvitation = require('../models/LinkInvitation');
-const EmergencyAlert = require('../models/EmergencyAlert');
 const { sendPushNotification } = require('../services/push_service');
 const { authMiddleware } = require('../middleware/auth');
+const store = require('../services/firestore_store');
 
-// ============ GENERATE INVITATION CODE ============
+const router = express.Router();
 
 router.post('/generate-invitation', authMiddleware, async (req, res) => {
   try {
     const { username } = req.body;
-
-    // Find patient user
-    const patient = await User.findOne({ username: username.toLowerCase() });
+    const patient = await store.getUserByUsername(String(username || '').trim().toLowerCase());
     if (!patient) {
       return res.status(404).json({ message: 'User not found' });
     }
-
     if (patient.userType !== 'patient') {
       return res.status(400).json({ message: 'Only patients can generate invitation codes' });
     }
 
-    // Generate 6-character alphanumeric code
     const code = crypto.randomBytes(3).toString('hex').toUpperCase();
-
-    // Create invitation
-    const invitation = new LinkInvitation({
+    const invitation = await store.createInvitation({
       invitationCode: code,
-      patientId: patient._id,
+      patientId: patient.id,
       patientUsername: patient.username,
       patientName: patient.name,
-      status: 'pending',
     });
-
-    await invitation.save();
 
     res.status(201).json({
       success: true,
@@ -48,86 +36,60 @@ router.post('/generate-invitation', authMiddleware, async (req, res) => {
   }
 });
 
-// ============ GET PENDING INVITATIONS ============
-
 router.get('/invitations/:username', authMiddleware, async (req, res) => {
   try {
-    const { username } = req.params;
-
-    // Find caregiver user
-    const caregiver = await User.findOne({ username: username.toLowerCase() });
+    const caregiver = await store.getUserByUsername(req.params.username.toLowerCase());
     if (!caregiver) {
       return res.status(404).json({ message: 'User not found' });
     }
-
     if (caregiver.userType !== 'caregiver') {
       return res.status(400).json({ message: 'Only caregivers can view invitations' });
     }
 
-    // Get pending invitations that are not expired
-    const invitations = await LinkInvitation.find({
-      status: 'pending',
-      expiresAt: { $gt: new Date() },
-    }).lean();
-
-    res.json({
-      success: true,
-      invitations,
+    const invitations = (await store.listInvitations()).filter((invitation) => {
+      return invitation.status === 'pending' && new Date(invitation.expiresAt) > new Date();
     });
+
+    res.json({ success: true, invitations });
   } catch (error) {
     console.error('[Caregiver] Get invitations error:', error);
     res.status(500).json({ message: 'Failed to get invitations' });
   }
 });
 
-// ============ ACCEPT INVITATION ============
-
 router.post('/accept-invitation', authMiddleware, async (req, res) => {
   try {
     const { invitationCode, caregiverUsername } = req.body;
-
-    // Validate input
     if (!invitationCode || !caregiverUsername) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
-    // Find invitation
-    const invitation = await LinkInvitation.findOne({
-      invitationCode: invitationCode.toUpperCase(),
-      status: 'pending',
-      expiresAt: { $gt: new Date() },
-    });
-
-    if (!invitation) {
+    const invitation = await store.getInvitationByCode(invitationCode);
+    if (!invitation || invitation.status !== 'pending' || new Date(invitation.expiresAt) <= new Date()) {
       return res.status(404).json({ message: 'Invalid or expired invitation code' });
     }
 
-    // Find caregiver
-    const caregiver = await User.findOne({ username: caregiverUsername.toLowerCase() });
+    const caregiver = await store.getUserByUsername(caregiverUsername.toLowerCase());
     if (!caregiver) {
       return res.status(404).json({ message: 'Caregiver not found' });
     }
-
     if (caregiver.userType !== 'caregiver') {
       return res.status(400).json({ message: 'User is not a caregiver' });
     }
 
-    // Find patient
-    const patient = await User.findById(invitation.patientId);
+    const patient = await store.getUserById(invitation.patientId);
     if (!patient) {
       return res.status(404).json({ message: 'Patient not found' });
     }
 
-    // Link patient and caregiver
-    patient.caregiverId = caregiver._id;
-    caregiver.patientIds.push(patient._id);
+    const patientIds = Array.isArray(caregiver.patientIds) ? caregiver.patientIds : [];
+    if (!patientIds.includes(patient.id)) {
+      patientIds.push(patient.id);
+    }
 
-    await patient.save();
-    await caregiver.save();
-
-    // Update invitation status
-    invitation.status = 'accepted';
-    await invitation.save();
+    await store.updateUser(patient.id, { caregiverId: caregiver.id });
+    await store.updateUser(caregiver.id, { patientIds });
+    await store.updateInvitation(invitation.id, { status: 'accepted' });
 
     res.json({
       success: true,
@@ -140,59 +102,48 @@ router.post('/accept-invitation', authMiddleware, async (req, res) => {
   }
 });
 
-// ============ REJECT INVITATION ============
-
 router.post('/reject-invitation', authMiddleware, async (req, res) => {
   try {
     const { invitationCode } = req.body;
-
     if (!invitationCode) {
       return res.status(400).json({ message: 'Invitation code required' });
     }
 
-    const invitation = await LinkInvitation.findOne({
-      invitationCode: invitationCode.toUpperCase(),
-    });
-
+    const invitation = await store.getInvitationByCode(invitationCode);
     if (!invitation) {
       return res.status(404).json({ message: 'Invitation not found' });
     }
 
-    invitation.status = 'expired';
-    await invitation.save();
-
-    res.json({
-      success: true,
-      message: 'Invitation rejected',
-    });
+    await store.updateInvitation(invitation.id, { status: 'expired' });
+    res.json({ success: true, message: 'Invitation rejected' });
   } catch (error) {
     console.error('[Caregiver] Reject invitation error:', error);
     res.status(500).json({ message: 'Failed to reject invitation' });
   }
 });
 
-// ============ GET LINKED PATIENTS ============
-
 router.get('/patients/:caregiverUsername', authMiddleware, async (req, res) => {
   try {
-    const { caregiverUsername } = req.params;
-
-    // Find caregiver and populate patients
-    const caregiver = await User.findOne({ username: caregiverUsername.toLowerCase() })
-      .populate('patientIds', 'name username userType')
-      .lean();
-
+    const caregiver = await store.getUserByUsername(req.params.caregiverUsername.toLowerCase());
     if (!caregiver) {
       return res.status(404).json({ message: 'Caregiver not found' });
     }
-
     if (caregiver.userType !== 'caregiver') {
       return res.status(400).json({ message: 'User is not a caregiver' });
     }
 
+    const patients = await Promise.all(
+      (caregiver.patientIds || []).map((patientId) => store.getUserById(patientId)),
+    );
+
     res.json({
       success: true,
-      patients: caregiver.patientIds || [],
+      patients: patients.filter(Boolean).map((patient) => ({
+        id: patient.id,
+        name: patient.name,
+        username: patient.username,
+        userType: patient.userType,
+      })),
     });
   } catch (error) {
     console.error('[Caregiver] Get patients error:', error);
@@ -200,28 +151,27 @@ router.get('/patients/:caregiverUsername', authMiddleware, async (req, res) => {
   }
 });
 
-// ============ GET LINKED CAREGIVER ============
-
 router.get('/caregiver/:patientUsername', authMiddleware, async (req, res) => {
   try {
-    const { patientUsername } = req.params;
-
-    // Find patient and populate caregiver
-    const patient = await User.findOne({ username: patientUsername.toLowerCase() })
-      .populate('caregiverId', 'name username userType')
-      .lean();
-
+    const patient = await store.getUserByUsername(req.params.patientUsername.toLowerCase());
     if (!patient) {
       return res.status(404).json({ message: 'Patient not found' });
     }
-
     if (patient.userType !== 'patient') {
       return res.status(400).json({ message: 'User is not a patient' });
     }
 
+    const caregiver = patient.caregiverId ? await store.getUserById(patient.caregiverId) : null;
     res.json({
       success: true,
-      caregiver: patient.caregiverId || null,
+      caregiver: caregiver
+        ? {
+            id: caregiver.id,
+            name: caregiver.name,
+            username: caregiver.username,
+            userType: caregiver.userType,
+          }
+        : null,
     });
   } catch (error) {
     console.error('[Caregiver] Get caregiver error:', error);
@@ -229,44 +179,29 @@ router.get('/caregiver/:patientUsername', authMiddleware, async (req, res) => {
   }
 });
 
-// ============ UNLINK CAREGIVER ============
-
 router.post('/unlink', authMiddleware, async (req, res) => {
   try {
     const { patientUsername, caregiverUsername } = req.body;
-
     if (!patientUsername || !caregiverUsername) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
-    // Find patient and caregiver
-    const patient = await User.findOne({ username: patientUsername.toLowerCase() });
-    const caregiver = await User.findOne({ username: caregiverUsername.toLowerCase() });
-
+    const patient = await store.getUserByUsername(patientUsername.toLowerCase());
+    const caregiver = await store.getUserByUsername(caregiverUsername.toLowerCase());
     if (!patient || !caregiver) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Unlink
-    patient.caregiverId = null;
-    caregiver.patientIds = caregiver.patientIds.filter(
-      (id) => !id.equals(patient._id)
-    );
+    const patientIds = (caregiver.patientIds || []).filter((id) => id !== patient.id);
+    await store.updateUser(patient.id, { caregiverId: null });
+    await store.updateUser(caregiver.id, { patientIds });
 
-    await patient.save();
-    await caregiver.save();
-
-    res.json({
-      success: true,
-      message: 'Caregiver unlinked successfully',
-    });
+    res.json({ success: true, message: 'Caregiver unlinked successfully' });
   } catch (error) {
     console.error('[Caregiver] Unlink error:', error);
     res.status(500).json({ message: 'Failed to unlink caregiver' });
   }
 });
-
-// ============ REGISTER/CLEAR FCM TOKEN ============
 
 router.post('/register-fcm-token', authMiddleware, async (req, res) => {
   try {
@@ -275,15 +210,12 @@ router.post('/register-fcm-token', authMiddleware, async (req, res) => {
       return res.status(400).json({ message: 'Valid fcmToken is required' });
     }
 
-    const user = await User.findOne({ username: req.username.toLowerCase() });
+    const user = await store.getUserByUsername(req.username.toLowerCase());
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    user.fcmToken = fcmToken;
-    user.updatedAt = new Date();
-    await user.save();
-
+    await store.updateUser(user.id, { fcmToken });
     res.json({ success: true, message: 'FCM token registered' });
   } catch (error) {
     console.error('[Caregiver] Register FCM token error:', error);
@@ -293,15 +225,12 @@ router.post('/register-fcm-token', authMiddleware, async (req, res) => {
 
 router.post('/clear-fcm-token', authMiddleware, async (req, res) => {
   try {
-    const user = await User.findOne({ username: req.username.toLowerCase() });
+    const user = await store.getUserByUsername(req.username.toLowerCase());
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    user.fcmToken = null;
-    user.updatedAt = new Date();
-    await user.save();
-
+    await store.updateUser(user.id, { fcmToken: null });
     res.json({ success: true, message: 'FCM token cleared' });
   } catch (error) {
     console.error('[Caregiver] Clear FCM token error:', error);
@@ -309,38 +238,30 @@ router.post('/clear-fcm-token', authMiddleware, async (req, res) => {
   }
 });
 
-// ============ NOTIFY MISSED DOSES ============
-
 router.post('/notify-missed-dose', authMiddleware, async (req, res) => {
   try {
     const { patientUsername, consecutiveMissed, medicationName } = req.body;
-
     if (!patientUsername || !consecutiveMissed || !medicationName) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
-
     if (req.username !== patientUsername.toLowerCase()) {
       return res.status(403).json({ message: 'You can only send alerts for your own account' });
     }
 
-    // Find patient and their caregiver
-    const patient = await User.findOne({ username: patientUsername.toLowerCase() })
-      .populate('caregiverId', 'fcmToken name username');
-
+    const patient = await store.getUserByUsername(patientUsername.toLowerCase());
     if (!patient) {
       return res.status(404).json({ message: 'Patient not found' });
     }
-
     if (patient.userType !== 'patient') {
       return res.status(400).json({ message: 'Only patients can send missed dose alerts' });
     }
 
+    const caregiver = patient.caregiverId ? await store.getUserById(patient.caregiverId) : null;
     let pushDelivered = false;
 
-    // If patient has linked caregiver and FCM token, send push notification
-    if (patient.caregiverId && patient.caregiverId.fcmToken) {
+    if (caregiver?.fcmToken) {
       const pushResult = await sendPushNotification({
-        token: patient.caregiverId.fcmToken,
+        token: caregiver.fcmToken,
         title: 'تنبيه: جرعات دواء مفقودة',
         body: `${patient.name} فاته ${consecutiveMissed} جرعات من ${medicationName}`,
         data: {
@@ -352,16 +273,12 @@ router.post('/notify-missed-dose', authMiddleware, async (req, res) => {
         },
       });
       pushDelivered = pushResult.delivered;
-      console.log(`[Caregiver] Missed-dose push result: ${JSON.stringify(pushResult)}`);
     }
-
-    // Log the missed dose notification
-    console.log(`[Caregiver] Missed doses reported: Patient=${patientUsername}, Missed=${consecutiveMissed}, Medication=${medicationName}`);
 
     res.json({
       success: true,
       message: 'Missed dose notification sent',
-      caregiverNotified: patient.caregiverId != null,
+      caregiverNotified: caregiver != null,
       pushDelivered,
     });
   } catch (error) {
@@ -370,84 +287,67 @@ router.post('/notify-missed-dose', authMiddleware, async (req, res) => {
   }
 });
 
-// ============ NOTIFY EMERGENCY (SIREN) ============
-
 router.post('/notify-emergency', authMiddleware, async (req, res) => {
   try {
     const { patientUsername, message, classification } = req.body;
-
     if (!patientUsername) {
       return res.status(400).json({ message: 'Patient username is required' });
     }
-
-    // Ensure patients can only send emergency alerts for themselves.
     if (req.username !== patientUsername.toLowerCase()) {
       return res.status(403).json({ message: 'You can only send alerts for your own account' });
     }
 
-    const patient = await User.findOne({ username: patientUsername.toLowerCase() })
-      .populate('caregiverId', 'name username fcmToken userType');
-
+    const patient = await store.getUserByUsername(patientUsername.toLowerCase());
     if (!patient) {
       return res.status(404).json({ message: 'Patient not found' });
     }
-
     if (patient.userType !== 'patient') {
       return res.status(400).json({ message: 'Only patients can send emergency alerts' });
     }
 
-    if (!patient.caregiverId) {
+    const caregiver = patient.caregiverId ? await store.getUserById(patient.caregiverId) : null;
+    if (!caregiver) {
       return res.status(400).json({ message: 'No linked caregiver found for this patient' });
     }
 
     const resolvedClassification = classification || 'siren';
-    const resolvedMessage =
-      message ||
-      `${patient.name} triggered an emergency alert and needs immediate attention.`;
+    const resolvedMessage = message || `${patient.name} triggered an emergency alert and needs immediate attention.`;
 
-    const alert = new EmergencyAlert({
-      patientId: patient._id,
-      caregiverId: patient.caregiverId._id,
+    const alert = await store.createAlert({
+      patientId: patient.id,
+      caregiverId: caregiver.id,
       patientUsername: patient.username,
       patientName: patient.name,
-      caregiverUsername: patient.caregiverId.username,
-      caregiverName: patient.caregiverId.name,
+      caregiverUsername: caregiver.username,
+      caregiverName: caregiver.name,
       classification: resolvedClassification,
       message: resolvedMessage,
-      status: 'unread',
     });
 
-    await alert.save();
-
     let pushDelivered = false;
-    if (patient.caregiverId.fcmToken) {
+    if (caregiver.fcmToken) {
       const pushResult = await sendPushNotification({
-        token: patient.caregiverId.fcmToken,
+        token: caregiver.fcmToken,
         title: '🚨 Siren Emergency Alert',
         body: resolvedMessage,
         data: {
           type: 'emergency_siren',
-          alertId: alert._id,
+          alertId: alert.id,
           classification: resolvedClassification,
           patientUsername: patient.username,
           patientName: patient.name,
         },
       });
       pushDelivered = pushResult.delivered;
-      console.log(`[Caregiver] Siren push result: ${JSON.stringify(pushResult)}`);
     }
-
-    console.log(
-      `[Caregiver] Emergency alert saved: patient=${patient.username}, caregiver=${patient.caregiverId.username}, classification=${resolvedClassification}`
-    );
 
     res.json({
       success: true,
       message: 'Emergency alert sent to caregiver',
-      alertId: alert._id,
+      alertId: alert.id,
       caregiver: {
-        username: patient.caregiverId.username,
-        name: patient.caregiverId.name,
+        username: caregiver.username,
+        name: caregiver.name,
       },
       classification: resolvedClassification,
       pushDelivered,
@@ -458,63 +358,43 @@ router.post('/notify-emergency', authMiddleware, async (req, res) => {
   }
 });
 
-// ============ GET CAREGIVER ALERTS ============
-
 router.get('/alerts/:caregiverUsername', authMiddleware, async (req, res) => {
   try {
     const { caregiverUsername } = req.params;
-
     if (req.username !== caregiverUsername.toLowerCase()) {
       return res.status(403).json({ message: 'You can only access your own alerts' });
     }
 
-    const caregiver = await User.findOne({ username: caregiverUsername.toLowerCase() });
+    const caregiver = await store.getUserByUsername(caregiverUsername.toLowerCase());
     if (!caregiver) {
       return res.status(404).json({ message: 'Caregiver not found' });
     }
-
     if (caregiver.userType !== 'caregiver') {
       return res.status(400).json({ message: 'User is not a caregiver' });
     }
 
-    const alerts = await EmergencyAlert.find({ caregiverId: caregiver._id })
-      .sort({ createdAt: -1 })
-      .limit(100)
-      .lean();
-
-    res.json({
-      success: true,
-      alerts,
-    });
+    const alerts = await store.listAlertsByCaregiverId(caregiver.id);
+    res.json({ success: true, alerts: alerts.slice(0, 100) });
   } catch (error) {
     console.error('[Caregiver] Get alerts error:', error);
     res.status(500).json({ message: 'Failed to get alerts' });
   }
 });
 
-// ============ MARK ALERT AS READ ============
-
 router.patch('/alerts/:alertId/read', authMiddleware, async (req, res) => {
   try {
-    const { alertId } = req.params;
-
-    const alert = await EmergencyAlert.findById(alertId);
+    const alert = await store.getAlertById(req.params.alertId);
     if (!alert) {
       return res.status(404).json({ message: 'Alert not found' });
     }
 
-    const caregiver = await User.findById(alert.caregiverId);
+    const caregiver = await store.getUserById(alert.caregiverId);
     if (!caregiver || caregiver.username !== req.username) {
       return res.status(403).json({ message: 'You are not allowed to update this alert' });
     }
 
-    alert.status = 'read';
-    await alert.save();
-
-    res.json({
-      success: true,
-      message: 'Alert marked as read',
-    });
+    await store.updateAlert(alert.id, { status: 'read' });
+    res.json({ success: true, message: 'Alert marked as read' });
   } catch (error) {
     console.error('[Caregiver] Mark alert read error:', error);
     res.status(500).json({ message: 'Failed to mark alert as read' });

@@ -32,6 +32,7 @@ class AuthService extends ChangeNotifier {
 
   Future<bool> register({
     required String username,
+    required String email,
     required String password,
     required String name,
     required String userType,
@@ -43,10 +44,10 @@ class AuthService extends ChangeNotifier {
     try {
       final response = await _apiService.register(
         username: username,
+        email: email,
         password: password,
         name: name,
         userType: userType,
-        registrationSource: 'signin_button',
       );
 
       _isAuthenticated = true;

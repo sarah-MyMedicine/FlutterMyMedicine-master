@@ -36,18 +36,9 @@ const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
   host: process.env.HOST || '0.0.0.0',
   port: readNumber('PORT', 5000),
-  mongoUri: process.env.MONGO_URI || 'mongodb://localhost:27017/mymedicine',
   jwtSecret: process.env.JWT_SECRET || 'your-secret-key-change-in-production',
   adminApiKey: process.env.ADMIN_API_KEY || '',
-    whatsappAccessToken: process.env.WHATSAPP_ACCESS_TOKEN || '',
-    whatsappPhoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || '',
-    whatsappTemplateName: process.env.WHATSAPP_TEMPLATE_NAME || '',
-    whatsappTemplateLanguageCode:
-      process.env.WHATSAPP_TEMPLATE_LANGUAGE_CODE || 'en_US',
-    whatsappGraphApiVersion:
-      process.env.WHATSAPP_GRAPH_API_VERSION || 'v21.0',
-    otpExpiryMinutes: readNumber('OTP_EXPIRY_MINUTES', 5),
-    otpMaxAttempts: readNumber('OTP_MAX_ATTEMPTS', 5),
+  firebaseWebApiKey: process.env.FIREBASE_WEB_API_KEY || process.env.FIREBASE_API_KEY || '',
   corsAllowedOrigins: parseOrigins(process.env.CORS_ALLOWED_ORIGINS),
   requestBodyLimit: process.env.REQUEST_BODY_LIMIT || '25mb',
   trustProxy: process.env.TRUST_PROXY || '1',
@@ -62,10 +53,6 @@ function assertValidConfig() {
   const errors = [];
   const warnings = [];
 
-  if (!config.mongoUri) {
-    errors.push('MONGO_URI is required.');
-  }
-
   if (!config.jwtSecret) {
     errors.push('JWT_SECRET is required.');
   }
@@ -74,16 +61,16 @@ function assertValidConfig() {
     warnings.push('ADMIN_API_KEY is not set. Admin routes will reject all requests.');
   }
 
+  if (!config.firebaseWebApiKey) {
+    warnings.push('FIREBASE_WEB_API_KEY is not set. Firebase email/password login will fail.');
+  }
+
   if (config.isProduction && insecureSecretValues.has(config.jwtSecret)) {
     errors.push('JWT_SECRET must be a strong unique value in production.');
   }
 
   if (config.isProduction && insecureSecretValues.has(config.adminApiKey)) {
     errors.push('ADMIN_API_KEY must be a strong unique value in production.');
-  }
-
-  if (config.isProduction && config.mongoUri.includes('localhost')) {
-    warnings.push('MONGO_URI still points to localhost. Use MongoDB Atlas or another hosted database in production.');
   }
 
   if (config.isProduction && config.corsAllowedOrigins.length === 0) {

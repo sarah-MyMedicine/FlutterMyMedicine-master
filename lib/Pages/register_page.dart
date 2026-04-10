@@ -14,8 +14,10 @@ class RegisterPage extends StatefulWidget {
 
 class _RegisterPageState extends State<RegisterPage> {
   static const String _usernameExistsBackendMessage = 'Username already exists';
+  static const String _emailExistsBackendMessage = 'Email already exists';
 
   final _usernameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _nameController = TextEditingController();
@@ -37,6 +39,9 @@ class _RegisterPageState extends State<RegisterPage> {
     if (rawMessage == _usernameExistsBackendMessage) {
       return AppTranslations.translate('username_exists_bilingual', language);
     }
+    if (rawMessage == _emailExistsBackendMessage) {
+      return AppTranslations.translate('email_exists_bilingual', language);
+    }
 
     return rawMessage ?? 'فشل التسجيل. تحقق من البيانات وحاول مرة أخرى';
   }
@@ -44,6 +49,7 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   void dispose() {
     _usernameController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _nameController.dispose();
@@ -53,10 +59,23 @@ class _RegisterPageState extends State<RegisterPage> {
   Future<void> _register() async {
     if (_usernameController.text.isEmpty ||
         _passwordController.text.isEmpty ||
+        _emailController.text.isEmpty ||
         _nameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('الرجاء ملء جميع الحقول'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final email = _emailController.text.trim().toLowerCase();
+    final emailRegExp = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+    if (!emailRegExp.hasMatch(email)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppTranslations.translate('please_enter_valid_email', Provider.of<SettingsProvider>(context, listen: false).language)),
           backgroundColor: Colors.orange,
         ),
       );
@@ -96,10 +115,10 @@ class _RegisterPageState extends State<RegisterPage> {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final success = await userProvider.register(
       username: _usernameController.text.trim(),
+      email: email,
       password: _passwordController.text,
       name: _nameController.text.trim(),
       userType: _selectedUserType,
-      fromSignInButton: true,
     );
     
     if (!mounted) return;
@@ -257,6 +276,18 @@ class _RegisterPageState extends State<RegisterPage> {
                 prefixIcon: const Icon(Icons.account_circle),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 hintText: 'مثال: ahmed123',
+              ),
+              textDirection: TextDirection.ltr,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              decoration: InputDecoration(
+                labelText: AppTranslations.translate('email', sp.language),
+                prefixIcon: const Icon(Icons.email_outlined),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                hintText: 'example@email.com',
               ),
               textDirection: TextDirection.ltr,
             ),

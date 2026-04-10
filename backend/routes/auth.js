@@ -1,61 +1,79 @@
 const express = require('express');
-const router = express.Router();
-const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
-const PhoneOtp = require('../models/PhoneOtp');
 const { config } = require('../config/env');
-const { createCustomAuthToken } = require('../services/firebase_admin_service');
 const {
-  sendAuthenticationCode,
-  isWhatsAppConfigured,
-} = require('../services/whatsapp_service');
+  createCustomAuthToken,
+  verifyFirebaseIdToken,
+  upsertEmailPasswordUser,
+  signInWithEmailPassword,
+} = require('../services/firebase_admin_service');
+const store = require('../services/firestore_store');
 
+const router = express.Router();
 const JWT_SECRET = config.jwtSecret;
 
-function normalizePhoneNumber(rawPhoneNumber) {
-  if (!rawPhoneNumber) return null;
-
-  const trimmed = String(rawPhoneNumber).trim();
-  const normalized = trimmed.startsWith('+')
-    ? `+${trimmed.substring(1).replace(/\D/g, '')}`
-    : `+${trimmed.replace(/\D/g, '')}`;
-
-  if (!/^\+[1-9]\d{7,14}$/.test(normalized)) {
+function normalizeEmail(rawEmail) {
+  if (!rawEmail) return null;
+  const normalized = String(rawEmail).trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
     return null;
   }
-
   return normalized;
 }
 
-function hashOtpCode(code) {
-  return crypto.createHash('sha256').update(String(code)).digest('hex');
+function isEmailIdentifier(value) {
+  return typeof value === 'string' && value.includes('@');
 }
 
-function generateOtpCode() {
-  return `${crypto.randomInt(100000, 1000000)}`;
+function sanitizeUsernameCandidate(value) {
+  const cleaned = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^[_\.]+|[_\.]+$/g, '');
+
+  if (cleaned.length >= 3) {
+    return cleaned.slice(0, 30);
+  }
+
+  return `${cleaned.padEnd(3, 'x')}`.slice(0, 30);
+}
+
+async function generateUniqueUsername(baseValue) {
+  const base = sanitizeUsernameCandidate(baseValue);
+  let candidate = base;
+  let counter = 1;
+
+  while (await store.getUserByUsername(candidate)) {
+    const suffix = `${counter}`;
+    const trimmedBase = base.slice(0, Math.max(3, 30 - suffix.length));
+    candidate = `${trimmedBase}${suffix}`;
+    counter += 1;
+  }
+
+  return candidate;
 }
 
 function createBackendToken(user) {
   return jwt.sign(
-    { userId: user._id, username: user.username },
+    { userId: user.id, username: user.username },
     JWT_SECRET,
     { expiresIn: '30d' },
   );
 }
 
 async function buildAuthPayload(user) {
-  const firebaseUid = user.firebaseUid || `user_${user._id.toString()}`;
-  if (!user.firebaseUid || user.firebaseUid !== firebaseUid) {
-    user.firebaseUid = firebaseUid;
-    await user.save();
+  const firebaseUid = user.firebaseUid || `user_${user.id}`;
+  if (user.firebaseUid !== firebaseUid) {
+    user = await store.updateUser(user.id, { firebaseUid });
   }
 
   const firebaseCustomToken = await createCustomAuthToken({
     uid: firebaseUid,
     claims: {
-      userId: user._id.toString(),
+      userId: user.id,
       username: user.username,
       userType: user.userType,
     },
@@ -63,8 +81,9 @@ async function buildAuthPayload(user) {
 
   return {
     success: true,
-    userId: user._id,
+    userId: user.id,
     username: user.username,
+    email: user.email,
     name: user.name,
     userType: user.userType,
     phoneNumber: user.phoneNumber,
@@ -73,316 +92,213 @@ async function buildAuthPayload(user) {
   };
 }
 
-// ============ REGISTER ============
+function isFirebaseConflictError(error) {
+  return error?.code === 'auth/email-already-exists' || error?.code === 'auth/uid-already-exists';
+}
+
+async function syncFirebasePasswordAccount(user, password) {
+  if (!user?.email) {
+    throw new Error('Email is required for Firebase password sign-in');
+  }
+
+  const firebaseUser = await upsertEmailPasswordUser({
+    uid: user.firebaseUid || undefined,
+    email: user.email,
+    password,
+    displayName: user.name || user.username,
+  });
+
+  const updates = {};
+  if (user.firebaseUid !== firebaseUser.uid) {
+    updates.firebaseUid = firebaseUser.uid;
+  }
+  if (user.authProvider !== 'firebase_password') {
+    updates.authProvider = 'firebase_password';
+  }
+  if (user.password) {
+    updates.password = null;
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return user;
+  }
+
+  return store.updateUser(user.id, updates);
+}
 
 router.post('/register', async (req, res) => {
   try {
-    const { username, password, name, userType, registrationSource } = req.body;
+    const { username, email, password, name, userType } = req.body;
 
-    // Validate input
-    if (!username || !password || !name || !userType) {
+    if (!username || !email || !password || !name || !userType) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
-
-    if (registrationSource !== 'signin_button') {
-      return res.status(400).json({
-        message: 'Account creation is only allowed from the sign in button',
-      });
-    }
-
     if (userType !== 'patient' && userType !== 'caregiver') {
       return res.status(400).json({ message: 'Invalid user type' });
     }
-
     if (password.length < 6) {
       return res.status(400).json({ message: 'Password must be at least 6 characters' });
     }
 
-    // Check if user exists
-    const existingUser = await User.findOne({ username: username.toLowerCase() });
+    const normalizedUsername = String(username).trim().toLowerCase();
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail) {
+      return res.status(400).json({ message: 'Valid email is required' });
+    }
+
+    const existingUser = await store.getUserByUsername(normalizedUsername);
     if (existingUser) {
       return res.status(400).json({ message: 'Username already exists' });
     }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create user
-    const user = new User({
-      username: username.toLowerCase(),
-      password: hashedPassword,
-      name,
-      userType,
-    });
-
-    await user.save();
-
-    // Generate JWT token
-    const token = jwt.sign(
-      { userId: user._id, username: user.username },
-      JWT_SECRET,
-      { expiresIn: '30d' }
-    );
-
-    res.status(201).json({
-      success: true,
-      userId: user._id,
-      username: user.username,
-      name: user.name,
-      userType: user.userType,
-      token,
-    });
-  } catch (error) {
-    console.error('[Auth] Register error:', error);
-
-    if (error?.code === 11000) {
-      if (error?.keyPattern?.username) {
-        return res.status(400).json({ message: 'Username already exists' });
-      }
-      return res.status(400).json({
-        message: 'Duplicate key conflict in database. Please contact support to reindex.',
-      });
+    if (await store.getUserByEmail(normalizedEmail)) {
+      return res.status(400).json({ message: 'Email already exists' });
     }
 
+    const firebaseUser = await upsertEmailPasswordUser({
+      email: normalizedEmail,
+      password,
+      displayName: name,
+    });
+
+    const user = await store.createUser({
+      username: normalizedUsername,
+      email: normalizedEmail,
+      password: null,
+      name,
+      userType,
+      authProvider: 'firebase_password',
+      firebaseUid: firebaseUser.uid,
+    });
+
+    res.status(201).json(await buildAuthPayload(user));
+  } catch (error) {
+    console.error('[Auth] Register error:', error);
+    if (isFirebaseConflictError(error)) {
+      return res.status(400).json({ message: 'Email already exists' });
+    }
     res.status(500).json({ message: 'Registration failed' });
   }
 });
 
-// ============ LOGIN ============
-
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-
-    // Validate input
     if (!username || !password) {
-      return res.status(400).json({ message: 'Username and password required' });
+      return res.status(400).json({ message: 'Username or email and password required' });
     }
 
-    // Find user
-    const user = await User.findOne({ username: username.toLowerCase() });
-    if (!user) {
-      return res.status(401).json({
-        message: 'Either the username or password is wrong. Please try again',
+    const normalizedIdentifier = String(username).trim().toLowerCase();
+    const user = isEmailIdentifier(normalizedIdentifier)
+      ? await store.getUserByEmail(normalizedIdentifier)
+      : await store.getUserByUsername(normalizedIdentifier);
+    if (!user || !user.email) {
+      return res.status(401).json({ message: 'Either the username/email or password is wrong. Please try again' });
+    }
+
+    let authenticatedUser = user;
+
+    if (user.password) {
+      const validPassword = await bcrypt.compare(password, user.password);
+      if (!validPassword) {
+        return res.status(401).json({ message: 'Either the username/email or password is wrong. Please try again' });
+      }
+
+      authenticatedUser = await syncFirebasePasswordAccount(user, password);
+    } else {
+      const firebaseResponse = await signInWithEmailPassword({
+        email: user.email,
+        password,
       });
+      const decodedToken = await verifyFirebaseIdToken(firebaseResponse.idToken);
+      if (!decodedToken?.uid) {
+        return res.status(401).json({ message: 'Either the username/email or password is wrong. Please try again' });
+      }
+
+      if (user.firebaseUid !== decodedToken.uid || user.authProvider !== 'firebase_password') {
+        authenticatedUser = await store.updateUser(user.id, {
+          firebaseUid: decodedToken.uid,
+          authProvider: 'firebase_password',
+        });
+      }
     }
 
-    // Check password
-    const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword) {
-      return res.status(401).json({
-        message: 'Either the username or password is wrong. Please try again',
-      });
-    }
-
-    // Generate JWT token
-    const token = jwt.sign(
-      { userId: user._id, username: user.username },
-      JWT_SECRET,
-      { expiresIn: '30d' }
-    );
-
-    res.json({
-      success: true,
-      userId: user._id,
-      username: user.username,
-      name: user.name,
-      userType: user.userType,
-      token,
-    });
+    res.json(await buildAuthPayload(authenticatedUser));
   } catch (error) {
     console.error('[Auth] Login error:', error);
+    if (error.message === 'Either the username/email or password is wrong. Please try again' ||
+        error.message === 'This account has been disabled' ||
+        error.message === 'Too many login attempts. Please try again later') {
+      return res.status(401).json({ message: error.message });
+    }
     res.status(500).json({ message: 'Login failed' });
   }
 });
 
-// ============ WHATSAPP OTP REQUEST ============
-
-router.post('/whatsapp/request-otp', async (req, res) => {
+router.post('/google', async (req, res) => {
   try {
-    const {
-      phoneNumber,
-      purpose = 'login',
-      username,
-      name,
-      userType,
-    } = req.body;
-
-    if (!isWhatsAppConfigured()) {
-      return res.status(500).json({
-        message: 'WhatsApp authentication is not configured on the server',
-      });
+    const { idToken } = req.body;
+    if (!idToken) {
+      return res.status(400).json({ message: 'Google Firebase idToken is required' });
     }
 
-    const normalizedPhone = normalizePhoneNumber(phoneNumber);
-    if (!normalizedPhone) {
-      return res.status(400).json({ message: 'Invalid phone number format' });
+    const decodedToken = await verifyFirebaseIdToken(idToken);
+    const signInProvider = decodedToken.firebase?.sign_in_provider;
+    if (signInProvider !== 'google.com') {
+      return res.status(401).json({ message: 'Token is not from Google Sign-In' });
     }
 
-    if (purpose !== 'login' && purpose !== 'register') {
-      return res.status(400).json({ message: 'Invalid OTP purpose' });
+    const firebaseUid = decodedToken.uid;
+    const email = normalizeEmail(decodedToken.email);
+    if (!email) {
+      return res.status(400).json({ message: 'Google account email is required' });
     }
 
-    if (purpose === 'login') {
-      const existingUser = await User.findOne({ phoneNumber: normalizedPhone });
-      if (!existingUser) {
-        return res.status(404).json({
-          message: 'No account is linked to this phone number',
-        });
+    let user = await store.getUserByFirebaseUid(firebaseUid);
+    if (!user) {
+      user = await store.getUserByEmail(email);
+    }
+
+    if (user) {
+      const updates = {};
+      if (user.firebaseUid !== firebaseUid) {
+        updates.firebaseUid = firebaseUid;
       }
-    }
-
-    let registrationMetadata = {};
-    if (purpose === 'register') {
-      if (!username || !name || !userType) {
-        return res.status(400).json({
-          message: 'username, name, and userType are required for registration',
-        });
+      if (!user.email) {
+        updates.email = email;
+      }
+      if (!user.name && decodedToken.name) {
+        updates.name = decodedToken.name;
+      }
+      if (!user.authProvider) {
+        updates.authProvider = 'google';
       }
 
-      if (userType !== 'patient' && userType !== 'caregiver') {
-        return res.status(400).json({ message: 'Invalid user type' });
+      if (Object.keys(updates).length > 0) {
+        user = await store.updateUser(user.id, updates);
       }
-
-      const normalizedUsername = String(username).trim().toLowerCase();
-      const existingByUsername = await User.findOne({ username: normalizedUsername });
-      if (existingByUsername) {
-        return res.status(400).json({ message: 'Username already exists' });
-      }
-
-      const existingByPhone = await User.findOne({ phoneNumber: normalizedPhone });
-      if (existingByPhone) {
-        return res.status(400).json({
-          message: 'Phone number is already linked to an existing account',
-        });
-      }
-
-      registrationMetadata = {
-        username: normalizedUsername,
-        name: String(name).trim(),
-        userType,
-      };
-    }
-
-    await PhoneOtp.deleteMany({
-      phoneNumber: normalizedPhone,
-      purpose,
-      consumedAt: null,
-    });
-
-    const code = generateOtpCode();
-    const sessionId = crypto.randomUUID();
-    const expiresAt = new Date(
-      Date.now() + config.otpExpiryMinutes * 60 * 1000,
-    );
-
-    const delivery = await sendAuthenticationCode({
-      phoneNumber: normalizedPhone,
-      code,
-    });
-
-    await PhoneOtp.create({
-      sessionId,
-      phoneNumber: normalizedPhone,
-      purpose,
-      codeHash: hashOtpCode(code),
-      metadata: registrationMetadata,
-      providerMessageId: delivery.providerMessageId,
-      expiresAt,
-    });
-
-    const response = {
-      success: true,
-      sessionId,
-      expiresInSeconds: config.otpExpiryMinutes * 60,
-    };
-
-    if (!config.isProduction) {
-      response.developmentCode = code;
-    }
-
-    res.json(response);
-  } catch (error) {
-    console.error('[Auth] WhatsApp OTP request error:', error);
-    res.status(500).json({ message: error.message || 'Failed to send OTP' });
-  }
-});
-
-// ============ WHATSAPP OTP VERIFY ============
-
-router.post('/whatsapp/verify-otp', async (req, res) => {
-  try {
-    const { sessionId, code } = req.body;
-
-    if (!sessionId || !code) {
-      return res.status(400).json({ message: 'sessionId and code are required' });
-    }
-
-    const otpRecord = await PhoneOtp.findOne({ sessionId });
-    if (!otpRecord || otpRecord.consumedAt != null) {
-      return res.status(400).json({ message: 'OTP session is invalid or already used' });
-    }
-
-    if (otpRecord.expiresAt.getTime() < Date.now()) {
-      return res.status(400).json({ message: 'OTP has expired' });
-    }
-
-    const expectedHash = Buffer.from(otpRecord.codeHash, 'hex');
-    const providedHash = Buffer.from(hashOtpCode(code), 'hex');
-
-    if (
-      expectedHash.length !== providedHash.length ||
-      !crypto.timingSafeEqual(expectedHash, providedHash)
-    ) {
-      otpRecord.attempts += 1;
-      await otpRecord.save();
-
-      if (otpRecord.attempts >= config.otpMaxAttempts) {
-        await otpRecord.deleteOne();
-      }
-
-      return res.status(401).json({ message: 'Invalid OTP code' });
-    }
-
-    otpRecord.consumedAt = new Date();
-    await otpRecord.save();
-
-    let user;
-    if (otpRecord.purpose === 'register') {
-      const metadata = otpRecord.metadata || {};
-      const randomPassword = crypto.randomBytes(24).toString('hex');
-      const passwordHash = await bcrypt.hash(randomPassword, 10);
-
-      user = await User.create({
-        username: metadata.username,
-        password: passwordHash,
-        name: metadata.name,
-        userType: metadata.userType,
-        phoneNumber: otpRecord.phoneNumber,
-        authProvider: 'whatsapp',
-      });
     } else {
-      user = await User.findOne({ phoneNumber: otpRecord.phoneNumber });
-      if (!user) {
-        return res.status(404).json({
-          message: 'No account is linked to this phone number',
-        });
-      }
+      const baseUsername = decodedToken.email?.split('@')[0] || decodedToken.name || 'user';
+      const username = await generateUniqueUsername(baseUsername);
+
+      user = await store.createUser({
+        username,
+        email,
+        name: decodedToken.name || username,
+        userType: 'patient',
+        authProvider: 'google',
+        firebaseUid,
+        password: null,
+      });
     }
 
-    const payload = await buildAuthPayload(user);
-    res.json(payload);
+    res.json(await buildAuthPayload(user));
   } catch (error) {
-    console.error('[Auth] WhatsApp OTP verify error:', error);
-    res.status(500).json({ message: error.message || 'OTP verification failed' });
+    console.error('[Auth] Google sign-in error:', error);
+    res.status(500).json({ message: error.message || 'Google sign-in failed' });
   }
 });
-
-// ============ LOGOUT ============
 
 router.post('/logout', (req, res) => {
-  // Since we're using JWT, logout is handled on client side
-  // by removing the token from storage
   res.json({ success: true, message: 'Logged out successfully' });
 });
 

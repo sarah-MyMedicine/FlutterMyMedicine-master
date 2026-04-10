@@ -1,14 +1,16 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
+import '../services/google_auth_service.dart';
 import '../services/patient_data_sync_service.dart';
 import '../services/push_notification_service.dart';
-import '../services/whatsapp_auth_service.dart';
 
 class UserProvider extends ChangeNotifier {
   String? _username;
+  String? _email;
   String? _name;
   String? _userType;
   String? _userId;
@@ -17,6 +19,7 @@ class UserProvider extends ChangeNotifier {
   bool _isLoggedIn = false;
 
   String? get username => _username;
+  String? get email => _email;
   String? get name => _name;
   String? get userType => _userType;
   String? get userId => _userId;
@@ -30,6 +33,9 @@ class UserProvider extends ChangeNotifier {
     final raw = error.toString().replaceFirst('Exception: ', '').trim();
     if (raw == 'Username already exists') {
       return 'This username is given, please choose another one\nاسم المستخدم مستخدم بالفعل، يرجى اختيار اسم آخر';
+    }
+    if (raw == 'Email already exists') {
+      return 'This email is already registered, please use another one\nهذا البريد الإلكتروني مسجل بالفعل، يرجى استخدام بريد آخر';
     }
     if (raw.contains('Unable to reach authentication server')) {
       return 'تعذر الوصول إلى خادم المصادقة. تأكد من تشغيل الـ Backend وأن الهاتف والكمبيوتر على نفس شبكة Wi-Fi، أو استخدم رابط Backend منشور (Public URL) عبر --dart-define=API_BASE_URL=https://<your-backend-domain>/api';
@@ -49,6 +55,7 @@ class UserProvider extends ChangeNotifier {
   Future<void> loadUserFromStorage() async {
     final prefs = await SharedPreferences.getInstance();
     _username = prefs.getString('username');
+    _email = prefs.getString('email');
     _name = prefs.getString('name');
     _userType = prefs.getString('userType');
     _userId = prefs.getString('userId');
@@ -59,31 +66,29 @@ class UserProvider extends ChangeNotifier {
 
   Future<bool> register({
     required String username,
+    required String email,
     required String password,
     required String name,
     required String userType,
-    required bool fromSignInButton,
   }) async {
     _lastError = null;
-    if (!fromSignInButton) {
-      _lastError = 'Account creation is only allowed from the sign in button';
-      notifyListeners();
-      return false;
-    }
 
     try {
       final apiService = ApiService();
       final response = await apiService.register(
         username: username.trim().toLowerCase(),
+        email: email.trim().toLowerCase(),
         password: password,
         name: name,
         userType: userType,
-        registrationSource: 'signin_button',
       );
+
+      await _signInToFirebase(response);
 
       await _saveUserData(
         username:
             response['username']?.toString() ?? username.trim().toLowerCase(),
+        email: response['email']?.toString() ?? email.trim().toLowerCase(),
         name: response['name']?.toString() ?? name,
         userType: response['userType']?.toString() ?? userType,
         userId: response['userId'],
@@ -117,9 +122,12 @@ class UserProvider extends ChangeNotifier {
         password: password,
       );
 
+      await _signInToFirebase(response);
+
       await _saveUserData(
         username:
             response['username']?.toString() ?? username.trim().toLowerCase(),
+        email: response['email']?.toString(),
         name: response['name']?.toString() ?? '',
         userType: response['userType']?.toString() ?? '',
         userId: response['userId'],
@@ -137,55 +145,26 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  Future<WhatsAppOtpRequestResult?> requestWhatsAppOtp({
-    required String phoneNumber,
-    required String purpose,
-    String? username,
-    String? name,
-    String? userType,
-  }) async {
+  Future<bool> signInWithGoogle() async {
     _lastError = null;
 
     try {
-      return await WhatsAppAuthService().requestOtp(
-        phoneNumber: phoneNumber,
-        purpose: purpose,
-        username: username,
-        name: name,
-        userType: userType,
-      );
-    } catch (e) {
-      _lastError = _friendlyError(e);
-      debugPrint('WhatsApp OTP request error: $_lastError');
-      notifyListeners();
-      return null;
-    }
-  }
-
-  Future<bool> verifyWhatsAppOtp({
-    required String sessionId,
-    required String code,
-  }) async {
-    _lastError = null;
-
-    try {
-      final response = await WhatsAppAuthService().verifyOtp(
-        sessionId: sessionId,
-        code: code,
-      );
+      final response = await GoogleAuthService().signIn();
 
       await _saveUserData(
         username: response.username,
+        email: response.email,
         name: response.name,
         userType: response.userType,
         userId: response.userId,
         password: null,
       );
 
+      unawaited(PushNotificationService().syncTokenToBackend());
       return true;
     } catch (e) {
       _lastError = _friendlyError(e);
-      debugPrint('WhatsApp OTP verify error: $_lastError');
+      debugPrint('Google sign-in error: $_lastError');
       notifyListeners();
       return false;
     }
@@ -193,6 +172,7 @@ class UserProvider extends ChangeNotifier {
 
   Future<void> _saveUserData({
     required String username,
+    required String? email,
     required String name,
     required String userType,
     required String userId,
@@ -200,6 +180,11 @@ class UserProvider extends ChangeNotifier {
   }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('username', username);
+    if (email != null && email.isNotEmpty) {
+      await prefs.setString('email', email);
+    } else {
+      await prefs.remove('email');
+    }
     await prefs.setString('name', name);
     await prefs.setString('userType', userType);
     await prefs.setString('userId', userId);
@@ -210,12 +195,22 @@ class UserProvider extends ChangeNotifier {
     }
 
     _username = username;
+    _email = email;
     _name = name;
     _userType = userType;
     _userId = userId;
     _password = password;
     _isLoggedIn = true;
     notifyListeners();
+  }
+
+  Future<void> _signInToFirebase(Map<String, dynamic> response) async {
+    final customToken = response['firebaseCustomToken']?.toString();
+    if (customToken == null || customToken.isEmpty) {
+      throw Exception('Firebase custom token is missing from backend response');
+    }
+
+    await FirebaseAuth.instance.signInWithCustomToken(customToken);
   }
 
   Future<void> _saveInitialPersonalDetailsName(String rawName) async {
@@ -231,7 +226,7 @@ class UserProvider extends ChangeNotifier {
 
     // Fire-and-forget: token clear is best-effort, never block logout on it
     PushNotificationService().clearTokenFromBackend().catchError((_) {});
-    WhatsAppAuthService().signOut().catchError((_) {});
+    GoogleAuthService().signOut().catchError((_) {});
 
     try {
       await ApiService().logout().timeout(const Duration(seconds: 3));
@@ -250,6 +245,7 @@ class UserProvider extends ChangeNotifier {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('username');
+    await prefs.remove('email');
     await prefs.remove('name');
     await prefs.remove('userType');
     await prefs.remove('userId');
@@ -257,6 +253,7 @@ class UserProvider extends ChangeNotifier {
     await prefs.remove('patient_data_owner_username');
 
     _username = null;
+    _email = null;
     _name = null;
     _userType = null;
     _userId = null;

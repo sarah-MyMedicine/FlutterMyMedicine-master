@@ -1,8 +1,36 @@
 const express = require('express');
-const router = express.Router();
-const User = require('../models/User');
-const LinkInvitation = require('../models/LinkInvitation');
+const store = require('../services/firestore_store');
 const { config } = require('../config/env');
+
+const router = express.Router();
+
+async function withRelationships(user) {
+  if (!user) return null;
+
+  const caregiver = user.caregiverId ? await store.getUserById(user.caregiverId) : null;
+  const patients = await Promise.all((user.patientIds || []).map((patientId) => store.getUserById(patientId)));
+
+  return {
+    ...user,
+    password: undefined,
+    caregiverId: caregiver
+      ? {
+          id: caregiver.id,
+          name: caregiver.name,
+          username: caregiver.username,
+          userType: caregiver.userType,
+          createdAt: caregiver.createdAt,
+        }
+      : null,
+    patientIds: patients.filter(Boolean).map((patient) => ({
+      id: patient.id,
+      name: patient.name,
+      username: patient.username,
+      userType: patient.userType,
+      createdAt: patient.createdAt,
+    })),
+  };
+}
 
 // Admin middleware - verify admin credentials
 const adminAuth = (req, res, next) => {
@@ -17,11 +45,7 @@ const adminAuth = (req, res, next) => {
 // GET /api/admin/users
 router.get('/users', adminAuth, async (req, res) => {
   try {
-    const users = await User.find()
-      .select('-password') // Exclude password field
-      .populate('caregiverId', 'name username userType')
-      .populate('patientIds', 'name username userType')
-      .sort({ createdAt: -1 });
+    const users = await Promise.all((await store.listUsers()).map(withRelationships));
     
     res.json({
       success: true,
@@ -38,17 +62,15 @@ router.get('/users', adminAuth, async (req, res) => {
 // GET /api/admin/stats
 router.get('/stats', adminAuth, async (req, res) => {
   try {
-    const totalUsers = await User.countDocuments();
-    const patientsCount = await User.countDocuments({ userType: 'patient' });
-    const caregiversCount = await User.countDocuments({ userType: 'caregiver' });
-    const linkedPatientsCount = await User.countDocuments({ 
-      userType: 'patient',
-      caregiverId: { $ne: null }
-    });
-    const pendingInvitations = await LinkInvitation.countDocuments({ 
-      status: 'pending',
-      expiresAt: { $gt: new Date() }
-    });
+    const users = await store.listUsers();
+    const invitations = await store.listInvitations();
+    const totalUsers = users.length;
+    const patientsCount = users.filter((user) => user.userType === 'patient').length;
+    const caregiversCount = users.filter((user) => user.userType === 'caregiver').length;
+    const linkedPatientsCount = users.filter((user) => user.userType === 'patient' && !!user.caregiverId).length;
+    const pendingInvitations = invitations.filter((invitation) => {
+      return invitation.status === 'pending' && new Date(invitation.expiresAt) > new Date();
+    }).length;
     
     const linkedPercentage = patientsCount > 0 
       ? ((linkedPatientsCount / patientsCount) * 100).toFixed(1)
@@ -77,21 +99,18 @@ router.get('/stats', adminAuth, async (req, res) => {
 // GET /api/admin/user/:username
 router.get('/user/:username', adminAuth, async (req, res) => {
   try {
-    const user = await User.findOne({ username: req.params.username.toLowerCase() })
-      .select('-password')
-      .populate('caregiverId', 'name username userType createdAt')
-      .populate('patientIds', 'name username userType createdAt');
+    const rawUser = await store.getUserByUsername(req.params.username.toLowerCase());
+    const user = await withRelationships(rawUser);
     
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
     
-    // Get invitations if patient
     let invitations = [];
     if (user.userType === 'patient') {
-      invitations = await LinkInvitation.find({ patientId: user._id })
-        .sort({ createdAt: -1 })
-        .limit(10);
+      invitations = (await store.listInvitations())
+        .filter((invitation) => invitation.patientId === user.id)
+        .slice(0, 10);
     }
     
     res.json({ 
@@ -114,14 +133,10 @@ router.get('/search', adminAuth, async (req, res) => {
       return res.status(400).json({ message: 'Search query required' });
     }
     
-    const users = await User.find({
-      $or: [
-        { username: { $regex: query, $options: 'i' } },
-        { name: { $regex: query, $options: 'i' } }
-      ]
-    })
-    .select('-password')
-    .limit(20);
+    const users = (await store.searchUsers(String(query))).slice(0, 20).map((user) => ({
+      ...user,
+      password: undefined,
+    }));
     
     res.json({
       success: true,
@@ -139,33 +154,27 @@ router.get('/search', adminAuth, async (req, res) => {
 router.delete('/user/:username', adminAuth, async (req, res) => {
   try {
     const username = req.params.username.toLowerCase();
-    const user = await User.findOne({ username });
+    const user = await store.getUserByUsername(username);
     
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
     
-    // If caregiver, remove from all patients
     if (user.userType === 'caregiver' && user.patientIds.length > 0) {
-      await User.updateMany(
-        { _id: { $in: user.patientIds } },
-        { $set: { caregiverId: null } }
-      );
+      await Promise.all(user.patientIds.map((patientId) => store.updateUser(patientId, { caregiverId: null })));
     }
     
-    // If patient, remove from caregiver's list
     if (user.userType === 'patient' && user.caregiverId) {
-      await User.updateOne(
-        { _id: user.caregiverId },
-        { $pull: { patientIds: user._id } }
-      );
+      const caregiver = await store.getUserById(user.caregiverId);
+      if (caregiver) {
+        await store.updateUser(caregiver.id, {
+          patientIds: (caregiver.patientIds || []).filter((patientId) => patientId !== user.id),
+        });
+      }
     }
     
-    // Delete all invitations related to this user
-    await LinkInvitation.deleteMany({ patientId: user._id });
-    
-    // Delete user
-    await User.deleteOne({ _id: user._id });
+    await store.deleteInvitationsForPatient(user.id);
+    await store.deleteUser(user.id);
     
     res.json({ 
       success: true, 
@@ -183,16 +192,22 @@ router.get('/invitations', adminAuth, async (req, res) => {
   try {
     const status = req.query.status; // pending, accepted, expired
     const limit = parseInt(req.query.limit) || 50;
-    
-    let query = {};
+    const usersById = new Map((await store.listUsers()).map((user) => [user.id, user]));
+    let invitations = await store.listInvitations();
     if (status) {
-      query.status = status;
+      invitations = invitations.filter((invitation) => invitation.status === status);
     }
-    
-    const invitations = await LinkInvitation.find(query)
-      .populate('patientId', 'name username userType')
-      .sort({ createdAt: -1 })
-      .limit(limit);
+    invitations = invitations.slice(0, limit).map((invitation) => ({
+      ...invitation,
+      patientId: usersById.get(invitation.patientId)
+        ? {
+            id: invitation.patientId,
+            name: usersById.get(invitation.patientId).name,
+            username: usersById.get(invitation.patientId).username,
+            userType: usersById.get(invitation.patientId).userType,
+          }
+        : null,
+    }));
     
     res.json({
       success: true,
@@ -215,21 +230,18 @@ router.patch('/user/:username/type', adminAuth, async (req, res) => {
       return res.status(400).json({ message: 'Invalid user type' });
     }
     
-    const user = await User.findOne({ username: req.params.username.toLowerCase() });
+    const user = await store.getUserByUsername(req.params.username.toLowerCase());
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
     
-    // Clear relationships when changing type
+    const updates = { userType };
     if (userType === 'caregiver') {
-      user.caregiverId = null;
+      updates.caregiverId = null;
     } else {
-      user.patientIds = [];
+      updates.patientIds = [];
     }
-    
-    user.userType = userType;
-    user.updatedAt = Date.now();
-    await user.save();
+    await store.updateUser(user.id, updates);
     
     res.json({
       success: true,
@@ -237,7 +249,7 @@ router.patch('/user/:username/type', adminAuth, async (req, res) => {
       user: {
         username: user.username,
         name: user.name,
-        userType: user.userType
+        userType
       }
     });
   } catch (error) {
@@ -254,15 +266,29 @@ router.get('/activity', adminAuth, async (req, res) => {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
     
-    // Get recent users
-    const recentUsers = await User.find({ 
-      createdAt: { $gte: startDate } 
-    }).select('username name userType createdAt');
-    
-    // Get recent invitations
-    const recentInvitations = await LinkInvitation.find({
-      createdAt: { $gte: startDate }
-    }).populate('patientId', 'name username');
+    const recentUsers = (await store.listUsers())
+      .filter((user) => new Date(user.createdAt) >= startDate)
+      .map((user) => ({
+        id: user.id,
+        username: user.username,
+        name: user.name,
+        userType: user.userType,
+        createdAt: user.createdAt,
+      }));
+
+    const usersById = new Map((await store.listUsers()).map((user) => [user.id, user]));
+    const recentInvitations = (await store.listInvitations())
+      .filter((invitation) => new Date(invitation.createdAt) >= startDate)
+      .map((invitation) => ({
+        ...invitation,
+        patientId: usersById.get(invitation.patientId)
+          ? {
+              id: invitation.patientId,
+              name: usersById.get(invitation.patientId).name,
+              username: usersById.get(invitation.patientId).username,
+            }
+          : null,
+      }));
     
     res.json({
       success: true,

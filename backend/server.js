@@ -1,16 +1,17 @@
 const express = require('express');
 const http = require('http');
 const os = require('os');
-const mongoose = require('mongoose');
 const compression = require('compression');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const helmet = require('helmet');
-const User = require('./models/User');
-const { config, assertValidConfig, corsOptionsDelegate } = require('./config/env');
 
 // Load environment variables
 dotenv.config();
+
+const { config, assertValidConfig, corsOptionsDelegate } = require('./config/env');
+const { initializeFirebaseAdmin } = require('./services/firebase_admin_service');
+
 assertValidConfig();
 
 // Create Express app
@@ -35,44 +36,10 @@ app.use((req, res, next) => {
   next();
 });
 
-// MongoDB Connection
-const MONGO_URI = config.mongoUri;
-
-mongoose
-  .connect(MONGO_URI, {
-    serverSelectionTimeoutMS: 5000,
-    socketTimeoutMS: 45000,
-    maxPoolSize: 10,
-    family: 4,
-  })
-  .then(async () => {
-    console.log('[MongoDB] Connected successfully');
-
-    // Keep DB indexes aligned with current schemas.
-    // This removes stale indexes from old schema versions (e.g. unique email index).
-    try {
-      await User.syncIndexes();
-      console.log('[MongoDB] User indexes synced');
-    } catch (indexError) {
-      console.error('[MongoDB] Failed to sync User indexes:', indexError);
-    }
-  })
-  .catch((error) => {
-    console.error('[MongoDB] Connection failed:', error);
-    process.exit(1);
-  });
-
-mongoose.connection.on('disconnected', () => {
-  console.warn('[MongoDB] Disconnected');
-});
-
-mongoose.connection.on('reconnected', () => {
-  console.log('[MongoDB] Reconnected');
-});
-
-mongoose.connection.on('error', (error) => {
-  console.error('[MongoDB] Runtime error:', error);
-});
+const firebaseConfigured = initializeFirebaseAdmin();
+if (!firebaseConfigured) {
+  console.warn('[Server] Firebase Admin is not configured. Firestore-backed routes will fail until credentials are provided.');
+}
 
 // ============ ROUTES ============
 
@@ -82,21 +49,20 @@ app.get('/health', (req, res) => {
     status: 'ok',
     message: 'Server is running',
     uptimeSeconds: Math.floor(process.uptime()),
-    mongoReadyState: mongoose.connection.readyState,
+    firebaseConfigured,
     version: config.appVersion,
     releaseId: config.releaseId,
   });
 });
 
 app.get('/api/health', (req, res) => {
-  const mongoConnected = mongoose.connection.readyState === 1;
-  res.status(mongoConnected ? 200 : 503).json({
-    status: mongoConnected ? 'ok' : 'degraded',
-    message: mongoConnected
+  res.status(firebaseConfigured ? 200 : 503).json({
+    status: firebaseConfigured ? 'ok' : 'degraded',
+    message: firebaseConfigured
         ? 'API is healthy'
-        : 'API is running but MongoDB is not connected',
+        : 'API is running but Firebase Admin is not configured',
     uptimeSeconds: Math.floor(process.uptime()),
-    mongoReadyState: mongoose.connection.readyState,
+    firebaseConfigured,
     host: HOST,
     version: config.appVersion,
     releaseId: config.releaseId,
@@ -167,12 +133,8 @@ server.listen(PORT, HOST, () => {
 
 const shutdown = (signal) => {
   console.log(`[Server] Received ${signal}, shutting down`);
-  server.close(async () => {
-    try {
-      await mongoose.connection.close();
-    } finally {
-      process.exit(0);
-    }
+  server.close(() => {
+    process.exit(0);
   });
 };
 

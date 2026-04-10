@@ -1,23 +1,57 @@
 # MyMedicine Backend API
 
-Backend API server for the MyMedicine Flutter app, built with Node.js, Express.js, and MongoDB.
+Backend API server for the MyMedicine Flutter app, built with Node.js, Express.js, and Firebase Admin/Firestore.
 
 ## Features
 
 - User authentication with JWT (username/password)
+- Firebase custom-token authentication support
 - Patient and Caregiver account types
 - Caregiver invitation system with time-limited codes
 - Patient-Caregiver linking and unlinking
 - Missed dose notifications
-- MongoDB Atlas or local MongoDB support
+- Firestore-backed patient data storage
+- Google sign-in bridge through Firebase Authentication
 
 ## Prerequisites
 
 - Node.js (v14 or higher)
 - npm or yarn
-- MongoDB (local or MongoDB Atlas)
+- Firebase project with Firestore enabled
+- Firebase Admin service account credentials
 
 ## Installation
+
+## Enable Firestore
+
+1. Open Firebase Console and select your project.
+2. Go to Build > Firestore Database.
+3. Click Create database.
+4. Choose Production mode if this is your real project. Choose Test mode only for temporary local testing.
+5. Pick a Firestore region close to your backend host. This cannot be changed later.
+6. Finish creation and wait until the database status becomes active.
+7. Go to Project settings > Service accounts.
+8. Create or select a Firebase Admin service account.
+9. Generate a private key JSON file.
+10. Put the credentials into this backend using one of these environment variables:
+
+```env
+FIREBASE_SERVICE_ACCOUNT_PATH=./firebase-service-account.json
+```
+
+or
+
+```env
+FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
+```
+
+11. From the backend folder, verify Firestore access:
+
+```bash
+npm run check:firestore
+```
+
+If that command succeeds, Firestore is enabled correctly for this backend.
 
 ### 1. Clone the repository
 
@@ -40,25 +74,12 @@ Edit `.env`:
 NODE_ENV=development
 PORT=5000
 HOST=0.0.0.0
-MONGO_URI=mongodb://localhost:27017/mymedicine
 JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
 ADMIN_API_KEY=your-super-secret-admin-key-change-this-in-production
+FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
 ```
 
-### 3. Start MongoDB
-
-**Local MongoDB:**
-```bash
-mongod
-```
-
-**MongoDB Atlas (Cloud):**
-- Update `MONGO_URI` in `.env` with your connection string:
-```
-MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/mymedicine?retryWrites=true&w=majority
-```
-
-### 4. Run the server
+### 3. Run the server
 
 **Development mode (with auto-reload):**
 ```bash
@@ -96,7 +117,7 @@ If you want extra failover addresses, pass a comma-separated list:
 flutter run --dart-define=API_BASE_URL=http://192.168.1.25:5000/api --dart-define=API_BASE_URL_FALLBACKS=http://10.0.2.2:5000/api,http://127.0.0.1:5000/api
 ```
 
-For a stronger backend than a laptop-local MongoDB instance, move MongoDB to Atlas and keep the Node server running on a stable host or VM with the `MONGO_URI` set to your Atlas connection string.
+For hosted environments, keep the Node server on Render or another stable host and provide the Firebase Admin secrets through environment variables.
 
 ## Deployment
 
@@ -112,17 +133,17 @@ This backend is prepared for hosted deployment in three ways:
 NODE_ENV=production
 HOST=0.0.0.0
 PORT=5000
-MONGO_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/mymedicine?retryWrites=true&w=majority
 JWT_SECRET=<strong-random-secret>
 ADMIN_API_KEY=<strong-random-secret>
 TRUST_PROXY=1
+FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
 ```
 
 ### Optional production environment variables
 
 ```env
 CORS_ALLOWED_ORIGINS=https://your-web-app.example.com,https://your-admin.example.com
-FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
+FIREBASE_SERVICE_ACCOUNT_PATH=/etc/secrets/firebase-service-account.json
 APP_VERSION=1.0.0
 RELEASE_ID=deploy-001
 REQUEST_BODY_LIMIT=25mb
@@ -136,7 +157,7 @@ REQUEST_TIMEOUT_MS=30000
 1. Push the repository to GitHub.
 2. Create a new Render Blueprint or Web Service from the repo.
 3. Use the generated `render.yaml`.
-4. Set `MONGO_URI` to MongoDB Atlas.
+4. Set `FIREBASE_SERVICE_ACCOUNT_JSON` or mount a service-account file and set `FIREBASE_SERVICE_ACCOUNT_PATH`.
 5. Set `CORS_ALLOWED_ORIGINS` only if you will serve browser clients.
 6. Verify `https://<your-domain>/api/health` after deploy.
 
@@ -157,18 +178,17 @@ docker build -t mymedicine-backend ./backend
 docker run --env-file ./backend/.env -p 5000:5000 mymedicine-backend
 ```
 
-For production, do not use the local `.env`; provide hosted values for `MONGO_URI`, `JWT_SECRET`, and `ADMIN_API_KEY`.
+For production, do not use the local `.env`; provide hosted values for `JWT_SECRET`, `ADMIN_API_KEY`, and Firebase Admin.
 
-### VPS + MongoDB Atlas
+### VPS or Render
 
-Recommended production path for low long-term cost:
+Recommended production path:
 
-1. Create a MongoDB Atlas cluster and database user.
-2. Add the VPS public IP to Atlas Network Access.
-3. Provision a small Ubuntu VPS (for example 1 vCPU / 1-2 GB RAM).
-4. Point your DNS `api.<your-domain>` record to the VPS public IP.
-5. Copy the repository to the VPS.
-6. On the VPS, run:
+1. Enable Firestore in your Firebase project.
+2. Create a Firebase Admin service account with Firestore access.
+3. Provision Render or a small Ubuntu VPS.
+4. Point your DNS `api.<your-domain>` record to the deployed backend.
+5. If using a VPS, copy the repository to the server and run:
 
 ```bash
 sudo bash backend/deploy/bootstrap_ubuntu.sh
@@ -177,16 +197,12 @@ sudo bash backend/deploy/bootstrap_ubuntu.sh
 7. Copy `backend/.env.production.example` to `backend/.env.production` and fill in real values, especially:
 
 ```env
-MONGO_URI=...
 JWT_SECRET=...
 ADMIN_API_KEY=...
 FIREBASE_SERVICE_ACCOUNT_JSON=...
-WHATSAPP_ACCESS_TOKEN=...
-WHATSAPP_PHONE_NUMBER_ID=...
-WHATSAPP_TEMPLATE_NAME=...
 ```
 
-8. Deploy the backend:
+7. Deploy the backend:
 
 ```bash
 cd backend
@@ -194,19 +210,19 @@ chmod +x deploy/deploy_vps.sh
 ./deploy/deploy_vps.sh
 ```
 
-9. Install the Nginx site:
+8. Install the Nginx site:
 
 ```bash
 sudo bash backend/deploy/install_nginx_site.sh api.<your-domain>
 ```
 
-10. Add TLS with Let's Encrypt:
+9. Add TLS with Let's Encrypt:
 
 ```bash
 sudo certbot --nginx -d api.<your-domain>
 ```
 
-11. Verify:
+10. Verify:
 
 ```bash
 curl http://127.0.0.1:5000/api/health
@@ -488,7 +504,7 @@ Error response format:
 2. **CORS**: Configure CORS origins according to your Flutter app's domain
 3. **Password Security**: Passwords are hashed with bcrypt (10 rounds)
 4. **Token Expiration**: JWT tokens expire after 30 days
-5. **Invitation Codes**: Auto-expire after 24 hours via MongoDB TTL index
+5. **Invitation Codes**: Auto-expire after 24 hours based on Firestore timestamp checks
 
 ## Deployment
 
@@ -496,7 +512,7 @@ Error response format:
 
 ```bash
 heroku create your-app-name
-heroku config:set MONGO_URI=your-mongodb-url
+heroku config:set FIREBASE_SERVICE_ACCOUNT_JSON='{"type":"service_account",...}'
 heroku config:set JWT_SECRET=your-secret
 git push heroku main
 ```
@@ -504,7 +520,7 @@ git push heroku main
 ### AWS / Google Cloud / DigitalOcean
 
 1. Set up Node.js environment
-2. Install MongoDB or use managed database service
+2. Configure Firebase Admin credentials and Firestore
 3. Set environment variables
 4. Deploy using your platform's deployment method
 
@@ -544,10 +560,10 @@ curl -X POST http://localhost:5000/api/caregiver/generate-invitation \
 
 ## Troubleshooting
 
-**MongoDB Connection Error**
-- Ensure MongoDB is running: `mongod`
-- Check connection string in `.env`
-- For MongoDB Atlas, verify IP whitelist includes your server
+**Firebase Admin / Firestore Error**
+- Ensure `FIREBASE_SERVICE_ACCOUNT_JSON` or `FIREBASE_SERVICE_ACCOUNT_PATH` is set
+- Confirm the service account has Firestore access in the target Firebase project
+- Verify Firestore is enabled for the project
 
 **JWT Token Errors**
 - Ensure token is included in `Authorization: Bearer <token>` header
