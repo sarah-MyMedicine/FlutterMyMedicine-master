@@ -11,6 +11,8 @@ class ApiService {
   factory ApiService() => _instance;
 
   static const String _defaultBaseUrl = 'http://localhost:5000/api';
+  static const String _deployedBaseUrl =
+      'https://mymedicine-backend.onrender.com/api';
   static const String _envBaseUrl = String.fromEnvironment('API_BASE_URL');
   static const String _envFallbackBaseUrls = String.fromEnvironment(
     'API_BASE_URL_FALLBACKS',
@@ -73,6 +75,8 @@ class ApiService {
     if (_envBaseUrl.isNotEmpty) {
       addCandidate(_envBaseUrl);
     }
+
+    addCandidate(_deployedBaseUrl);
 
     for (final candidate in _configuredFallbackBaseUrls()) {
       addCandidate(candidate);
