@@ -364,8 +364,14 @@ router.post('/password-reset-link', passwordResetLimiter, async (req, res) => {
     try {
       await sendPasswordResetEmail({ to: normalized, resetLink: link });
     } catch (emailError) {
-      // Log clearly for debugging, but still return 200 to prevent enumeration.
+      // If custom SMTP delivery fails, fallback to Firebase-managed reset email.
       console.error('[Auth] sendPasswordResetEmail failed:', emailError.message);
+      try {
+        await triggerFirebasePasswordResetEmail(normalized);
+      } catch (fallbackError) {
+        // Keep the response enumeration-safe, but log delivery failure details.
+        console.error('[Auth] Firebase fallback after SMTP failure also failed:', fallbackError.message);
+      }
     }
 
     return res.json(SAFE_RESPONSE);
