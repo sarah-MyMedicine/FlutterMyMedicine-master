@@ -195,6 +195,38 @@ async function generatePasswordResetLink(email) {
   return admin.auth().generatePasswordResetLink(email.trim().toLowerCase());
 }
 
+async function triggerFirebasePasswordResetEmail(email) {
+  if (!email) {
+    throw new Error('email is required');
+  }
+
+  if (!config.firebaseWebApiKey) {
+    throw new Error('FIREBASE_WEB_API_KEY is not set');
+  }
+
+  const response = await fetch(
+    `${FIREBASE_AUTH_BASE_URL}:sendOobCode?key=${encodeURIComponent(config.firebaseWebApiKey)}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        requestType: 'PASSWORD_RESET',
+        email: email.trim().toLowerCase(),
+      }),
+    },
+  );
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const code = data?.error?.message;
+    throw new Error(code || 'Failed to trigger Firebase password reset email');
+  }
+
+  return data;
+}
+
 function getFirestore() {
   if (!initializeFirebaseAdmin()) {
     throw new Error('Firebase Admin is not configured');
@@ -212,5 +244,6 @@ module.exports = {
   upsertEmailPasswordUser,
   signInWithEmailPassword,
   generatePasswordResetLink,
+  triggerFirebasePasswordResetEmail,
   getFirestore,
 };

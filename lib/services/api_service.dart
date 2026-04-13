@@ -542,7 +542,10 @@ class ApiService {
         refreshBaseUrlBeforeRequest: true,
       );
       if (response.statusCode == 200) return;
-      final error = _extractErrorMessage(response);
+      final error = _extractApiError(
+        response,
+        'Failed to process password reset request',
+      );
       throw Exception(error);
     } catch (e) {
       debugPrint('[ApiService] requestPasswordReset error: $e');

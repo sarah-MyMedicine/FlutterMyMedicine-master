@@ -9,6 +9,7 @@ const {
   upsertEmailPasswordUser,
   signInWithEmailPassword,
   generatePasswordResetLink,
+  triggerFirebasePasswordResetEmail,
 } = require('../services/firebase_admin_service');
 const { sendPasswordResetEmail } = require('../services/email_service');
 const store = require('../services/firestore_store');
@@ -350,8 +351,14 @@ router.post('/password-reset-link', passwordResetLimiter, async (req, res) => {
         // Silently return success — do not reveal that the email is unregistered.
         return res.json(SAFE_RESPONSE);
       }
-      console.error('[Auth] generatePasswordResetLink failed:', linkError.code, linkError.message);
-      return res.status(500).json({ message: 'Failed to process password reset request' });
+      console.error('[Auth] generatePasswordResetLink failed, falling back to Firebase reset email:', linkError.code, linkError.message);
+      try {
+        await triggerFirebasePasswordResetEmail(normalized);
+        return res.json(SAFE_RESPONSE);
+      } catch (fallbackError) {
+        console.error('[Auth] Firebase password reset email fallback failed:', fallbackError.message);
+        return res.status(500).json({ message: 'Failed to process password reset request' });
+      }
     }
 
     try {

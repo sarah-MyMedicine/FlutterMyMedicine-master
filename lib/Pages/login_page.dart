@@ -158,6 +158,10 @@ class _LoginPageState extends State<LoginPage> {
                 decoration: InputDecoration(
                   labelText: AppTranslations.translate('email', language),
                   hintText: AppTranslations.translate('please_enter_valid_email', language),
+                  helperText: AppTranslations.translate(
+                    'password_reset_email_note',
+                    language,
+                  ),
                 ),
               ),
               actions: [
