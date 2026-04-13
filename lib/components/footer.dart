@@ -12,6 +12,7 @@ class Footer extends StatelessWidget {
 
   Future<void> _showAddOptions(BuildContext context) async {
     debugPrint('Footer: showAddOptions called');
+    final lang = Provider.of<SettingsProvider>(context, listen: false).language;
     showModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
@@ -20,7 +21,7 @@ class Footer extends StatelessWidget {
           children: [
             ListTile(
               leading: const Icon(Icons.edit),
-              title: const Text('Add manually'),
+              title: Text(AppTranslations.translate('add_medication_manually', lang)),
               onTap: () {
                 Navigator.of(ctx).pop();
                 showModalBottomSheet(
@@ -63,7 +64,7 @@ class Footer extends StatelessWidget {
             ),
             ListTile(
               leading: const Icon(Icons.photo_camera),
-              title: const Text('Add from photo (camera)'),
+              title: Text(AppTranslations.translate('add_medication_camera', lang)),
               onTap: () async {
                 Navigator.of(ctx).pop();
                 await _handleAddFromPhoto(context, fromCamera: true);
@@ -71,7 +72,7 @@ class Footer extends StatelessWidget {
             ),
             ListTile(
               leading: const Icon(Icons.photo_library),
-              title: const Text('Add from photo (gallery)'),
+              title: Text(AppTranslations.translate('add_medication_gallery', lang)),
               onTap: () async {
                 Navigator.of(ctx).pop();
                 await _handleAddFromPhoto(context, fromCamera: false);
@@ -168,14 +169,20 @@ class Footer extends StatelessWidget {
                   ),
                 ),
                 Tooltip(
-                  message: 'Add',
+                  message: AppTranslations.translate('add_medication', lang),
                   child: Material(
                     color: Colors.transparent,
                     shape: const CircleBorder(),
                     child: InkWell(
                       onTap: () {
                         debugPrint('Footer: + tapped');
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Opening add options...')));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              AppTranslations.translate('opening_add_medication_options', lang),
+                            ),
+                          ),
+                        );
                         _showAddOptions(context);
                       },
 
