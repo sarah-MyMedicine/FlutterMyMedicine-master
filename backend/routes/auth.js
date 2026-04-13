@@ -1,17 +1,30 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const rateLimit = require('express-rate-limit');
 const { config } = require('../config/env');
 const {
   createCustomAuthToken,
   verifyFirebaseIdToken,
   upsertEmailPasswordUser,
   signInWithEmailPassword,
+  generatePasswordResetLink,
 } = require('../services/firebase_admin_service');
+const { sendPasswordResetEmail } = require('../services/email_service');
 const store = require('../services/firestore_store');
 
 const router = express.Router();
 const JWT_SECRET = config.jwtSecret;
+
+// Rate limiter: max 5 password-reset requests per IP per 15 minutes.
+// Trust-proxy is already set in server.js so req.ip is the real client IP.
+const passwordResetLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many password reset requests. Please try again in 15 minutes.' },
+});
 
 function normalizeEmail(rawEmail) {
   if (!rawEmail) return null;
@@ -300,6 +313,59 @@ router.post('/google', async (req, res) => {
 
 router.post('/logout', (req, res) => {
   res.json({ success: true, message: 'Logged out successfully' });
+});
+
+// POST /api/auth/password-reset-link
+// Generates a Firebase password-reset link via Admin SDK and sends it to the
+// user's registered email address. The link is NEVER returned in the response
+// to prevent account-takeover by callers who know a victim's email.
+//
+// Security measures:
+//   1. Rate-limited: 5 req / IP / 15 min (passwordResetLimiter middleware)
+//   2. Enumeration-safe: always returns 200 regardless of whether the email
+//      is registered, so callers cannot discover which emails exist.
+//   3. Input validated: email format checked server-side before any Firebase call.
+//   4. No sensitive data in response: 500 errors never expose internal messages.
+//   5. Link never leaves the server: sent via SMTP, not returned in JSON.
+router.post('/password-reset-link', passwordResetLimiter, async (req, res) => {
+  const SAFE_RESPONSE = {
+    message: 'If this email is registered, a password reset link has been sent to it.',
+  };
+
+  try {
+    const { email } = req.body;
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ message: 'email is required' });
+    }
+    const normalized = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+      return res.status(400).json({ message: 'Invalid email address' });
+    }
+
+    let link;
+    try {
+      link = await generatePasswordResetLink(normalized);
+    } catch (linkError) {
+      if (linkError.code === 'auth/user-not-found') {
+        // Silently return success — do not reveal that the email is unregistered.
+        return res.json(SAFE_RESPONSE);
+      }
+      console.error('[Auth] generatePasswordResetLink failed:', linkError.code, linkError.message);
+      return res.status(500).json({ message: 'Failed to process password reset request' });
+    }
+
+    try {
+      await sendPasswordResetEmail({ to: normalized, resetLink: link });
+    } catch (emailError) {
+      // Log clearly for debugging, but still return 200 to prevent enumeration.
+      console.error('[Auth] sendPasswordResetEmail failed:', emailError.message);
+    }
+
+    return res.json(SAFE_RESPONSE);
+  } catch (error) {
+    console.error('[Auth] password-reset-link unexpected error:', error.message);
+    return res.status(500).json({ message: 'Failed to process password reset request' });
+  }
 });
 
 module.exports = router;

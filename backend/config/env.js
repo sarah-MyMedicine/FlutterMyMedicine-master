@@ -47,6 +47,13 @@ const config = {
   requestTimeoutMs: readNumber('REQUEST_TIMEOUT_MS', 30000),
   appVersion: process.env.APP_VERSION || '1.0.0',
   releaseId: process.env.RELEASE_ID || crypto.randomUUID(),
+  // SMTP (nodemailer) — used for sending password-reset emails
+  smtpHost: process.env.SMTP_HOST || '',
+  smtpPort: readNumber('SMTP_PORT', 587),
+  smtpSecure: process.env.SMTP_SECURE === 'true',
+  smtpUser: process.env.SMTP_USER || '',
+  smtpPass: process.env.SMTP_PASS || '',
+  smtpFrom: process.env.SMTP_FROM || 'My Medicine <noreply@mymedicine.app>',
 };
 
 function assertValidConfig() {
@@ -63,6 +70,10 @@ function assertValidConfig() {
 
   if (!config.firebaseWebApiKey) {
     warnings.push('FIREBASE_WEB_API_KEY is not set. Firebase email/password login will fail.');
+  }
+
+  if (!config.smtpHost || !config.smtpUser || !config.smtpPass) {
+    warnings.push('SMTP_HOST / SMTP_USER / SMTP_PASS are not set. Password reset emails will not be delivered.');
   }
 
   if (config.isProduction && insecureSecretValues.has(config.jwtSecret)) {

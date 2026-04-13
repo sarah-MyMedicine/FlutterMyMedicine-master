@@ -182,6 +182,19 @@ async function signInWithEmailPassword({ email, password }) {
   return data;
 }
 
+async function generatePasswordResetLink(email) {
+  if (!email) {
+    throw new Error('email is required');
+  }
+
+  if (!initializeFirebaseAdmin()) {
+    throw new Error('Firebase Admin is not configured');
+  }
+
+  // Throws auth/user-not-found if email is not registered in Firebase Auth
+  return admin.auth().generatePasswordResetLink(email.trim().toLowerCase());
+}
+
 function getFirestore() {
   if (!initializeFirebaseAdmin()) {
     throw new Error('Firebase Admin is not configured');
@@ -198,5 +211,6 @@ module.exports = {
   getFirebaseUserByEmail,
   upsertEmailPasswordUser,
   signInWithEmailPassword,
+  generatePasswordResetLink,
   getFirestore,
 };

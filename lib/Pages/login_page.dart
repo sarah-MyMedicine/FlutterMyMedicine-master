@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../providers/settings_provider.dart';
@@ -20,6 +21,12 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
+
+  bool _isValidEmail(String value) {
+    final email = value.trim();
+    final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+    return emailRegex.hasMatch(email);
+  }
 
   String _localizedLoginError(String? rawMessage, String language) {
     if (rawMessage == _invalidCredentialsMessage) {
@@ -124,6 +131,90 @@ class _LoginPageState extends State<LoginPage> {
       );
     }
   }
+
+  Future<void> _showResetPasswordDialog() async {
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final language = settings.language;
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final emailController = TextEditingController();
+
+    final usernameInput = _usernameController.text.trim();
+    if (_isValidEmail(usernameInput)) {
+      emailController.text = usernameInput;
+    }
+
+    bool isRequesting = false;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (stfContext, setDialogState) {
+            return AlertDialog(
+              title: Text(AppTranslations.translate('reset_password', language)),
+              content: TextField(
+                controller: emailController,
+                keyboardType: TextInputType.emailAddress,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: AppTranslations.translate('email', language),
+                  hintText: AppTranslations.translate('please_enter_valid_email', language),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: Text(AppTranslations.translate('cancel', language)),
+                ),
+                ElevatedButton(
+                  onPressed: isRequesting
+                      ? null
+                      : () async {
+                          final email = emailController.text.trim().toLowerCase();
+                          if (!_isValidEmail(email)) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  AppTranslations.translate('please_enter_valid_email', language),
+                                ),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                            return;
+                          }
+
+                          setDialogState(() => isRequesting = true);
+                          final sent = await userProvider.requestPasswordReset(email: email);
+                          if (!mounted) return;
+                          Navigator.of(dialogContext).pop();
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                sent
+                                    ? AppTranslations.translate('password_reset_email_sent', language)
+                                    : (userProvider.lastError ??
+                                        AppTranslations.translate('password_reset_email_failed', language)),
+                              ),
+                              backgroundColor: sent ? Colors.green : Colors.red,
+                              duration: const Duration(seconds: 5),
+                            ),
+                          );
+                        },
+                  child: isRequesting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(AppTranslations.translate('send', language)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
   
   @override
   Widget build(BuildContext context) {
@@ -189,6 +280,16 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       textDirection: TextDirection.ltr,
                     ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: _isLoading ? null : _showResetPasswordDialog,
+                        child: Text(
+                          AppTranslations.translate('forgot_password', lang),
+                          style: TextStyle(color: sp.themeColor),
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 24),
                     SizedBox(
                       width: double.infinity,
@@ -228,7 +329,11 @@ class _LoginPageState extends State<LoginPage> {
                       height: 50,
                       child: OutlinedButton.icon(
                         onPressed: _isLoading ? null : _loginWithGoogle,
-                        icon: const Icon(Icons.login),
+                        icon: const FaIcon(
+                          FontAwesomeIcons.google,
+                          size: 18,
+                          color: Color(0xFFDB4437),
+                        ),
                         label: Text(AppTranslations.translate('continue_with_google', lang)),
                         style: OutlinedButton.styleFrom(
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

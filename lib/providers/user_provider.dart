@@ -52,6 +52,23 @@ class UserProvider extends ChangeNotifier {
     return raw;
   }
 
+  String _friendlyResetPasswordError(FirebaseAuthException error) {
+    switch (error.code) {
+      case 'invalid-email':
+        return 'Please enter a valid email address\nالرجاء إدخال بريد إلكتروني صحيح';
+      case 'user-not-found':
+        return 'No account was found with this email\nلم يتم العثور على حساب بهذا البريد الإلكتروني';
+      case 'too-many-requests':
+        return 'Too many attempts. Please try again later\nعدد كبير من المحاولات. يرجى المحاولة لاحقاً';
+      default:
+        final message = error.message?.trim();
+        if (message != null && message.isNotEmpty) {
+          return message;
+        }
+        return 'Unable to send password reset email\nتعذر إرسال رسالة إعادة تعيين كلمة المرور';
+    }
+  }
+
   Future<void> loadUserFromStorage() async {
     final prefs = await SharedPreferences.getInstance();
     _username = prefs.getString('username');
@@ -165,6 +182,25 @@ class UserProvider extends ChangeNotifier {
     } catch (e) {
       _lastError = _friendlyError(e);
       debugPrint('Google sign-in error: $_lastError');
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Requests a password-reset email to be sent to the given address.
+  /// The backend generates the Firebase link and emails it — the link is
+  /// never returned to the client, preventing account-takeover attacks.
+  Future<bool> requestPasswordReset({required String email}) async {
+    _lastError = null;
+
+    try {
+      await ApiService().requestPasswordReset(
+        email: email.trim().toLowerCase(),
+      );
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _lastError = _friendlyError(e);
       notifyListeners();
       return false;
     }

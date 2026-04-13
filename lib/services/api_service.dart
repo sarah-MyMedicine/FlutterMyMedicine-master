@@ -533,6 +533,23 @@ class ApiService {
     }
   }
 
+  Future<void> requestPasswordReset({required String email}) async {
+    try {
+      final response = await _postRequest(
+        '/auth/password-reset-link',
+        body: {'email': email.trim().toLowerCase()},
+        timeout: const Duration(seconds: 10),
+        refreshBaseUrlBeforeRequest: true,
+      );
+      if (response.statusCode == 200) return;
+      final error = _extractErrorMessage(response);
+      throw Exception(error);
+    } catch (e) {
+      debugPrint('[ApiService] requestPasswordReset error: $e');
+      rethrow;
+    }
+  }
+
   Future<void> logout() async {
     try {
       await _postRequest(
