@@ -9,7 +9,7 @@ plugins {
 }
 
 val debugAbi = providers.gradleProperty("debugAbi").orNull
-val appId = providers.gradleProperty("APP_ID").orElse("com.example.mymedicineapp").get()
+val appId = providers.gradleProperty("APP_ID").orElse("com.iiacss.mymedicineapp").get()
 
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
@@ -89,7 +89,7 @@ flutter {
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 
-    implementation(platform("com.google.firebase:firebase-bom:34.11.0"))
+    implementation(platform("com.google.firebase:firebase-bom:34.12.0"))
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-messaging")
 }
