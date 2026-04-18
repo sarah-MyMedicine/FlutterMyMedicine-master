@@ -14,9 +14,7 @@ class DefaultFirebaseOptions {
       case TargetPlatform.android:
         return android;
       case TargetPlatform.iOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions are not configured for iOS in this project.',
-        );
+        return ios;
       case TargetPlatform.macOS:
         throw UnsupportedError(
           'DefaultFirebaseOptions are not configured for macOS in this project.',
@@ -42,5 +40,15 @@ class DefaultFirebaseOptions {
     messagingSenderId: '203573212812',
     projectId: 'mymedicine-845a3',
     storageBucket: 'mymedicine-845a3.firebasestorage.app',
+  );
+
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyCnwO9zKLSaiD-6hx-3zv74NDxmNUSvR8c',
+    appId: '1:203573212812:ios:082629df5109f77113eda9',
+    messagingSenderId: '203573212812',
+    projectId: 'mymedicine-845a3',
+    storageBucket: 'mymedicine-845a3.firebasestorage.app',
+    iosClientId: '203573212812-2pju0m9fgob0683ar560j9a879fvp6r2.apps.googleusercontent.com',
+    iosBundleId: 'com.iiacss.mymedicineapp',
   );
 }
