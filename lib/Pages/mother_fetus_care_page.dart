@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:math';
 import '../providers/settings_provider.dart';
 import '../utils/translations.dart';
 
@@ -11,6 +13,11 @@ class MotherFetusCarePanel extends StatefulWidget {
 }
 
 class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
+  static const String _deliveryBagPrefsPrefix = 'mother_fetus_delivery_bag_';
+  static const String _selectedTabKey = 'mother_fetus_selected_tab';
+  static const String _fetalMovementCountKey = 'mother_fetus_fetal_movement_count';
+  static const String _pregnancyStartDateKey = 'mother_fetus_pregnancy_start_date';
+
   int _selectedTab = 0;
   int _fetalMovementCount = 0;
   DateTime? _pregnancyStartDate;
@@ -41,6 +48,130 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
     'insurance_card': false,
     'pregnancy_file': false,
   };
+
+  DateTime _todayDateOnly() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  DateTime _nineMonthsAgoDate() {
+    final today = _todayDateOnly();
+    final rawMonth = today.month - 9;
+    final year = today.year + ((rawMonth - 1) ~/ 12);
+    final month = ((rawMonth - 1) % 12) + 1;
+    final maxDay = DateTime(year, month + 1, 0).day;
+    return DateTime(year, month, min(today.day, maxDay));
+  }
+
+  DateTime _safeDate(int year, int month, int day) {
+    final maxDay = DateTime(year, month + 1, 0).day;
+    final safeDay = day.clamp(1, maxDay).toInt();
+    return DateTime(year, month, safeDay);
+  }
+
+  DateTime _clampPregnancyDate(DateTime date) {
+    final today = _todayDateOnly();
+    final minDate = _nineMonthsAgoDate();
+    final d = DateTime(date.year, date.month, date.day);
+
+    if (d.isBefore(minDate)) return minDate;
+    if (d.isAfter(today)) return today;
+    return d;
+  }
+
+  bool _isAllowedPregnancyDate(DateTime date) {
+    final d = DateTime(date.year, date.month, date.day);
+    final today = _todayDateOnly();
+    final minDate = _nineMonthsAgoDate();
+    return !d.isBefore(minDate) && !d.isAfter(today);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDeliveryBagSelections();
+    _loadMotherFetusState();
+  }
+
+  Future<void> _loadMotherFetusState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final selectedTab = prefs.getInt(_selectedTabKey);
+    final fetalCount = prefs.getInt(_fetalMovementCountKey);
+    final pregnancyStartDateIso = prefs.getString(_pregnancyStartDateKey);
+
+    DateTime? parsedDate;
+    if (pregnancyStartDateIso != null && pregnancyStartDateIso.isNotEmpty) {
+      final parsed = DateTime.tryParse(pregnancyStartDateIso);
+      if (parsed != null) {
+        parsedDate = _clampPregnancyDate(parsed);
+      }
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      if (selectedTab != null && selectedTab >= 0 && selectedTab <= 2) {
+        _selectedTab = selectedTab;
+      }
+      if (fetalCount != null && fetalCount >= 0) {
+        _fetalMovementCount = fetalCount;
+      }
+      if (parsedDate != null) {
+        _pregnancyStartDate = parsedDate;
+      }
+    });
+  }
+
+  Future<void> _persistMotherFetusState() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_selectedTabKey, _selectedTab);
+    await prefs.setInt(_fetalMovementCountKey, _fetalMovementCount);
+
+    if (_pregnancyStartDate == null) {
+      await prefs.remove(_pregnancyStartDateKey);
+    } else {
+      await prefs.setString(_pregnancyStartDateKey, _pregnancyStartDate!.toIso8601String());
+    }
+  }
+
+  Future<void> _loadDeliveryBagSelections() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    bool hasLoadedValue = false;
+
+    for (final key in _motherChecklist.keys) {
+      final stored = prefs.getBool('$_deliveryBagPrefsPrefix$key');
+      if (stored != null) {
+        _motherChecklist[key] = stored;
+        hasLoadedValue = true;
+      }
+    }
+
+    for (final key in _childChecklist.keys) {
+      final stored = prefs.getBool('$_deliveryBagPrefsPrefix$key');
+      if (stored != null) {
+        _childChecklist[key] = stored;
+        hasLoadedValue = true;
+      }
+    }
+
+    for (final key in _suppliesChecklist.keys) {
+      final stored = prefs.getBool('$_deliveryBagPrefsPrefix$key');
+      if (stored != null) {
+        _suppliesChecklist[key] = stored;
+        hasLoadedValue = true;
+      }
+    }
+
+    if (mounted && hasLoadedValue) {
+      setState(() {});
+    }
+  }
+
+  Future<void> _persistDeliveryBagSelection(String itemKey, bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('$_deliveryBagPrefsPrefix$itemKey', value);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -144,6 +275,7 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
         setState(() {
           _selectedTab = index;
         });
+        _persistMotherFetusState();
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -352,9 +484,11 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
             return CheckboxListTile(
               value: entry.value,
               onChanged: (bool? value) {
+                final newValue = value ?? false;
                 setState(() {
-                  items[entry.key] = value ?? false;
+                  items[entry.key] = newValue;
                 });
+                _persistDeliveryBagSelection(entry.key, newValue);
               },
               title: Text(
                 AppTranslations.translate(entry.key, lang),
@@ -432,6 +566,7 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
                       setState(() {
                         _fetalMovementCount++;
                       });
+                      _persistMotherFetusState();
                     },
                     icon: const Icon(Icons.phone_android, color: Colors.white),
                     label: Text(
@@ -455,6 +590,7 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
                       setState(() {
                         _fetalMovementCount = 0;
                       });
+                      _persistMotherFetusState();
                     },
                     child: Text(
                       AppTranslations.translate('reset_counter_kicks', lang),
@@ -555,7 +691,14 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
     showDialog(
       context: context,
       builder: (context) {
-        final currentYear = DateTime.now().year;
+        final today = _todayDateOnly();
+        final minDate = _nineMonthsAgoDate();
+        final years = <int>[];
+
+        for (int y = today.year; y >= minDate.year; y--) {
+          years.add(y);
+        }
+
         return AlertDialog(
           title: Text(
             AppTranslations.translate('choose_year', lang),
@@ -566,23 +709,18 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
             width: double.maxFinite,
             child: ListView.builder(
               shrinkWrap: true,
-              itemCount: 5,
+              itemCount: years.length,
               itemBuilder: (context, index) {
-                final year = currentYear - index;
+                final year = years[index];
                 return ListTile(
                   title: Text(year.toString(), textAlign: TextAlign.center),
                   onTap: () {
+                    final current = _pregnancyStartDate ?? today;
+                    final candidate = _safeDate(year, current.month, current.day);
                     setState(() {
-                      if (_pregnancyStartDate == null) {
-                        _pregnancyStartDate = DateTime(year, 1, 1);
-                      } else {
-                        _pregnancyStartDate = DateTime(
-                          year,
-                          _pregnancyStartDate!.month,
-                          _pregnancyStartDate!.day,
-                        );
-                      }
+                      _pregnancyStartDate = _clampPregnancyDate(candidate);
                     });
+                    _persistMotherFetusState();
                     Navigator.pop(context);
                   },
                 );
@@ -598,6 +736,19 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
     showDialog(
       context: context,
       builder: (context) {
+        final today = _todayDateOnly();
+        final minDate = _nineMonthsAgoDate();
+        final selectedYear = _pregnancyStartDate?.year ?? today.year;
+        final candidateMonths = <int>[];
+
+        for (int month = 1; month <= 12; month++) {
+          final monthStart = DateTime(selectedYear, month, 1);
+          final monthEnd = DateTime(selectedYear, month + 1, 0);
+          if (!monthEnd.isBefore(minDate) && !monthStart.isAfter(today)) {
+            candidateMonths.add(month);
+          }
+        }
+
         return AlertDialog(
           title: Text(
             AppTranslations.translate('choose_month', lang),
@@ -608,23 +759,18 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
             width: double.maxFinite,
             child: ListView.builder(
               shrinkWrap: true,
-              itemCount: 12,
+              itemCount: candidateMonths.length,
               itemBuilder: (context, index) {
-                final month = index + 1;
+                final month = candidateMonths[index];
                 return ListTile(
                   title: Text(_getMonthName(month, lang), textAlign: TextAlign.center),
                   onTap: () {
+                    final current = _pregnancyStartDate ?? today;
+                    final candidate = _safeDate(selectedYear, month, current.day);
                     setState(() {
-                      if (_pregnancyStartDate == null) {
-                        _pregnancyStartDate = DateTime(DateTime.now().year, month, 1);
-                      } else {
-                        _pregnancyStartDate = DateTime(
-                          _pregnancyStartDate!.year,
-                          month,
-                          _pregnancyStartDate!.day,
-                        );
-                      }
+                      _pregnancyStartDate = _clampPregnancyDate(candidate);
                     });
+                    _persistMotherFetusState();
                     Navigator.pop(context);
                   },
                 );
@@ -640,9 +786,19 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
     showDialog(
       context: context,
       builder: (context) {
-        final year = _pregnancyStartDate?.year ?? DateTime.now().year;
+        final today = _todayDateOnly();
+        final year = _pregnancyStartDate?.year ?? today.year;
         final month = _pregnancyStartDate?.month ?? 1;
         final daysInMonth = DateTime(year, month + 1, 0).day;
+        final validDays = <int>[];
+
+        for (int day = 1; day <= daysInMonth; day++) {
+          final candidate = DateTime(year, month, day);
+          if (_isAllowedPregnancyDate(candidate)) {
+            validDays.add(day);
+          }
+        }
+
         return AlertDialog(
           title: Text(
             AppTranslations.translate('choose_day', lang),
@@ -653,23 +809,18 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
             width: double.maxFinite,
             child: ListView.builder(
               shrinkWrap: true,
-              itemCount: daysInMonth,
+              itemCount: validDays.length,
               itemBuilder: (context, index) {
-                final day = index + 1;
+                final day = validDays[index];
                 return ListTile(
                   title: Text(day.toString(), textAlign: TextAlign.center),
                   onTap: () {
+                    final current = _pregnancyStartDate ?? today;
+                    final candidate = _safeDate(current.year, current.month, day);
                     setState(() {
-                      if (_pregnancyStartDate == null) {
-                        _pregnancyStartDate = DateTime(DateTime.now().year, 1, day);
-                      } else {
-                        _pregnancyStartDate = DateTime(
-                          _pregnancyStartDate!.year,
-                          _pregnancyStartDate!.month,
-                          day,
-                        );
-                      }
+                      _pregnancyStartDate = _clampPregnancyDate(candidate);
                     });
+                    _persistMotherFetusState();
                     Navigator.pop(context);
                   },
                 );
@@ -856,6 +1007,7 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
                 setState(() {
                   _pregnancyStartDate = null;
                 });
+                _persistMotherFetusState();
               },
               child: Text(
                 AppTranslations.translate('recalculate_date', lang),

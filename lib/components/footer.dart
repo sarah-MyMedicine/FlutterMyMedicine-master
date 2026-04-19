@@ -10,6 +10,57 @@ import '../utils/translations.dart';
 class Footer extends StatelessWidget {
   const Footer({super.key});
 
+  Widget _buildFooterItem({
+    required BuildContext context,
+    required IconData icon,
+    required String subtitle,
+    required VoidCallback onTap,
+    bool isPrimary = false,
+  }) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isPrimary)
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Theme.of(context).colorScheme.primary.withAlpha(89),
+                      blurRadius: 8,
+                    ),
+                  ],
+                  border: Border.all(color: Colors.white, width: 3),
+                ),
+                child: const Icon(Icons.add, color: Colors.white),
+              )
+            else
+              Icon(icon, color: onSurface),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 11,
+                color: onSurface.withAlpha(180),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _showAddOptions(BuildContext context) async {
     debugPrint('Footer: showAddOptions called');
     final lang = Provider.of<SettingsProvider>(context, listen: false).language;
@@ -159,21 +210,20 @@ class Footer extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                IconButton(
-                  onPressed: () {
+                _buildFooterItem(
+                  context: context,
+                  icon: Icons.home,
+                  subtitle: AppTranslations.translate('footer_home_subtitle', lang),
+                  onTap: () {
                     Navigator.of(context).popUntil((route) => route.isFirst);
                   },
-                  icon: Icon(
-                    Icons.home,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
                 ),
                 Tooltip(
                   message: AppTranslations.translate('add_medication', lang),
-                  child: Material(
-                    color: Colors.transparent,
-                    shape: const CircleBorder(),
-                    child: InkWell(
+                  child: _buildFooterItem(
+                      context: context,
+                      icon: Icons.add,
+                      subtitle: AppTranslations.translate('footer_add_subtitle', lang),
                       onTap: () {
                         debugPrint('Footer: + tapped');
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -185,34 +235,14 @@ class Footer extends StatelessWidget {
                         );
                         _showAddOptions(context);
                       },
-
-                      customBorder: const CircleBorder(),
-                      child: Padding(
-                        padding: const EdgeInsets.all(6.0),
-                        child: Container(
-                          width: 64,
-                          height: 64,
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primary,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.primary.withAlpha(89),
-                                blurRadius: 8,
-                              ),
-                            ],
-                            border: Border.all(color: Colors.white, width: 4),
-                          ),
-                          child: const Icon(Icons.add, color: Colors.white),
-                        ),
-                      ),
-                    ),
+                      isPrimary: true,
                   ),
                 ),
-                IconButton(
-                  onPressed: () {
+                _buildFooterItem(
+                  context: context,
+                  icon: Icons.shopping_cart,
+                  subtitle: AppTranslations.translate('footer_store_subtitle', lang),
+                  onTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
@@ -223,22 +253,16 @@ class Footer extends StatelessWidget {
                       ),
                     );
                   },
-                  icon: Icon(
-                    Icons.shopping_cart,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
                 ),
-                IconButton(
-                  onPressed: () {
+                _buildFooterItem(
+                  context: context,
+                  icon: Icons.person,
+                  subtitle: AppTranslations.translate('footer_profile_subtitle', lang),
+                  onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const SettingsPage()),
                     );
                   },
-                  icon: Icon(
-                    Icons.person,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                  tooltip: 'اعداداتي',
                 ),
               ],
             ),

@@ -21,10 +21,44 @@ class _RegisterPageState extends State<RegisterPage> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _nameController = TextEditingController();
+  final _ageController = TextEditingController();
   String _selectedUserType = 'patient';
+  PatientGender? _selectedGender;
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+
+  int? _parseLocalizedAge(String input) {
+    const map = {
+      '٠': '0',
+      '١': '1',
+      '٢': '2',
+      '٣': '3',
+      '٤': '4',
+      '٥': '5',
+      '٦': '6',
+      '٧': '7',
+      '٨': '8',
+      '٩': '9',
+      '۰': '0',
+      '۱': '1',
+      '۲': '2',
+      '۳': '3',
+      '۴': '4',
+      '۵': '5',
+      '۶': '6',
+      '۷': '7',
+      '۸': '8',
+      '۹': '9',
+    };
+
+    var normalized = input.trim();
+    map.forEach((from, to) {
+      normalized = normalized.replaceAll(from, to);
+    });
+    if (normalized.isEmpty) return null;
+    return int.tryParse(normalized);
+  }
 
   void _showComingSoon(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -53,6 +87,7 @@ class _RegisterPageState extends State<RegisterPage> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _nameController.dispose();
+    _ageController.dispose();
     super.dispose();
   }
   
@@ -109,6 +144,17 @@ class _RegisterPageState extends State<RegisterPage> {
       );
       return;
     }
+
+    final parsedAge = _parseLocalizedAge(_ageController.text);
+    if (_ageController.text.trim().isNotEmpty && parsedAge == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('العمر غير صالح'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
     
     setState(() => _isLoading = true);
     
@@ -126,6 +172,11 @@ class _RegisterPageState extends State<RegisterPage> {
     setState(() => _isLoading = false);
     
     if (success) {
+      final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+      await settingsProvider.setName(_nameController.text.trim());
+      await settingsProvider.setAge(parsedAge);
+      await settingsProvider.setGender(_selectedGender);
+
       try {
         await PatientDataSyncService()
             .syncAfterAuthentication(
@@ -167,99 +218,7 @@ class _RegisterPageState extends State<RegisterPage> {
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            // User type selection cards
-            const Text(
-              'نوع الحساب',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                      setState(() => _selectedUserType = 'patient');
-                    },
-                    child: Card(
-                      elevation: _selectedUserType == 'patient' ? 8 : 2,
-                      color: _selectedUserType == 'patient' ? sp.themeColor : Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(
-                          color: sp.themeColor,
-                          width: _selectedUserType == 'patient' ? 3 : 1,
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.person,
-                              size: 50,
-                              color: _selectedUserType == 'patient' ? Colors.white : sp.themeColor,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'مريض',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: _selectedUserType == 'patient' ? Colors.white : Colors.black,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                      final lang = Provider.of<SettingsProvider>(context, listen: false).language;
-                      _showComingSoon(
-                        '${AppTranslations.translate('caregiver', lang)} - ${AppTranslations.translate('coming_soon', lang)}',
-                      );
-                    },
-                    child: Card(
-                      elevation: _selectedUserType == 'caregiver' ? 8 : 2,
-                      color: _selectedUserType == 'caregiver' ? sp.themeColor : Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(
-                          color: sp.themeColor,
-                          width: _selectedUserType == 'caregiver' ? 3 : 1,
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.medical_services,
-                              size: 50,
-                              color: _selectedUserType == 'caregiver' ? Colors.white : sp.themeColor,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'مقدم رعاية',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: _selectedUserType == 'caregiver' ? Colors.white : Colors.black,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 8),
             TextField(
               controller: _nameController,
               decoration: InputDecoration(
@@ -290,6 +249,43 @@ class _RegisterPageState extends State<RegisterPage> {
                 hintText: 'example@email.com',
               ),
               textDirection: TextDirection.ltr,
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _ageController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: AppTranslations.translate('age', sp.language),
+                      prefixIcon: const Icon(Icons.cake_outlined),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: DropdownButtonFormField<PatientGender>(
+                    initialValue: _selectedGender,
+                    items: [
+                      DropdownMenuItem(
+                        value: PatientGender.male,
+                        child: Text(AppTranslations.translate('male', sp.language)),
+                      ),
+                      DropdownMenuItem(
+                        value: PatientGender.female,
+                        child: Text(AppTranslations.translate('female', sp.language)),
+                      ),
+                    ],
+                    onChanged: (v) => setState(() => _selectedGender = v),
+                    decoration: InputDecoration(
+                      labelText: AppTranslations.translate('gender', sp.language),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             TextField(

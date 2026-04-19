@@ -60,5 +60,11 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs camera access to capture medication photos.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs photo library access to select medication photos.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>This app may save generated images to your photo library.</string>
 </dict>
 </plist>

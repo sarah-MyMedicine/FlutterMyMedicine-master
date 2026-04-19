@@ -10,8 +10,6 @@ class SettingsProvider extends ChangeNotifier {
   String _name = 'زائر';
   int? _age;
   PatientGender? _gender;
-  String? _country;
-  String? _province;
   Color _themeColor = const Color(0xFF36BBA0);
   List<String> _chronicDiseases = [];
   bool _drugKnowledgeEnabled = false;
@@ -24,8 +22,6 @@ class SettingsProvider extends ChangeNotifier {
   String get name => _name;
   int? get age => _age;
   PatientGender? get gender => _gender;
-  String? get country => _country;
-  String? get province => _province;
   Color get themeColor => _themeColor;
   List<String> get chronicDiseases => List.unmodifiable(_chronicDiseases);
   bool get drugKnowledgeEnabled => _drugKnowledgeEnabled;
@@ -49,8 +45,6 @@ class SettingsProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _name = prefs.getString('settings_name') ?? 'زائر';
     _age = prefs.getInt('settings_age');
-    _country = prefs.getString('settings_country');
-    _province = prefs.getString('settings_province');
     _drugKnowledgeEnabled = prefs.getBool('settings_drug_knowledge') ?? false;
     _vibrationPattern = prefs.getString('settings_vibration') ?? 'default';
     
@@ -104,30 +98,6 @@ class SettingsProvider extends ChangeNotifier {
       await prefs.remove('settings_gender');
     } else {
       await prefs.setString('settings_gender', v == PatientGender.male ? 'male' : 'female');
-    }
-    notifyListeners();
-    _syncCloudInBackground();
-  }
-
-  Future<void> setCountry(String? v) async {
-    _country = v;
-    final prefs = await SharedPreferences.getInstance();
-    if (v == null || v.isEmpty) {
-      await prefs.remove('settings_country');
-    } else {
-      await prefs.setString('settings_country', v);
-    }
-    notifyListeners();
-    _syncCloudInBackground();
-  }
-
-  Future<void> setProvince(String? v) async {
-    _province = v;
-    final prefs = await SharedPreferences.getInstance();
-    if (v == null || v.isEmpty) {
-      await prefs.remove('settings_province');
-    } else {
-      await prefs.setString('settings_province', v);
     }
     notifyListeners();
     _syncCloudInBackground();

@@ -13,25 +13,87 @@ class OCRResult {
   OCRResult({required this.imagePath, required this.rawText, this.name, this.dose});
 }
 
+String _normalizeOcrText(String text) {
+  final digitMap = <String, String>{
+    '٠': '0',
+    '١': '1',
+    '٢': '2',
+    '٣': '3',
+    '٤': '4',
+    '٥': '5',
+    '٦': '6',
+    '٧': '7',
+    '٨': '8',
+    '٩': '9',
+  };
+
+  var normalized = text;
+  digitMap.forEach((from, to) {
+    normalized = normalized.replaceAll(from, to);
+  });
+
+  // Common OCR punctuation/unit confusions.
+  return normalized
+      .replaceAll('，', ',')
+      .replaceAll('．', '.')
+      .replaceAll('。', '.')
+      .replaceAll('·', '.')
+      .replaceAll('mq', 'mg')
+      .replaceAll('m9', 'mg')
+      .replaceAll('rnL', 'mL')
+      .replaceAll('rnl', 'ml')
+      .replaceAll('μg', 'µg')
+      .replaceAll('ug', 'µg');
+}
+
+bool _containsLetters(String input) {
+  return RegExp(r'\p{L}', unicode: true).hasMatch(input);
+}
+
 // Runs the simple parsing heuristics in a background isolate.
 Map<String?, String?> _parseOcrText(String full) {
-  final RegExp doseRegex = RegExp(r"(\d+(?:[.,]\d+)?\s*(?:mg|g|mcg|µg|ml|mL|units))",
-      caseSensitive: false);
-  final match = doseRegex.firstMatch(full);
+  final normalized = _normalizeOcrText(full);
+
+  final RegExp doseRegex = RegExp(
+    r"(\d+(?:[.,]\d+)?\s*(?:mg|g|mcg|µg|ml|mL|units|iu|tablet(?:s)?|tab(?:s)?|capsule(?:s)?|cap(?:s)?))",
+    caseSensitive: false,
+  );
+  final match = doseRegex.firstMatch(normalized);
   final String? dose = match?.group(0)?.trim();
 
   String? name;
-  final lines = full.split(RegExp(r'\r?\n'));
+  final lines = normalized.split(RegExp(r'\r?\n'));
+  var bestScore = -1;
+
   for (final l in lines) {
     final trimmed = l.trim();
     if (trimmed.isEmpty) continue;
-    if (doseRegex.hasMatch(trimmed)) continue;
-    if (RegExp(r'[A-Za-z]').hasMatch(trimmed) && trimmed.length <= 60) {
-      name = trimmed;
-      break;
+
+    // Remove detected dose-like tokens before evaluating potential name text.
+    final candidate = trimmed.replaceAll(doseRegex, '').trim();
+    if (candidate.isEmpty) continue;
+    if (!_containsLetters(candidate)) continue;
+    if (candidate.length > 80) continue;
+
+    final lettersCount = RegExp(r'\p{L}', unicode: true)
+        .allMatches(candidate)
+        .length;
+    final digitsCount = RegExp(r'\d').allMatches(candidate).length;
+
+    // Prefer lines with more letters and fewer digits/noise.
+    final score = (lettersCount * 2) - digitsCount;
+    if (score > bestScore) {
+      bestScore = score;
+      name = candidate;
     }
   }
-  name ??= lines.isNotEmpty ? lines.first.trim() : null;
+
+  if (name == null && lines.isNotEmpty) {
+    final fallback = lines
+        .map((e) => e.trim())
+        .firstWhere((e) => e.isNotEmpty, orElse: () => '');
+    name = fallback.isEmpty ? null : fallback;
+  }
 
   return {'name': name, 'dose': dose};
 }
@@ -47,11 +109,19 @@ class OcrService {
       return null;
     }
 
+    // OCR quality is very sensitive to downscaling/compression.
+    // Keep high detail on both platforms, while staying memory-safe.
+    final bool isIos = Platform.isIOS;
+    final int? quality = fromCamera ? (isIos ? 100 : 95) : 95;
+    final double? maxDimension = isIos ? 2600 : 2200;
+
     final XFile? file = await _picker.pickImage(
       source: fromCamera ? ImageSource.camera : ImageSource.gallery,
-      imageQuality: 80,
-      maxWidth: 1024,
-      maxHeight: 1024,
+      imageQuality: quality,
+      maxWidth: maxDimension,
+      maxHeight: maxDimension,
+      preferredCameraDevice: CameraDevice.rear,
+      requestFullMetadata: false,
     );
     return file?.path;
   }
@@ -64,7 +134,7 @@ class OcrService {
 
     try {
       final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
-      final String full = recognizedText.text;
+      final String full = _normalizeOcrText(recognizedText.text);
 
       final parsed = await compute(_parseOcrText, full);
       final String? name = parsed['name'];

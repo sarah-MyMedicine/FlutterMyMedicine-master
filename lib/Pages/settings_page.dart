@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/user_provider.dart';
 import '../utils/translations.dart';
-import 'profile_page.dart';
 import 'reminder_reliability_check_page.dart';
 import 'login_page.dart';
 
@@ -18,12 +17,46 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   final _nameCtrl = TextEditingController();
   final _ageCtrl = TextEditingController();
-  final _countryCtrl = TextEditingController();
-  final _provinceCtrl = TextEditingController();
+
+  String _normalizeLocalizedDigits(String input) {
+    const map = {
+      '٠': '0',
+      '١': '1',
+      '٢': '2',
+      '٣': '3',
+      '٤': '4',
+      '٥': '5',
+      '٦': '6',
+      '٧': '7',
+      '٨': '8',
+      '٩': '9',
+      '۰': '0',
+      '۱': '1',
+      '۲': '2',
+      '۳': '3',
+      '۴': '4',
+      '۵': '5',
+      '۶': '6',
+      '۷': '7',
+      '۸': '8',
+      '۹': '9',
+    };
+
+    var out = input;
+    map.forEach((from, to) {
+      out = out.replaceAll(from, to);
+    });
+    return out;
+  }
+
+  int? _parseLocalizedInt(String input) {
+    final normalized = _normalizeLocalizedDigits(input).trim();
+    return int.tryParse(normalized);
+  }
 
   bool _isRequiredProfileComplete(SettingsProvider sp) {
     final name = _nameCtrl.text.trim();
-    final age = int.tryParse(_ageCtrl.text.trim());
+    final age = _parseLocalizedInt(_ageCtrl.text);
     final hasValidName = name.isNotEmpty && name != 'زائر';
     final hasValidAge = age != null && age > 0;
     final hasGender = sp.gender != null;
@@ -74,8 +107,6 @@ class _SettingsPageState extends State<SettingsPage> {
       await sp.load();
       _nameCtrl.text = sp.name;
       _ageCtrl.text = sp.age?.toString() ?? '';
-      _countryCtrl.text = sp.country ?? '';
-      _provinceCtrl.text = sp.province ?? '';
       setState(() {});
     });
   }
@@ -84,8 +115,6 @@ class _SettingsPageState extends State<SettingsPage> {
   void dispose() {
     _nameCtrl.dispose();
     _ageCtrl.dispose();
-    _countryCtrl.dispose();
-    _provinceCtrl.dispose();
     super.dispose();
   }
 
@@ -171,36 +200,6 @@ class _SettingsPageState extends State<SettingsPage> {
                                         fontWeight: FontWeight.w500,
                                       ),
                                     ),
-                                    const SizedBox(height: 12),
-                                    SizedBox(
-                                      width: double.infinity,
-                                      child: ElevatedButton.icon(
-                                        onPressed: () {
-                                          if (userProvider.password != null) {
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (_) => ProfilePage(
-                                                  password: userProvider.password!,
-                                                ),
-                                              ),
-                                            );
-                                          }
-                                        },
-                                        icon: const Icon(Icons.security, size: 18),
-                                        label: Text(
-                                          AppTranslations.translate('account_security', lang),
-                                        ),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.blue.shade700,
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(vertical: 12),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
                                     const SizedBox(height: 10),
                                     SizedBox(
                                       width: double.infinity,
@@ -249,7 +248,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                   hint: '',
                                   keyboardType: TextInputType.number,
                                   onChanged: (v) {
-                                    final n = int.tryParse(v);
+                                    final n = _parseLocalizedInt(v);
                                     sp.setAge(n);
                                   },
                                 ),
@@ -299,28 +298,6 @@ class _SettingsPageState extends State<SettingsPage> {
                                       ),
                                     ),
                                   ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildTextField(
-                                  label: AppTranslations.translate('country', lang),
-                                  controller: _countryCtrl,
-                                  hint: '',
-                                  onChanged: (v) => sp.setCountry(v),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _buildTextField(
-                                  label: AppTranslations.translate('province', lang),
-                                  controller: _provinceCtrl,
-                                  hint: '',
-                                  onChanged: (v) => sp.setProvince(v),
                                 ),
                               ),
                             ],

@@ -975,8 +975,13 @@ class NotificationService {
           importance: Importance.max,
           priority: Priority.high,
           playSound: true,
+          enableVibration: true,
         ),
-        iOS: DarwinNotificationDetails(),
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
       ),
     );
   }

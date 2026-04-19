@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/settings_provider.dart';
 import '../utils/translations.dart';
 
@@ -11,9 +12,47 @@ class MenopauseStageInfoPage extends StatefulWidget {
 }
 
 class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
+  static const String _selectedTabKey = 'menopause_selected_tab';
+  static const String _hotflashCountKey = 'menopause_hotflash_count';
+  static const String _nightSweatsCountKey = 'menopause_night_sweats_count';
+
   int _selectedTab = 0;
   int _hotflashCount = 0;
   int _nightSweatsCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMenopauseState();
+  }
+
+  Future<void> _loadMenopauseState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final selectedTab = prefs.getInt(_selectedTabKey);
+    final hotflashCount = prefs.getInt(_hotflashCountKey);
+    final nightSweatsCount = prefs.getInt(_nightSweatsCountKey);
+
+    if (!mounted) return;
+
+    setState(() {
+      if (selectedTab != null && selectedTab >= 0 && selectedTab <= 3) {
+        _selectedTab = selectedTab;
+      }
+      if (hotflashCount != null && hotflashCount >= 0) {
+        _hotflashCount = hotflashCount;
+      }
+      if (nightSweatsCount != null && nightSweatsCount >= 0) {
+        _nightSweatsCount = nightSweatsCount;
+      }
+    });
+  }
+
+  Future<void> _persistMenopauseState() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_selectedTabKey, _selectedTab);
+    await prefs.setInt(_hotflashCountKey, _hotflashCount);
+    await prefs.setInt(_nightSweatsCountKey, _nightSweatsCount);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -124,6 +163,7 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
         setState(() {
           _selectedTab = index;
         });
+        _persistMenopauseState();
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -198,14 +238,17 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
               _hotflashCount,
               () {
                 setState(() => _hotflashCount++);
+                _persistMenopauseState();
               },
               () {
                 setState(() {
                   if (_hotflashCount > 0) _hotflashCount--;
                 });
+                _persistMenopauseState();
               },
               () {
                 setState(() => _hotflashCount = 0);
+                _persistMenopauseState();
               },
             ),
             const SizedBox(height: 20),
@@ -215,14 +258,17 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
               _nightSweatsCount,
               () {
                 setState(() => _nightSweatsCount++);
+                _persistMenopauseState();
               },
               () {
                 setState(() {
                   if (_nightSweatsCount > 0) _nightSweatsCount--;
                 });
+                _persistMenopauseState();
               },
               () {
                 setState(() => _nightSweatsCount = 0);
+                _persistMenopauseState();
               },
             ),
             const SizedBox(height: 24),

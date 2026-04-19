@@ -291,11 +291,24 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    AppTranslations.translate('add_medication', lang),
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.arrow_back),
+                        tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                      ),
+                      Expanded(
+                        child: Text(
+                          AppTranslations.translate('add_medication', lang),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(width: 48),
+                    ],
                   ),
-            const SizedBox(height: 8),
+                  const SizedBox(height: 8),
             if (_imagePath != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8.0),
@@ -322,7 +335,7 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                       labelText: AppTranslations.translate('medication_name', lang),
                     ),
                     validator: (v) =>
-                        (v == null || v.isEmpty) ? AppTranslations.translate('required_field', lang) : null,
+                        (v == null || v.trim().isEmpty) ? AppTranslations.translate('required_field', lang) : null,
                   ),
                   TextFormField(
                     controller: _doseController,
@@ -380,8 +393,6 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                     decoration: InputDecoration(
                       labelText: AppTranslations.translate('doctor_name', lang),
                     ),
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? AppTranslations.translate('required_field', lang) : null,
                   ),
                   const SizedBox(height: 8),
                   TextFormField(
@@ -389,8 +400,6 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                     decoration: InputDecoration(
                       labelText: AppTranslations.translate('specialty', lang),
                     ),
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? AppTranslations.translate('required_field', lang) : null,
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -404,9 +413,7 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                           ),
                           validator: (v) {
                             final raw = (v ?? '').trim();
-                            if (raw.isEmpty) {
-                              return AppTranslations.translate('pill_count_required', lang);
-                            }
+                            if (raw.isEmpty) return null;
 
                             final count = int.tryParse(raw);
                             if (count == null || count <= 0) {
@@ -426,9 +433,7 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                           ),
                           validator: (v) {
                             final raw = (v ?? '').trim();
-                            if (raw.isEmpty) {
-                              return AppTranslations.translate('warning_barrier_required', lang);
-                            }
+                            if (raw.isEmpty) return null;
 
                             final barrier = int.tryParse(raw);
                             if (barrier == null || barrier < 0) {
@@ -530,7 +535,6 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                       Expanded(
                         child: FormField<TimeOfDay>(
                           initialValue: _startTime,
-                          validator: (v) => v == null ? AppTranslations.translate('choose_time', lang) : null,
                           builder: (state) {
                             return InkWell(
                               onTap: () async {
@@ -564,6 +568,8 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                       Expanded(
                         child: FormField<DateTime>(
                           initialValue: _startDate,
+                          validator: (v) =>
+                              v == null ? AppTranslations.translate('required_field', lang) : null,
                           builder: (state) {
                             return InkWell(
                               onTap: () async {
@@ -582,7 +588,8 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                               },
                               child: InputDecorator(
                                 decoration: InputDecoration(
-                                  labelText: AppTranslations.translate('first_dose_date_optional', lang)
+                                  labelText: AppTranslations.translate('first_dose_date_optional', lang),
+                                  errorText: state.errorText,
                                 ),
                                 child: Text(
                                   _startDate != null ? '${_startDate!.year}-${_startDate!.month.toString().padLeft(2, '0')}-${_startDate!.day.toString().padLeft(2, '0')}' : AppTranslations.translate('choose_date', lang),
@@ -626,8 +633,6 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                         ),
                       ),
                     ],
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? AppTranslations.translate('required_field', lang) : null,
                     onChanged: (v) => setState(() => _chronicDisease = v),
                   ),
                 ],

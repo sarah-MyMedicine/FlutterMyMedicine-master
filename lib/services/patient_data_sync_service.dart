@@ -31,8 +31,6 @@ class PatientDataSyncService {
     'lab_results',
     'settings_name',
     'settings_gender',
-    'settings_country',
-    'settings_province',
     'settings_vibration',
     'settings_language',
   ];

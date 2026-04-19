@@ -129,7 +129,7 @@ class AppTranslations {
       'medication_added': 'تم إضافة الدواء',
       'medication_updated': 'تم تحديث الدواء',
       'first_dose_time': 'وقت أول جرعة',
-      'first_dose_date_optional': 'تاريخ أول جرعة (اختياري)',
+      'first_dose_date_optional': 'تاريخ أول جرعة',
       'medication_type_optional': 'نوع الدواء (اختياري)',
       'image_found_confirm': 'تم العثور على الصورة - أكد التفاصيل أدناه',
       
@@ -155,8 +155,6 @@ class AppTranslations {
       'gender': 'الجنس',
       'male': 'ذكر',
       'female': 'أنثى',
-      'country': 'البلد',
-      'province': 'المحافظة',
       'app_theme': 'لون التطبيق (التيمة)',
       'visitor': 'زائر',
       'chronic_diseases': 'الأمراض المزمنة',
@@ -389,6 +387,10 @@ class AppTranslations {
       // Footer
       'developed_with_love': 'تم التطوير بكل حب',
       'version': 'الإصدار',
+      'footer_home_subtitle': 'الرئيسية',
+      'footer_add_subtitle': 'إضافة دواء',
+      'footer_store_subtitle': 'المتجر',
+      'footer_profile_subtitle': 'حسابي',
       
       // Onboarding
       'skip': 'تخطي',
@@ -955,7 +957,7 @@ class AppTranslations {
       'medication_added': 'Medication Added',
       'medication_updated': 'Medication Updated',
       'first_dose_time': 'First Dose Time',
-      'first_dose_date_optional': 'First Dose Date (Optional)',
+      'first_dose_date_optional': 'First Dose Date',
       'medication_type_optional': 'Medication Type (Optional)',
       'image_found_confirm': 'Image found - Confirm details below',
       
@@ -981,8 +983,6 @@ class AppTranslations {
       'gender': 'Gender',
       'male': 'Male',
       'female': 'Female',
-      'country': 'Country',
-      'province': 'Province',
       'app_theme': 'App Theme (Color)',
       'visitor': 'Visitor',
       'chronic_diseases': 'Chronic Diseases',
@@ -1366,6 +1366,10 @@ class AppTranslations {
       'privacy_policy': 'Privacy Policy',
       'terms_of_service': 'Terms of Service',
       'contact_us': 'Contact Us',
+      'footer_home_subtitle': 'Home',
+      'footer_add_subtitle': 'Add Med',
+      'footer_store_subtitle': 'Store',
+      'footer_profile_subtitle': 'Profile',
       
       // Error Messages
       'error': 'Error',
