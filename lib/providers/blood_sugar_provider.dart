@@ -85,20 +85,20 @@ class BloodSugarProvider extends ChangeNotifier {
     // Use custom target if provided, otherwise use default value
     final target = targetBloodSugar ?? 100;
     
-    // Alert if ±2 from target
-    final bool tooHigh = value > target + 2;
-    final bool tooLow = value < target - 2;
+    // Alert when reading reaches or exceeds ±2 from target.
+    final bool tooHigh = value >= target + 2;
+    final bool tooLow = value <= target - 2;
     
     if (tooHigh) {
       try {
-        NotificationService().showAlertNotification(
+        await NotificationService().showAlertNotification(
           title: 'تنبيه سكر الدم',
           body: 'سكر دمك أعلى من الهدف المحدد ($target mg/dL)',
         );
       } catch (_) {}
     } else if (tooLow) {
       try {
-        NotificationService().showAlertNotification(
+        await NotificationService().showAlertNotification(
           title: 'تنبيه سكر الدم',
           body: 'سكر دمك أقل من الهدف المحدد ($target mg/dL)',
         );

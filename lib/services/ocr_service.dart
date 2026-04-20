@@ -112,8 +112,8 @@ class OcrService {
     // OCR quality is very sensitive to downscaling/compression.
     // Keep high detail on both platforms, while staying memory-safe.
     final bool isIos = Platform.isIOS;
-    final int? quality = fromCamera ? (isIos ? 100 : 95) : 95;
-    final double? maxDimension = isIos ? 2600 : 2200;
+    final int quality = fromCamera ? (isIos ? 100 : 95) : 95;
+    final double maxDimension = isIos ? 2600 : 2200;
 
     final XFile? file = await _picker.pickImage(
       source: fromCamera ? ImageSource.camera : ImageSource.gallery,

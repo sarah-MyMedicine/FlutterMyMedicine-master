@@ -22,7 +22,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final _confirmPasswordController = TextEditingController();
   final _nameController = TextEditingController();
   final _ageController = TextEditingController();
-  String _selectedUserType = 'patient';
+  final String _selectedUserType = 'patient';
   PatientGender? _selectedGender;
   bool _isLoading = false;
   bool _obscurePassword = true;

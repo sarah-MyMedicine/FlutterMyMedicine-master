@@ -90,23 +90,23 @@ class BloodPressureProvider extends ChangeNotifier {
     final targetSys = targetSystolic ?? 120;
     final targetDia = targetDiastolic ?? 80;
     
-    // Alert if ±2 from target
-    final bool sysHigh = sys > targetSys + 2;
-    final bool sysLow = sys < targetSys - 2;
-    final bool diaHigh = dia > targetDia + 2;
-    final bool diaLow = dia < targetDia - 2;
+    // Alert when reading reaches or exceeds ±2 from target.
+    final bool sysHigh = sys >= targetSys + 2;
+    final bool sysLow = sys <= targetSys - 2;
+    final bool diaHigh = dia >= targetDia + 2;
+    final bool diaLow = dia <= targetDia - 2;
 
     if (sysHigh || diaHigh) {
       // Fire an immediate health alert
       try {
-        NotificationService().showAlertNotification(
+        await NotificationService().showAlertNotification(
           title: 'تنبيه ضغط الدم', 
           body: 'ضغط دمك أعلى من الهدف المحدد ($targetSys/$targetDia)',
         );
       } catch (_) {}
     } else if (sysLow || diaLow) {
       try {
-        NotificationService().showAlertNotification(
+        await NotificationService().showAlertNotification(
           title: 'تنبيه ضغط الدم', 
           body: 'ضغط دمك أقل من الهدف المحدد ($targetSys/$targetDia)',
         );
