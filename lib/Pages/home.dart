@@ -30,6 +30,8 @@ class _RankPresentation {
     required this.endColor,
     required this.icon,
   });
+}
+
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
@@ -781,7 +783,6 @@ class HomePage extends StatelessWidget {
 
                       const SizedBox(height: 28),
                       // A short summary card or other content can go here
-                      const AdBanner(),
                       const SizedBox(height: 40),
                     ],
                   ),
