@@ -279,7 +279,7 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
         final viewInsetsBottom = MediaQuery.of(context).viewInsets.bottom;
         
         return SafeArea(
-          top: false,
+          bottom: false,
           child: AnimatedPadding(
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeOut,
