@@ -7,7 +7,6 @@ import '../providers/user_provider.dart';
 import '../components/header.dart';
 import '../components/footer.dart';
 import '../components/medication_list.dart';
-import '../components/ad_banner.dart';
 import '../services/api_service.dart';
 import '../utils/translations.dart';
 import 'blood_pressure_log.dart';
@@ -31,8 +30,6 @@ class _RankPresentation {
     required this.endColor,
     required this.icon,
   });
-}
-
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
