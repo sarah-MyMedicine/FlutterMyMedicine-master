@@ -148,14 +148,25 @@ class NotificationService {
     if (_darwinPermissionsRequested) return;
 
     try {
-      final darwinImpl = _plugin.resolvePlatformSpecificImplementation<
-          DarwinFlutterLocalNotificationsPlugin>();
-      await darwinImpl?.requestPermissions(
-        alert: true,
-        badge: true,
-        sound: true,
-        critical: true,
-      );
+      if (Platform.isIOS) {
+        final iosImpl = _plugin.resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin>();
+        await iosImpl?.requestPermissions(
+          alert: true,
+          badge: true,
+          sound: true,
+          critical: true,
+        );
+      } else if (Platform.isMacOS) {
+        final macImpl = _plugin.resolvePlatformSpecificImplementation<
+            MacOSFlutterLocalNotificationsPlugin>();
+        await macImpl?.requestPermissions(
+          alert: true,
+          badge: true,
+          sound: true,
+          critical: true,
+        );
+      }
       _darwinPermissionsRequested = true;
     } catch (e) {
       debugPrint('[NotificationService] Failed to request Darwin permissions: $e');
