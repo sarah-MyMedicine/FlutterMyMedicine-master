@@ -27,6 +27,7 @@ class BloodSugarReading {
 
 class BloodSugarProvider extends ChangeNotifier {
   static const String _storageKey = 'blood_sugar_readings_v1';
+  static const int _dangerThreshold = 2;
   final List<BloodSugarReading> _readings = [];
 
   void _syncCloudInBackground() {
@@ -81,29 +82,9 @@ class BloodSugarProvider extends ChangeNotifier {
     _readings.insert(0, BloodSugarReading(value: value, when: when));
     await _saveToPrefs();
     notifyListeners();
-    
-    // Use custom target if provided, otherwise use default value
+
     final target = targetBloodSugar ?? 100;
-    
-    // Alert when reading reaches or exceeds ±2 from target.
-    final bool tooHigh = value >= target + 2;
-    final bool tooLow = value <= target - 2;
-    
-    if (tooHigh) {
-      try {
-        await NotificationService().showAlertNotification(
-          title: 'تنبيه سكر الدم',
-          body: 'سكر دمك أعلى من الهدف المحدد ($target mg/dL)',
-        );
-      } catch (_) {}
-    } else if (tooLow) {
-      try {
-        await NotificationService().showAlertNotification(
-          title: 'تنبيه سكر الدم',
-          body: 'سكر دمك أقل من الهدف المحدد ($target mg/dL)',
-        );
-      } catch (_) {}
-    }
+    await _notifyIfDangerous(value: value, target: target);
   }
 
   void remove(int index) async {
@@ -114,11 +95,37 @@ class BloodSugarProvider extends ChangeNotifier {
     }
   }
 
-  void update(int index, int value) async {
+  void update(int index, int value, {int? targetBloodSugar}) async {
     if (index >= 0 && index < _readings.length) {
       _readings[index] = BloodSugarReading(value: value, when: _readings[index].when);
       await _saveToPrefs();
       notifyListeners();
+      await _notifyIfDangerous(value: value, target: targetBloodSugar ?? 100);
+    }
+  }
+
+  Future<void> _notifyIfDangerous({required int value, required int target}) async {
+    final bool tooHigh = value - target >= _dangerThreshold;
+    final bool tooLow = target - value >= _dangerThreshold;
+
+    if (tooHigh) {
+      try {
+        await NotificationService().showAlertNotification(
+          title: 'تنبيه خطر: سكر الدم',
+          body: 'قراءة خطيرة: سكر الدم أعلى من الهدف بـ $_dangerThreshold أو أكثر ($target mg/dL).',
+        );
+      } catch (e) {
+        debugPrint('[BloodSugarProvider] Failed to show high sugar alert: $e');
+      }
+    } else if (tooLow) {
+      try {
+        await NotificationService().showAlertNotification(
+          title: 'تنبيه خطر: سكر الدم',
+          body: 'قراءة خطيرة: سكر الدم أقل من الهدف بـ $_dangerThreshold أو أكثر ($target mg/dL).',
+        );
+      } catch (e) {
+        debugPrint('[BloodSugarProvider] Failed to show low sugar alert: $e');
+      }
     }
   }
 

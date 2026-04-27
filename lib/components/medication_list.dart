@@ -27,6 +27,7 @@ class MedicationList extends StatelessWidget {
                 showModalBottomSheet(
                   context: context,
                   isScrollControlled: true,
+                  useSafeArea: true,
                   builder: (_) => MedicationFormModal(
                     initialIntervalHours: null,
                     onSave: (
@@ -109,6 +110,7 @@ class MedicationList extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (_) => MedicationFormModal(
         initialName: result.name,
         initialDose: result.dose,
@@ -250,6 +252,7 @@ class MedicationList extends StatelessWidget {
                             showModalBottomSheet(
                               context: context,
                               isScrollControlled: true,
+                              useSafeArea: true,
                               builder: (_) => MedicationFormModal(
                                 initialName: item['name'],
                                 initialDose: item['dose'],

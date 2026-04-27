@@ -78,6 +78,7 @@ class Footer extends StatelessWidget {
                 showModalBottomSheet(
                   context: context,
                   isScrollControlled: true,
+                  useSafeArea: true,
                   builder: (_) => MedicationFormModal(
                     initialIntervalHours: null, // force explicit user selection
                     onSave: (
@@ -162,6 +163,7 @@ class Footer extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (_) => MedicationFormModal(
           initialName: result.name,
           initialDose: result.dose,

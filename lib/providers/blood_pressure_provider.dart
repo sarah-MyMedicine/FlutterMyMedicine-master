@@ -31,6 +31,7 @@ class BloodPressureReading {
 
 class BloodPressureProvider extends ChangeNotifier {
   static const String _storageKey = 'blood_pressure_readings_v1';
+  static const int _dangerThreshold = 2;
   final List<BloodPressureReading> _readings = [];
 
   void _syncCloudInBackground() {
@@ -86,32 +87,14 @@ class BloodPressureProvider extends ChangeNotifier {
     await _saveToPrefs();
     notifyListeners();
 
-    // Use custom targets if provided, otherwise use default values
     final targetSys = targetSystolic ?? 120;
     final targetDia = targetDiastolic ?? 80;
-    
-    // Alert when reading reaches or exceeds ±2 from target.
-    final bool sysHigh = sys >= targetSys + 2;
-    final bool sysLow = sys <= targetSys - 2;
-    final bool diaHigh = dia >= targetDia + 2;
-    final bool diaLow = dia <= targetDia - 2;
-
-    if (sysHigh || diaHigh) {
-      // Fire an immediate health alert
-      try {
-        await NotificationService().showAlertNotification(
-          title: 'تنبيه ضغط الدم', 
-          body: 'ضغط دمك أعلى من الهدف المحدد ($targetSys/$targetDia)',
-        );
-      } catch (_) {}
-    } else if (sysLow || diaLow) {
-      try {
-        await NotificationService().showAlertNotification(
-          title: 'تنبيه ضغط الدم', 
-          body: 'ضغط دمك أقل من الهدف المحدد ($targetSys/$targetDia)',
-        );
-      } catch (_) {}
-    }
+    await _notifyIfDangerous(
+      systolic: sys,
+      diastolic: dia,
+      targetSystolic: targetSys,
+      targetDiastolic: targetDia,
+    );
   }
 
   void remove(int index) async {
@@ -122,11 +105,55 @@ class BloodPressureProvider extends ChangeNotifier {
     }
   }
 
-  void update(int index, int systolic, int diastolic) async {
+  void update(
+    int index,
+    int systolic,
+    int diastolic, {
+    int? targetSystolic,
+    int? targetDiastolic,
+  }) async {
     if (index >= 0 && index < _readings.length) {
       _readings[index] = BloodPressureReading(systolic: systolic, diastolic: diastolic, when: _readings[index].when);
       await _saveToPrefs();
       notifyListeners();
+      await _notifyIfDangerous(
+        systolic: systolic,
+        diastolic: diastolic,
+        targetSystolic: targetSystolic ?? 120,
+        targetDiastolic: targetDiastolic ?? 80,
+      );
+    }
+  }
+
+  Future<void> _notifyIfDangerous({
+    required int systolic,
+    required int diastolic,
+    required int targetSystolic,
+    required int targetDiastolic,
+  }) async {
+    final bool sysHigh = systolic - targetSystolic >= _dangerThreshold;
+    final bool sysLow = targetSystolic - systolic >= _dangerThreshold;
+    final bool diaHigh = diastolic - targetDiastolic >= _dangerThreshold;
+    final bool diaLow = targetDiastolic - diastolic >= _dangerThreshold;
+
+    if (sysHigh || diaHigh) {
+      try {
+        await NotificationService().showAlertNotification(
+          title: 'تنبيه خطر: ضغط الدم',
+          body: 'قراءة خطيرة: ضغط دمك أعلى من الهدف بـ $_dangerThreshold أو أكثر ($targetSystolic/$targetDiastolic).',
+        );
+      } catch (e) {
+        debugPrint('[BloodPressureProvider] Failed to show high pressure alert: $e');
+      }
+    } else if (sysLow || diaLow) {
+      try {
+        await NotificationService().showAlertNotification(
+          title: 'تنبيه خطر: ضغط الدم',
+          body: 'قراءة خطيرة: ضغط دمك أقل من الهدف بـ $_dangerThreshold أو أكثر ($targetSystolic/$targetDiastolic).',
+        );
+      } catch (e) {
+        debugPrint('[BloodPressureProvider] Failed to show low pressure alert: $e');
+      }
     }
   }
 

@@ -104,7 +104,11 @@ class BloodSugarPage extends StatelessWidget {
                           builder: (_) => BloodSugarFormModal(
                             initialValue: r.value,
                             onSave: (v) {
-                              Provider.of<BloodSugarProvider>(context, listen: false).update(i, v);
+                              Provider.of<BloodSugarProvider>(context, listen: false).update(
+                                i,
+                                v,
+                                targetBloodSugar: settingsProvider.targetBloodSugar,
+                              );
                             },
                           ),
                         );

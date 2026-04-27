@@ -105,7 +105,13 @@ class BloodPressurePage extends StatelessWidget {
                             initialSystolic: r.systolic,
                             initialDiastolic: r.diastolic,
                             onSave: (sys, dia) {
-                              Provider.of<BloodPressureProvider>(context, listen: false).update(i, sys, dia);
+                              Provider.of<BloodPressureProvider>(context, listen: false).update(
+                                i,
+                                sys,
+                                dia,
+                                targetSystolic: settingsProvider.targetSystolic,
+                                targetDiastolic: settingsProvider.targetDiastolic,
+                              );
                             },
                           ),
                         );

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -25,6 +26,7 @@ class NotificationService {
 
   final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
   bool _initialized = false;
+  bool _darwinPermissionsRequested = false;
 
   GlobalKey<NavigatorState>? _navigatorKey;
   // Queue payloads that arrive before a Navigator/Context is ready
@@ -137,7 +139,27 @@ class NotificationService {
       debugPrint('[NotificationService] Error reading launch details: $e');
     }
 
+    await _ensureDarwinPermissions();
     _initialized = true;
+  }
+
+  Future<void> _ensureDarwinPermissions() async {
+    if (!(Platform.isIOS || Platform.isMacOS)) return;
+    if (_darwinPermissionsRequested) return;
+
+    try {
+      final darwinImpl = _plugin.resolvePlatformSpecificImplementation<
+          DarwinFlutterLocalNotificationsPlugin>();
+      await darwinImpl?.requestPermissions(
+        alert: true,
+        badge: true,
+        sound: true,
+        critical: true,
+      );
+      _darwinPermissionsRequested = true;
+    } catch (e) {
+      debugPrint('[NotificationService] Failed to request Darwin permissions: $e');
+    }
   }
 
   Future<Map<String, bool?>> getReminderReliabilityStatus() async {
@@ -962,6 +984,8 @@ class NotificationService {
   /// Show an immediate alert-style notification (used for health warnings)
   Future<void> showAlertNotification({required String title, required String body}) async {
     await init();
+    await _ensureDarwinPermissions();
+
     final id = DateTime.now().millisecondsSinceEpoch & 0x7fffffff;
     await _plugin.show(
       id: id,
@@ -978,9 +1002,13 @@ class NotificationService {
           enableVibration: true,
         ),
         iOS: DarwinNotificationDetails(
+          sound: 'default',
           presentAlert: true,
+          presentBanner: true,
+          presentList: true,
           presentBadge: true,
           presentSound: true,
+          interruptionLevel: InterruptionLevel.timeSensitive,
         ),
       ),
     );
