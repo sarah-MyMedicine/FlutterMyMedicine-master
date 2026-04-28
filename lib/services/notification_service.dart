@@ -155,7 +155,6 @@ class NotificationService {
           alert: true,
           badge: true,
           sound: true,
-          critical: true,
         );
       } else if (Platform.isMacOS) {
         final macImpl = _plugin.resolvePlatformSpecificImplementation<
@@ -164,7 +163,6 @@ class NotificationService {
           alert: true,
           badge: true,
           sound: true,
-          critical: true,
         );
       }
       _darwinPermissionsRequested = true;
@@ -1013,13 +1011,11 @@ class NotificationService {
           enableVibration: true,
         ),
         iOS: DarwinNotificationDetails(
-          sound: 'default',
           presentAlert: true,
           presentBanner: true,
           presentList: true,
           presentBadge: true,
           presentSound: true,
-          interruptionLevel: InterruptionLevel.timeSensitive,
         ),
       ),
     );
