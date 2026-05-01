@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -61,19 +62,30 @@ class PushNotificationService {
 
     final messaging = FirebaseMessaging.instance;
 
-    final settings = await messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-      provisional: false,
-    );
-    debugPrint('[Push] Notification permission: ${settings.authorizationStatus}');
+    try {
+      final settings = await messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+        provisional: false,
+      );
+      debugPrint('[Push] Notification permission: ${settings.authorizationStatus}');
+    } catch (e) {
+      // Some Android builds can throw when permission APIs are queried too early.
+      debugPrint('[Push] Notification permission request failed: $e');
+    }
 
-    await messaging.setForegroundNotificationPresentationOptions(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+    if (Platform.isIOS || Platform.isMacOS) {
+      try {
+        await messaging.setForegroundNotificationPresentationOptions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+      } catch (e) {
+        debugPrint('[Push] Foreground presentation options failed: $e');
+      }
+    }
 
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
       final title = message.notification?.title ?? 'Care Alert';

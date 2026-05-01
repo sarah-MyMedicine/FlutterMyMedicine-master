@@ -64,14 +64,6 @@ void main() async {
     _safeInit('UserProvider', () => userProvider.loadUserFromStorage()),
   ]);
 
-  // Keep startup responsive: initialize push in background.
-  unawaited(
-    PushNotificationService()
-        .initialize(isLoggedIn: userProvider.isLoggedIn)
-        .then((_) => debugPrint('[main] PushNotificationService initialized'))
-        .catchError((e) => debugPrint('[main] PushNotificationService init failed: $e')),
-  );
-  
   runApp(
     MultiProvider(
       providers: [
@@ -109,6 +101,21 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _checkFirstTime();
     _checkMissedDosesOnStartup();
+    _initializePushNotificationsAfterMount();
+  }
+
+  void _initializePushNotificationsAfterMount() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      final isLoggedIn = context.read<UserProvider>().isLoggedIn;
+      unawaited(
+        PushNotificationService()
+            .initialize(isLoggedIn: isLoggedIn)
+            .then((_) => debugPrint('[main] PushNotificationService initialized'))
+            .catchError((e) => debugPrint('[main] PushNotificationService init failed: $e')),
+      );
+    });
   }
   
   @override

@@ -133,10 +133,57 @@ class BloodSugarPage extends StatelessWidget {
             context: context,
             isScrollControlled: true,
             builder: (_) => BloodSugarFormModal(onSave: (v) {
+              final target = settingsProvider.targetBloodSugar;
               Provider.of<BloodSugarProvider>(context, listen: false).add(
                 v,
-                targetBloodSugar: settingsProvider.targetBloodSugar,
+                targetBloodSugar: target,
               );
+              final bool high = (v - target) >= 2;
+              final bool low  = (target - v) >= 2;
+              if (high || low) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!context.mounted) return;
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      backgroundColor: high ? Colors.red.shade50 : Colors.orange.shade50,
+                      title: Row(
+                        children: [
+                          Icon(Icons.warning_rounded,
+                              color: high ? Colors.red : Colors.orange),
+                          const SizedBox(width: 8),
+                          Text(
+                            AppTranslations.translate('bs_danger_title', lang),
+                            style: TextStyle(
+                                color: high ? Colors.red : Colors.orange,
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                      content: Text(
+                        high
+                            ? AppTranslations.translate('bs_danger_high', lang)
+                                .replaceAll('{target}', '$target mg/dL')
+                            : AppTranslations.translate('bs_danger_low', lang)
+                                .replaceAll('{target}', '$target mg/dL'),
+                        style: const TextStyle(fontSize: 15),
+                      ),
+                      actions: [
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor:
+                                  high ? Colors.red : Colors.orange),
+                          onPressed: () => Navigator.pop(ctx),
+                          child: Text(
+                              AppTranslations.translate('ok', lang),
+                              style:
+                                  const TextStyle(color: Colors.white)),
+                        ),
+                      ],
+                    ),
+                  );
+                });
+              }
             }),
           );
         },

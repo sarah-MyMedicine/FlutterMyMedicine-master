@@ -136,12 +136,60 @@ class BloodPressurePage extends StatelessWidget {
             context: context,
             isScrollControlled: true,
             builder: (_) => BloodPressureFormModal(onSave: (sys, dia) {
+              final targetSys = settingsProvider.targetSystolic;
+              final targetDia = settingsProvider.targetDiastolic;
               Provider.of<BloodPressureProvider>(context, listen: false).add(
-                sys, 
+                sys,
                 dia,
-                targetSystolic: settingsProvider.targetSystolic,
-                targetDiastolic: settingsProvider.targetDiastolic,
+                targetSystolic: targetSys,
+                targetDiastolic: targetDia,
               );
+              final bool high = (sys - targetSys) >= 2 || (dia - targetDia) >= 2;
+              final bool low  = (targetSys - sys) >= 2 || (targetDia - dia) >= 2;
+              if (high || low) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!context.mounted) return;
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      backgroundColor: high ? Colors.red.shade50 : Colors.orange.shade50,
+                      title: Row(
+                        children: [
+                          Icon(Icons.warning_rounded,
+                              color: high ? Colors.red : Colors.orange),
+                          const SizedBox(width: 8),
+                          Text(
+                            AppTranslations.translate('bp_danger_title', lang),
+                            style: TextStyle(
+                                color: high ? Colors.red : Colors.orange,
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                      content: Text(
+                        high
+                            ? AppTranslations.translate('bp_danger_high', lang)
+                                .replaceAll('{target}', '$targetSys/$targetDia')
+                            : AppTranslations.translate('bp_danger_low', lang)
+                                .replaceAll('{target}', '$targetSys/$targetDia'),
+                        style: const TextStyle(fontSize: 15),
+                      ),
+                      actions: [
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor:
+                                  high ? Colors.red : Colors.orange),
+                          onPressed: () => Navigator.pop(ctx),
+                          child: Text(
+                              AppTranslations.translate('ok', lang),
+                              style:
+                                  const TextStyle(color: Colors.white)),
+                        ),
+                      ],
+                    ),
+                  );
+                });
+              }
             }),
           );
         },

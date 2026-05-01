@@ -18,6 +18,7 @@ class AppTranslations {
       'or': 'أو',
       'yes': 'نعم',
       'no': 'لا',
+      'ok': 'حسناً',
       'optional': 'اختياري',
       'select_saved_doctor_or_add': 'اختر طبيباً محفوظاً أو أضف طبيباً جديداً',
       'add_new_doctor': 'إضافة طبيب جديد',
@@ -214,11 +215,17 @@ class AppTranslations {
       'blood_pressure_log': 'سجل ضغط الدم',
       'no_readings': 'لا توجد قراءات مسجلة',
       'view_log': 'عرض السجل',
+      'bp_danger_title': 'تنبيه خطر: ضغط الدم',
+      'bp_danger_high': 'قراءة خطيرة: ضغط دمك أعلى من الهدف بـ 2 أو أكثر ({target}).',
+      'bp_danger_low': 'قراءة خطيرة: ضغط دمك أقل من الهدف بـ 2 أو أكثر ({target}).',
       
       // Blood Sugar
       'blood_sugar': 'سكر الدم',
       'blood_sugar_level': 'مستوى السكر',
       'blood_sugar_log': 'سجل سكر الدم',
+      'bs_danger_title': 'تنبيه خطر: سكر الدم',
+      'bs_danger_high': 'قراءة خطيرة: سكر الدم أعلى من الهدف بـ 2 أو أكثر ({target}).',
+      'bs_danger_low': 'قراءة خطيرة: سكر الدم أقل من الهدف بـ 2 أو أكثر ({target}).',
       
       // Appointments
       'appointments': 'المواعيد الطبية',
@@ -846,6 +853,7 @@ class AppTranslations {
       'or': 'OR',
       'yes': 'Yes',
       'no': 'No',
+      'ok': 'OK',
       'optional': 'Optional',
       'select_saved_doctor_or_add': 'Select a saved doctor or add a new one',
       'add_new_doctor': 'Add New Doctor',
@@ -1042,11 +1050,17 @@ class AppTranslations {
       'blood_pressure_log': 'Blood Pressure Log',
       'no_readings': 'No readings recorded',
       'view_log': 'View Log',
+      'bp_danger_title': 'Danger Alert: Blood Pressure',
+      'bp_danger_high': 'Dangerous reading: your blood pressure is 2 or more above target ({target}).',
+      'bp_danger_low': 'Dangerous reading: your blood pressure is 2 or more below target ({target}).',
       
       // Blood Sugar
       'blood_sugar': 'Blood Sugar',
       'blood_sugar_level': 'Blood Sugar Level',
       'blood_sugar_log': 'Blood Sugar Log',
+      'bs_danger_title': 'Danger Alert: Blood Sugar',
+      'bs_danger_high': 'Dangerous reading: your blood sugar is 2 or more above target ({target}).',
+      'bs_danger_low': 'Dangerous reading: your blood sugar is 2 or more below target ({target}).',
       
       // Appointments
       'appointments': 'Medical Appointments',
