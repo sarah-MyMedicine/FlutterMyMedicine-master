@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../firebase_options.dart';
 import 'api_service.dart';
 
 class GoogleAuthResult {
@@ -21,12 +22,28 @@ class GoogleAuthResult {
 }
 
 class GoogleAuthService {
+  static String? _googleClientIdForPlatform() {
+    if (kIsWeb) return null;
+
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.iOS:
+        return DefaultFirebaseOptions.ios.iosClientId;
+      default:
+        return null;
+    }
+  }
+
   GoogleAuthService({
     FirebaseAuth? firebaseAuth,
     GoogleSignIn? googleSignIn,
     ApiService? apiService,
   })  : _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance,
-        _googleSignIn = googleSignIn ?? GoogleSignIn(scopes: const ['email']),
+        _googleSignIn =
+            googleSignIn ??
+            GoogleSignIn(
+              scopes: const ['email'],
+              clientId: _googleClientIdForPlatform(),
+            ),
         _apiService = apiService ?? ApiService();
 
   final FirebaseAuth _firebaseAuth;
