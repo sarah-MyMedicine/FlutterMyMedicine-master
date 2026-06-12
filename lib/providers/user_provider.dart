@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
+import '../services/apple_auth_service.dart';
 import '../services/google_auth_service.dart';
 import '../services/patient_data_sync_service.dart';
 import '../services/push_notification_service.dart';
@@ -170,6 +171,31 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> signInWithApple() async {
+    _lastError = null;
+
+    try {
+      final response = await AppleAuthService().signIn();
+
+      await _saveUserData(
+        username: response.username,
+        email: response.email,
+        name: response.name,
+        userType: response.userType,
+        userId: response.userId,
+        password: null,
+      );
+
+      unawaited(PushNotificationService().syncTokenToBackend());
+      return true;
+    } catch (e) {
+      _lastError = _friendlyError(e);
+      debugPrint('Apple sign-in error: $_lastError');
+      notifyListeners();
+      return false;
+    }
+  }
+
   /// Requests a password-reset email to be sent to the given address.
   /// The backend generates the Firebase link and emails it — the link is
   /// never returned to the client, preventing account-takeover attacks.
@@ -280,5 +306,52 @@ class UserProvider extends ChangeNotifier {
     _lastError = null;
     _isLoggedIn = false;
     notifyListeners();
+  }
+
+  Future<bool> deleteAccount({BuildContext? context}) async {
+    final currentUsername = _username;
+    _lastError = null;
+
+    try {
+      await ApiService().deleteAccount();
+
+      // Best-effort token cleanup after account deletion on backend.
+      PushNotificationService().clearTokenFromBackend().catchError((_) {});
+      GoogleAuthService().signOut().catchError((_) {});
+
+      if (context != null) {
+        await PatientDataSyncService().clearLocalDataForLogout(
+          username: currentUsername,
+          context: context,
+        );
+      } else {
+        await PatientDataSyncService().clearLocalDataForLogout(
+          username: currentUsername,
+        );
+      }
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('username');
+      await prefs.remove('email');
+      await prefs.remove('name');
+      await prefs.remove('userType');
+      await prefs.remove('userId');
+      await prefs.remove('password');
+      await prefs.remove('patient_data_owner_username');
+
+      _username = null;
+      _email = null;
+      _name = null;
+      _userType = null;
+      _userId = null;
+      _password = null;
+      _isLoggedIn = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _lastError = _friendlyError(e);
+      notifyListeners();
+      return false;
+    }
   }
 }

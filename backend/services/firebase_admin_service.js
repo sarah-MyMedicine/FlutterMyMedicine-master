@@ -227,6 +227,16 @@ async function triggerFirebasePasswordResetEmail(email) {
   return data;
 }
 
+async function deleteFirebaseUser(uid) {
+  if (!uid) return;
+
+  if (!initializeFirebaseAdmin()) {
+    throw new Error('Firebase Admin is not configured');
+  }
+
+  await admin.auth().deleteUser(uid);
+}
+
 function getFirestore() {
   if (!initializeFirebaseAdmin()) {
     throw new Error('Firebase Admin is not configured');
@@ -245,5 +255,6 @@ module.exports = {
   signInWithEmailPassword,
   generatePasswordResetLink,
   triggerFirebasePasswordResetEmail,
+  deleteFirebaseUser,
   getFirestore,
 };

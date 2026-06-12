@@ -10,8 +10,10 @@ const {
   signInWithEmailPassword,
   generatePasswordResetLink,
   triggerFirebasePasswordResetEmail,
+  deleteFirebaseUser,
 } = require('../services/firebase_admin_service');
 const { sendPasswordResetEmail } = require('../services/email_service');
+const { authMiddleware } = require('../middleware/auth');
 const store = require('../services/firestore_store');
 
 const router = express.Router();
@@ -309,6 +311,111 @@ router.post('/google', async (req, res) => {
   } catch (error) {
     console.error('[Auth] Google sign-in error:', error);
     res.status(500).json({ message: error.message || 'Google sign-in failed' });
+  }
+});
+
+router.post('/apple', async (req, res) => {
+  try {
+    const { idToken } = req.body;
+    if (!idToken) {
+      return res.status(400).json({ message: 'Apple Firebase idToken is required' });
+    }
+
+    const decodedToken = await verifyFirebaseIdToken(idToken);
+    const signInProvider = decodedToken.firebase?.sign_in_provider;
+    if (signInProvider !== 'apple.com') {
+      return res.status(401).json({ message: 'Token is not from Sign in with Apple' });
+    }
+
+    const firebaseUid = decodedToken.uid;
+    const email = normalizeEmail(decodedToken.email);
+    let user = await store.getUserByFirebaseUid(firebaseUid);
+
+    if (!user && email) {
+      user = await store.getUserByEmail(email);
+    }
+
+    if (user) {
+      const updates = {};
+      if (user.firebaseUid !== firebaseUid) {
+        updates.firebaseUid = firebaseUid;
+      }
+      if (!user.email && email) {
+        updates.email = email;
+      }
+      if (!user.name && decodedToken.name) {
+        updates.name = decodedToken.name;
+      }
+      if (!user.authProvider) {
+        updates.authProvider = 'apple';
+      }
+
+      if (Object.keys(updates).length > 0) {
+        user = await store.updateUser(user.id, updates);
+      }
+    } else {
+      const baseUsername =
+        decodedToken.email?.split('@')[0] || decodedToken.name || 'apple_user';
+      const username = await generateUniqueUsername(baseUsername);
+
+      user = await store.createUser({
+        username,
+        email,
+        name: decodedToken.name || username,
+        userType: 'patient',
+        authProvider: 'apple',
+        firebaseUid,
+        password: null,
+      });
+    }
+
+    res.json(await buildAuthPayload(user));
+  } catch (error) {
+    console.error('[Auth] Apple sign-in error:', error);
+    res.status(500).json({ message: error.message || 'Apple sign-in failed' });
+  }
+});
+
+router.delete('/account', authMiddleware, async (req, res) => {
+  try {
+    const user = await store.getUserById(req.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Unlink caregiver/patient relations before user removal.
+    if (user.userType === 'patient' && user.caregiverId) {
+      const caregiver = await store.getUserById(user.caregiverId);
+      if (caregiver) {
+        const nextPatientIds = (caregiver.patientIds || []).filter(
+          (id) => id !== user.id,
+        );
+        await store.updateUser(caregiver.id, { patientIds: nextPatientIds });
+      }
+    }
+
+    if (user.userType === 'caregiver' && Array.isArray(user.patientIds)) {
+      for (const patientId of user.patientIds) {
+        await store.updateUser(patientId, { caregiverId: null });
+      }
+    }
+
+    await store.deleteInvitationsForPatient(user.id);
+    await store.deleteUser(user.id);
+
+    if (user.firebaseUid) {
+      try {
+        await deleteFirebaseUser(user.firebaseUid);
+      } catch (firebaseError) {
+        // Do not fail the deletion response if backend user was removed.
+        console.error('[Auth] Failed to delete Firebase user:', firebaseError);
+      }
+    }
+
+    return res.json({ success: true, message: 'Account deleted successfully' });
+  } catch (error) {
+    console.error('[Auth] Delete account error:', error);
+    return res.status(500).json({ message: 'Failed to delete account' });
   }
 });
 

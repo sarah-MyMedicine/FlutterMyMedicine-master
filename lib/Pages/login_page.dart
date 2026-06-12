@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../providers/user_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/patient_data_sync_service.dart';
@@ -123,6 +125,44 @@ class _LoginPageState extends State<LoginPage> {
     } else {
       final language = Provider.of<SettingsProvider>(context, listen: false).language;
       final errorMessage = userProvider.lastError ?? AppTranslations.translate('google_sign_in_failed', language);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _loginWithApple() async {
+    setState(() => _isLoading = true);
+
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final success = await userProvider.signInWithApple();
+
+    if (!mounted) return;
+
+    setState(() => _isLoading = false);
+
+    if (success) {
+      try {
+        await PatientDataSyncService()
+            .syncAfterAuthentication(
+              context: context,
+              username: userProvider.username ?? '',
+            )
+            .timeout(const Duration(seconds: 5));
+      } catch (e) {
+        debugPrint('[AppleLogin] Post-auth sync skipped due timeout/error: $e');
+        await PatientDataSyncService().reloadProvidersFromLocal(context);
+      }
+
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, '/home');
+    } else {
+      final language = Provider.of<SettingsProvider>(context, listen: false).language;
+      final errorMessage = userProvider.lastError ??
+          AppTranslations.translate('apple_sign_in_failed', language);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(errorMessage),
@@ -327,6 +367,31 @@ class _LoginPageState extends State<LoginPage> {
                         const Expanded(child: Divider()),
                       ],
                     ),
+                    const SizedBox(height: 12),
+                    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) ...[
+                      const SizedBox(height: 12),
+                      IgnorePointer(
+                        ignoring: _isLoading,
+                        child: Opacity(
+                          opacity: _isLoading ? 0.6 : 1,
+                          child: SignInWithAppleButton(
+                            onPressed: _loginWithApple,
+                            height: 50,
+                            borderRadius: BorderRadius.circular(12),
+                            style: SignInWithAppleButtonStyle.black,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        AppTranslations.translate('apple_sign_in_privacy_note', lang),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,

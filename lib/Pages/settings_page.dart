@@ -150,6 +150,72 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Future<void> _deleteAccount(String lang) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(AppTranslations.translate('delete_account_title', lang)),
+        content: Text(AppTranslations.translate('delete_account_message', lang)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(AppTranslations.translate('cancel', lang)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: Text(AppTranslations.translate('delete_account_cta', lang)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    final success = await Provider.of<UserProvider>(
+      context,
+      listen: false,
+    ).deleteAccount(context: context);
+
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop();
+
+    if (success) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(AppTranslations.translate('account_deleted_success', lang)),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginPage()),
+        (route) => false,
+      );
+      return;
+    }
+
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          userProvider.lastError ??
+              AppTranslations.translate('account_delete_failed', lang),
+        ),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<SettingsProvider>(
@@ -208,6 +274,25 @@ class _SettingsPageState extends State<SettingsPage> {
                                         icon: const Icon(Icons.logout, size: 18),
                                         label: Text(
                                           AppTranslations.translate('logout', lang),
+                                        ),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: Colors.red,
+                                          side: const BorderSide(color: Colors.red),
+                                          padding: const EdgeInsets.symmetric(vertical: 12),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: OutlinedButton.icon(
+                                        onPressed: () => _deleteAccount(lang),
+                                        icon: const Icon(Icons.delete_forever, size: 18),
+                                        label: Text(
+                                          AppTranslations.translate('delete_account_cta', lang),
                                         ),
                                         style: OutlinedButton.styleFrom(
                                           foregroundColor: Colors.red,

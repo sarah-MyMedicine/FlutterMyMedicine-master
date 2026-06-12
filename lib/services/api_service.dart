@@ -533,6 +533,32 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> loginWithApple({
+    required String firebaseIdToken,
+  }) async {
+    try {
+      final response = await _postAuthWithFailover('/auth/apple', {
+        'idToken': firebaseIdToken,
+      });
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        await _saveAuthToken(data['token'], data['userId']);
+        debugPrint('[ApiService] Apple sign-in successful');
+        return data;
+      } else {
+        throw Exception(_extractApiError(response, 'Apple sign-in failed'));
+      }
+    } on TimeoutException {
+      throw Exception(
+        'انتهت مهلة الاتصال بالخادم. تأكد أن الـ backend يعمل وأن عنوان API صحيح.',
+      );
+    } catch (e) {
+      debugPrint('[ApiService] Apple sign-in error: $e');
+      rethrow;
+    }
+  }
+
   Future<void> requestPasswordReset({required String email}) async {
     try {
       final response = await _postRequest(
@@ -567,6 +593,25 @@ class ApiService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('auth_token');
       await prefs.remove('user_id');
+    }
+  }
+
+  Future<void> deleteAccount() async {
+    if (!isAuthenticated()) throw Exception('Not authenticated');
+
+    try {
+      final response = await _requestWithRecovery(
+        request: (baseUrl) =>
+            _httpClient.delete(Uri.parse('$baseUrl/auth/account'), headers: _getHeaders()),
+        timeout: const Duration(seconds: 15),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception(_extractApiError(response, 'Failed to delete account'));
+      }
+    } catch (e) {
+      debugPrint('[ApiService] Delete account error: $e');
+      rethrow;
     }
   }
 
