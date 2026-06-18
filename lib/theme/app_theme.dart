@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AppColors {
   static const warning = Color(0xFFFFB300);
@@ -59,7 +60,8 @@ class AppTheme {
           borderSide: BorderSide(color: primaryColor),
         ),
       ),
-      textTheme: TextTheme(
+      textTheme: GoogleFonts.notoSansArabicTextTheme(
+        TextTheme(
         headlineLarge: TextStyle(
           fontSize: 28,
           fontWeight: FontWeight.bold,
@@ -82,6 +84,7 @@ class AppTheme {
         bodyMedium: const TextStyle(fontSize: 14, color: Colors.black87),
         labelLarge: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         bodySmall: const TextStyle(fontSize: 12, color: Colors.grey),
+        ),
       ),
     );
   }

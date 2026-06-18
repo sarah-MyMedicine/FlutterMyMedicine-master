@@ -398,7 +398,6 @@ class HomePage extends StatelessWidget {
                                 _SquareTile(
                                   icon: Icons.flutter_dash,
                                   label: AppTranslations.translate('puberty_stage', lang),
-                                  iconColor: const Color(0xFFD81B60),
                                   onTap: () {
                                     Navigator.of(context).push(
                                       MaterialPageRoute(
@@ -414,7 +413,6 @@ class HomePage extends StatelessWidget {
                                 _SquareTile(
                                   icon: Icons.spa,
                                   label: AppTranslations.translate('menopause_stage_title', lang),
-                                  iconColor: const Color(0xFF9C27B0),
                                   backgroundImageAsset:
                                       'assets/button_backgrounds/Menopause_Stage.png',
                                   onTap: () {
@@ -432,7 +430,6 @@ class HomePage extends StatelessWidget {
                                 _SquareTile(
                                   icon: Icons.pregnant_woman,
                                   label: AppTranslations.translate('mother_fetus_care', lang),
-                                  iconColor: const Color(0xFFE91E7A),
                                   backgroundImageAsset:
                                       'assets/button_backgrounds/Mother_and_Fetus_care.png',
                                   onTap: () {
@@ -826,7 +823,6 @@ class _SquareTile extends StatelessWidget {
   final int? badge;
   final bool highlight;
   final VoidCallback? onTap;
-  final Color? iconColor;
   final String? backgroundImageAsset;
 
   const _SquareTile({
@@ -835,14 +831,12 @@ class _SquareTile extends StatelessWidget {
     this.badge,
     this.highlight = false,
     this.onTap,
-    this.iconColor,
     this.backgroundImageAsset,
   });
 
   @override
   Widget build(BuildContext context) {
     final bg = highlight ? Colors.red.shade50 : Colors.white;
-    final defaultIconColor = highlight ? Colors.white : const Color(0xFF36BBA0);
     final hasBackgroundImage =
         backgroundImageAsset != null && backgroundImageAsset!.isNotEmpty;
 
@@ -877,18 +871,6 @@ class _SquareTile extends StatelessWidget {
                 padding: const EdgeInsets.all(10),
                 child: Stack(
                   children: [
-                    Positioned(
-                      top: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Colors.redAccent.withOpacity(0.85),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(icon, size: 18, color: Colors.white),
-                      ),
-                    ),
                     Positioned(
                       left: 0,
                       right: 0,
@@ -944,13 +926,7 @@ class _SquareTile extends StatelessWidget {
                   children: [
                     Stack(
                       children: [
-                        CircleAvatar(
-                          radius: 26,
-                          backgroundColor: highlight
-                              ? Colors.redAccent
-                              : const Color(0xFFF6F7FA),
-                          child: Icon(icon, color: iconColor ?? defaultIconColor),
-                        ),
+                        const SizedBox(width: 52, height: 52),
                         if ((badge ?? 0) > 0)
                           Positioned(
                             right: 0,
