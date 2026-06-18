@@ -273,6 +273,8 @@ class HomePage extends StatelessWidget {
                               _SquareTile(
                                 icon: Icons.calendar_today,
                                 label: AppTranslations.translate('appointments', lang),
+                                backgroundImageAsset:
+                                    'assets/button_backgrounds/Medical_Appointments_button.png',
                                 onTap: () => Navigator.of(context).push(
                                   MaterialPageRoute(
                                     builder: (_) => const AppointmentsPage(),
@@ -287,6 +289,8 @@ class HomePage extends StatelessWidget {
                                     icon: Icons.local_pharmacy,
                                     label: AppTranslations.translate('my_medications', lang),
                                     badge: items.isNotEmpty ? items.length : 0,
+                                    backgroundImageAsset:
+                                        'assets/button_backgrounds/my_medications_button.png',
                                     onTap: () {
                                       showModalBottomSheet(
                                         context: context,
@@ -306,12 +310,16 @@ class HomePage extends StatelessWidget {
                                 icon: Icons.add_alert,
                                 label: AppTranslations.translate('emergency', lang),
                                 highlight: true,
+                                backgroundImageAsset:
+                                    'assets/button_backgrounds/emergency_button.png',
                                 onTap: () => _handleEmergencyTap(context, lang),
                               ),
 
                               _SquareTile(
                                 icon: Icons.note,
                                 label: AppTranslations.translate('adherence_log', lang),
+                                backgroundImageAsset:
+                                    'assets/button_backgrounds/Adherence_Log_button.png',
                                 onTap: () {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
@@ -323,6 +331,8 @@ class HomePage extends StatelessWidget {
                               _SquareTile(
                                 icon: Icons.sentiment_satisfied_alt,
                                 label: AppTranslations.translate('symptom_log', lang),
+                                backgroundImageAsset:
+                                    'assets/button_backgrounds/Symptom_Log.png',
                                 onTap: () => Navigator.of(context).push(
                                   MaterialPageRoute(
                                     builder: (_) => const SymptomLogPage(),
@@ -332,6 +342,8 @@ class HomePage extends StatelessWidget {
                               _SquareTile(
                                 icon: Icons.medical_services,
                                 label: AppTranslations.translate('health_report', lang),
+                                backgroundImageAsset:
+                                    'assets/button_backgrounds/Health_Report_button.png',
                                 onTap: () {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
@@ -344,6 +356,8 @@ class HomePage extends StatelessWidget {
                               _SquareTile(
                                 icon: Icons.vaccines,
                                 label: AppTranslations.translate('lab_results', lang),
+                                backgroundImageAsset:
+                                    'assets/button_backgrounds/Lab_results.png',
                                 onTap: () {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
@@ -355,6 +369,8 @@ class HomePage extends StatelessWidget {
                               _SquareTile(
                                 icon: Icons.access_time,
                                 label: AppTranslations.translate('blood_pressure_log', lang),
+                                backgroundImageAsset:
+                                    'assets/button_backgrounds/blood_pressure_button.png',
                                 onTap: () {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
@@ -366,6 +382,8 @@ class HomePage extends StatelessWidget {
                               _SquareTile(
                                 icon: Icons.bloodtype,
                                 label: AppTranslations.translate('blood_sugar_log', lang),
+                                backgroundImageAsset:
+                                    'assets/button_backgrounds/blood_sugar_button.png',
                                 onTap: () {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
@@ -397,6 +415,8 @@ class HomePage extends StatelessWidget {
                                   icon: Icons.spa,
                                   label: AppTranslations.translate('menopause_stage_title', lang),
                                   iconColor: const Color(0xFF9C27B0),
+                                  backgroundImageAsset:
+                                      'assets/button_backgrounds/Menopause_Stage.png',
                                   onTap: () {
                                     Navigator.of(context).push(
                                       MaterialPageRoute(
@@ -413,6 +433,8 @@ class HomePage extends StatelessWidget {
                                   icon: Icons.pregnant_woman,
                                   label: AppTranslations.translate('mother_fetus_care', lang),
                                   iconColor: const Color(0xFFE91E7A),
+                                  backgroundImageAsset:
+                                      'assets/button_backgrounds/Mother_and_Fetus_care.png',
                                   onTap: () {
                                     Navigator.of(context).push(
                                       MaterialPageRoute(
@@ -805,6 +827,7 @@ class _SquareTile extends StatelessWidget {
   final bool highlight;
   final VoidCallback? onTap;
   final Color? iconColor;
+  final String? backgroundImageAsset;
 
   const _SquareTile({
     required this.icon,
@@ -813,73 +836,160 @@ class _SquareTile extends StatelessWidget {
     this.highlight = false,
     this.onTap,
     this.iconColor,
+    this.backgroundImageAsset,
   });
 
   @override
   Widget build(BuildContext context) {
     final bg = highlight ? Colors.red.shade50 : Colors.white;
     final defaultIconColor = highlight ? Colors.white : const Color(0xFF36BBA0);
+    final hasBackgroundImage =
+        backgroundImageAsset != null && backgroundImageAsset!.isNotEmpty;
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: bg,
+          color: hasBackgroundImage ? null : bg,
+          image: hasBackgroundImage
+              ? DecorationImage(
+                  image: AssetImage(backgroundImageAsset!),
+                  fit: BoxFit.cover,
+                )
+              : null,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6)],
           border: Border.all(color: Colors.grey.withOpacity(0.08)),
         ),
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Stack(
-              children: [
-                CircleAvatar(
-                  radius: 26,
-                  backgroundColor: highlight
-                      ? Colors.redAccent
-                      : const Color(0xFFF6F7FA),
-                  child: Icon(icon, color: iconColor ?? defaultIconColor),
+        child: hasBackgroundImage
+            ? Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withOpacity(0.15),
+                      Colors.black.withOpacity(0.45),
+                    ],
+                  ),
                 ),
-                if ((badge ?? 0) > 0)
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
+                padding: const EdgeInsets.all(10),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent.withOpacity(0.85),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(icon, size: 18, color: Colors.white),
                       ),
-                      decoration: BoxDecoration(
-                        color: Colors.redAccent,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                    ),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
                       child: Text(
-                        '$badge',
+                        label,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 10,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black54,
+                              blurRadius: 5,
+                              offset: Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if ((badge ?? 0) > 0)
+                      Positioned(
+                        left: 0,
+                        top: 0,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.redAccent,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '$badge',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              )
+            : Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 26,
+                          backgroundColor: highlight
+                              ? Colors.redAccent
+                              : const Color(0xFFF6F7FA),
+                          child: Icon(icon, color: iconColor ?? defaultIconColor),
+                        ),
+                        if ((badge ?? 0) > 0)
+                          Positioned(
+                            right: 0,
+                            top: 0,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.redAccent,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '$badge',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: Center(
+                        child: Text(
+                          label,
+                          style: const TextStyle(fontSize: 12),
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: Center(
-                child: Text(
-                  label,
-                  style: const TextStyle(fontSize: 12),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                  ],
                 ),
               ),
-            ),
-          ],
-        ),
       ),
     );
   }
