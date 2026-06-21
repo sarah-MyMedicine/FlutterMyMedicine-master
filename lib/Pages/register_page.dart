@@ -22,7 +22,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final _confirmPasswordController = TextEditingController();
   final _nameController = TextEditingController();
   final _ageController = TextEditingController();
-  final String _selectedUserType = 'patient';
+  String _selectedUserType = 'patient';
   PatientGender? _selectedGender;
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -58,15 +58,6 @@ class _RegisterPageState extends State<RegisterPage> {
     });
     if (normalized.isEmpty) return null;
     return int.tryParse(normalized);
-  }
-
-  void _showComingSoon(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: const Duration(seconds: 2),
-      ),
-    );
   }
 
   String _localizedRegisterError(String? rawMessage, String language) {
@@ -137,16 +128,12 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
 
-    final lang = Provider.of<SettingsProvider>(context, listen: false).language;
-    if (_selectedUserType == 'caregiver') {
-      _showComingSoon(
-        '${AppTranslations.translate('caregiver', lang)} - ${AppTranslations.translate('coming_soon', lang)}',
-      );
-      return;
-    }
-
-    final parsedAge = _parseLocalizedAge(_ageController.text);
-    if (_ageController.text.trim().isNotEmpty && parsedAge == null) {
+    final parsedAge = _selectedUserType == 'patient'
+      ? _parseLocalizedAge(_ageController.text)
+      : null;
+    if (_selectedUserType == 'patient' &&
+      _ageController.text.trim().isNotEmpty &&
+      parsedAge == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('العمر غير صالح'),
@@ -174,20 +161,22 @@ class _RegisterPageState extends State<RegisterPage> {
     if (success) {
       final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
       await settingsProvider.setName(_nameController.text.trim());
-      await settingsProvider.setAge(parsedAge);
-      await settingsProvider.setGender(_selectedGender);
+      await settingsProvider.setAge(_selectedUserType == 'patient' ? parsedAge : null);
+      await settingsProvider.setGender(_selectedUserType == 'patient' ? _selectedGender : null);
 
-      try {
-        await PatientDataSyncService()
-            .syncAfterAuthentication(
-              context: context,
-              username:
-                  userProvider.username ?? _usernameController.text.trim().toLowerCase(),
-            )
-          .timeout(const Duration(seconds: 5));
-      } catch (e) {
-        debugPrint('[Register] Post-auth sync skipped due timeout/error: $e');
-        await PatientDataSyncService().reloadProvidersFromLocal(context);
+      if (userProvider.isPatient) {
+        try {
+          await PatientDataSyncService()
+              .syncAfterAuthentication(
+                context: context,
+                username:
+                    userProvider.username ?? _usernameController.text.trim().toLowerCase(),
+              )
+            .timeout(const Duration(seconds: 5));
+        } catch (e) {
+          debugPrint('[Register] Post-auth sync skipped due timeout/error: $e');
+          await PatientDataSyncService().reloadProvidersFromLocal(context);
+        }
       }
 
       if (!mounted) return;
@@ -251,43 +240,77 @@ class _RegisterPageState extends State<RegisterPage> {
               textDirection: TextDirection.ltr,
             ),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _ageController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: AppTranslations.translate('age', sp.language),
-                      prefixIcon: const Icon(Icons.cake_outlined),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
+            DropdownButtonFormField<String>(
+              initialValue: _selectedUserType,
+              items: [
+                DropdownMenuItem(
+                  value: 'patient',
+                  child: Text(
+                    AppTranslations.translate('patient', sp.language),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: DropdownButtonFormField<PatientGender>(
-                    initialValue: _selectedGender,
-                    items: [
-                      DropdownMenuItem(
-                        value: PatientGender.male,
-                        child: Text(AppTranslations.translate('male', sp.language)),
-                      ),
-                      DropdownMenuItem(
-                        value: PatientGender.female,
-                        child: Text(AppTranslations.translate('female', sp.language)),
-                      ),
-                    ],
-                    onChanged: (v) => setState(() => _selectedGender = v),
-                    decoration: InputDecoration(
-                      labelText: AppTranslations.translate('gender', sp.language),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
+                DropdownMenuItem(
+                  value: 'caregiver',
+                  child: Text(
+                    AppTranslations.translate('caregiver', sp.language),
                   ),
                 ),
               ],
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() {
+                  _selectedUserType = value;
+                  if (_selectedUserType != 'patient') {
+                    _ageController.clear();
+                    _selectedGender = null;
+                  }
+                });
+              },
+              decoration: InputDecoration(
+                labelText: AppTranslations.translate('account_type', sp.language),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
             ),
             const SizedBox(height: 16),
+            if (_selectedUserType == 'patient') ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _ageController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: AppTranslations.translate('age', sp.language),
+                        prefixIcon: const Icon(Icons.cake_outlined),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: DropdownButtonFormField<PatientGender>(
+                      initialValue: _selectedGender,
+                      items: [
+                        DropdownMenuItem(
+                          value: PatientGender.male,
+                          child: Text(AppTranslations.translate('male', sp.language)),
+                        ),
+                        DropdownMenuItem(
+                          value: PatientGender.female,
+                          child: Text(AppTranslations.translate('female', sp.language)),
+                        ),
+                      ],
+                      onChanged: (v) => setState(() => _selectedGender = v),
+                      decoration: InputDecoration(
+                        labelText: AppTranslations.translate('gender', sp.language),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
             TextField(
               controller: _passwordController,
               obscureText: _obscurePassword,

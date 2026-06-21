@@ -40,6 +40,8 @@ class AppTranslations {
       'username': 'اسم المستخدم',
       'username_or_email': 'اسم المستخدم أو البريد الإلكتروني',
       'email': 'البريد الإلكتروني',
+      'patient': 'المريض',
+      'account_type': 'نوع الحساب',
       'password': 'كلمة المرور',
       'please_enter_username_password': 'الرجاء إدخال اسم المستخدم وكلمة المرور',
       'please_enter_username_or_email_password': 'الرجاء إدخال اسم المستخدم أو البريد الإلكتروني وكلمة المرور',
@@ -296,6 +298,7 @@ class AppTranslations {
       // Caregiver
       'caregiver': 'مقدم الرعاية',
       'caregiver_link': 'ربط مقدم الرعاية',
+      'add_caregiver': 'المراقب الدوائي',
       'my_patients': 'مرضاي',
       'invite_caregiver': 'دعوة مقدم رعاية',
       'invitation_code': 'رمز الدعوة',
@@ -883,6 +886,8 @@ class AppTranslations {
       'username': 'Username',
       'username_or_email': 'Username or email',
       'email': 'Email',
+      'patient': 'Patient',
+      'account_type': 'Account Type',
       'password': 'Password',
       'please_enter_username_password': 'Please enter username and password',
       'please_enter_username_or_email_password': 'Please enter username or email and password',
@@ -1139,6 +1144,7 @@ class AppTranslations {
       // Caregiver
       'caregiver': 'Caregiver',
       'caregiver_link': 'Link Caregiver',
+      'add_caregiver': 'Add Caregiver',
       'my_patients': 'My Patients',
       'invite_caregiver': 'Invite Caregiver',
       'invitation_code': 'Invitation Code',

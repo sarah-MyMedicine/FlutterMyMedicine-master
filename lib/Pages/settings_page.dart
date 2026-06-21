@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/user_provider.dart';
+import '../services/api_service.dart';
 import '../utils/translations.dart';
 import 'reminder_reliability_check_page.dart';
 import 'login_page.dart';
@@ -17,6 +18,34 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   final _nameCtrl = TextEditingController();
   final _ageCtrl = TextEditingController();
+  Map<String, dynamic>? _linkedCaregiver;
+  bool _isLoadingCaregiver = false;
+
+  Future<void> _loadLinkedCaregiver() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    if (!userProvider.isPatient || userProvider.username == null) {
+      if (!mounted) return;
+      setState(() {
+        _linkedCaregiver = null;
+        _isLoadingCaregiver = false;
+      });
+      return;
+    }
+
+    if (mounted) {
+      setState(() => _isLoadingCaregiver = true);
+    }
+
+    final caregiver = await ApiService().getLinkedCaregiver(
+      userProvider.username!,
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _linkedCaregiver = caregiver;
+      _isLoadingCaregiver = false;
+    });
+  }
 
   String _normalizeLocalizedDigits(String input) {
     const map = {
@@ -107,6 +136,7 @@ class _SettingsPageState extends State<SettingsPage> {
       await sp.load();
       _nameCtrl.text = sp.name;
       _ageCtrl.text = sp.age?.toString() ?? '';
+      await _loadLinkedCaregiver();
       setState(() {});
     });
   }
@@ -311,6 +341,88 @@ class _SettingsPageState extends State<SettingsPage> {
                         },
                       ),
                       const SizedBox(height: 16),
+
+                      Consumer<UserProvider>(
+                        builder: (context, userProvider, _) {
+                          if (!userProvider.isPatient) {
+                            return const SizedBox.shrink();
+                          }
+
+                          return Column(
+                            children: [
+                              _buildSection(
+                                lang: lang,
+                                title: AppTranslations.translate('caregiver_link', lang),
+                                children: [
+                                  if (_isLoadingCaregiver)
+                                    const Padding(
+                                      padding: EdgeInsets.symmetric(vertical: 8),
+                                      child: Center(child: CircularProgressIndicator()),
+                                    )
+                                  else if (_linkedCaregiver != null)
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade100,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            AppTranslations.translate('linked_caregiver', lang),
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            _linkedCaregiver!['name']?.toString() ?? '—',
+                                            style: const TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            '@${_linkedCaregiver!['username']?.toString() ?? ''}',
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              color: Colors.black54,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                  else
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: ElevatedButton(
+                                        onPressed: () async {
+                                          await Navigator.of(context).pushNamed('/caregiver-link');
+                                          await _loadLinkedCaregiver();
+                                        },
+                                        style: ElevatedButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(vertical: 12),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          AppTranslations.translate('add_caregiver', lang),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+                          );
+                        },
+                      ),
 
                       // Personal Profile Section
                       _buildSection(
