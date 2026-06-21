@@ -201,7 +201,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           debugShowCheckedModeBanner: false,
           navigatorKey: _navigatorKey,
           title: 'My Medicine',
-          theme: AppTheme.theme(settingsProvider.themeColor),
+          theme: AppTheme.lightTheme(settingsProvider.themeColor),
+          darkTheme: AppTheme.darkTheme(settingsProvider.themeColor),
+          themeMode: ThemeMode.system,
           home: getInitialPage(),
           routes: {
             '/home': (context) => const HomePage(),

@@ -82,25 +82,32 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
       
       // Auto-expire after 24 hours
       _codeExpiryTimer = Timer(const Duration(hours: 24), () {
+        final lang = Provider.of<SettingsProvider>(context, listen: false).language;
         if (mounted) {
           setState(() => _generatedCode = null);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('انتهت صلاحية رمز الدعوة')),
+            SnackBar(content: Text(AppTranslations.translate('code_expired', lang))),
           );
         }
       });
       
       if (mounted) {
+        final lang = Provider.of<SettingsProvider>(context, listen: false).language;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('تم إنشاء رمز الدعوة: $_generatedCode')),
+          SnackBar(
+            content: Text(
+              '${AppTranslations.translate('invitation_code_generated', lang)}: $_generatedCode',
+            ),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
+        final lang = Provider.of<SettingsProvider>(context, listen: false).language;
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('فشل إنشاء رمز الدعوة'),
+          SnackBar(
+            content: Text(AppTranslations.translate('failed_to_generate_code', lang)),
             backgroundColor: Colors.red,
           ),
         );
@@ -118,15 +125,16 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
     );
     
     if (mounted) {
+      final lang = Provider.of<SettingsProvider>(context, listen: false).language;
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم قبول الدعوة بنجاح')),
+          SnackBar(content: Text(AppTranslations.translate('invitation_accepted', lang))),
         );
         _loadData();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('فشل قبول الدعوة'),
+          SnackBar(
+            content: Text(AppTranslations.translate('failed_to_accept_invitation', lang)),
             backgroundColor: Colors.red,
           ),
         );
@@ -139,9 +147,10 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
     final success = await apiService.rejectInvitation(code);
     
     if (mounted) {
+      final lang = Provider.of<SettingsProvider>(context, listen: false).language;
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم رفض الدعوة')),
+          SnackBar(content: Text(AppTranslations.translate('invitation_rejected', lang))),
         );
         _loadData();
       }
@@ -153,8 +162,9 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
     final apiService = ApiService();
     
     if (_codeController.text.isEmpty) {
+      final lang = Provider.of<SettingsProvider>(context, listen: false).language;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('الرجاء إدخال رمز الدعوة')),
+        SnackBar(content: Text(AppTranslations.translate('please_enter_invitation_code', lang))),
       );
       return;
     }
@@ -165,16 +175,17 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
     );
     
     if (mounted) {
+      final lang = Provider.of<SettingsProvider>(context, listen: false).language;
       if (success) {
         _codeController.clear();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم الربط بنجاح')),
+          SnackBar(content: Text(AppTranslations.translate('linked_successfully', lang))),
         );
         _loadData();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('رمز الدعوة غير صحيح أو منتهي الصلاحية'),
+          SnackBar(
+            content: Text(AppTranslations.translate('invalid_invitation_code', lang)),
             backgroundColor: Colors.red,
           ),
         );
@@ -184,21 +195,25 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
   
   Future<void> _unlinkCaregiver() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final lang = Provider.of<SettingsProvider>(context, listen: false).language;
     final apiService = ApiService();
     
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('تأكيد إلغاء الربط'),
-        content: const Text('هل أنت متأكد من إلغاء ربط مقدم الرعاية؟'),
+        title: Text(AppTranslations.translate('confirm_unlink', lang)),
+        content: Text(AppTranslations.translate('confirm_unlink_caregiver', lang)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('إلغاء'),
+            child: Text(AppTranslations.translate('cancel', lang)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('تأكيد', style: TextStyle(color: Colors.red)),
+            child: Text(
+              AppTranslations.translate('confirm', lang),
+              style: const TextStyle(color: Colors.red),
+            ),
           ),
         ],
       ),
@@ -213,15 +228,15 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
         
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('تم إلغاء الربط')),
+            SnackBar(content: Text(AppTranslations.translate('caregiver_unlinked', lang))),
           );
           _loadData();
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('فشل إلغاء الربط'),
+            SnackBar(
+              content: Text(AppTranslations.translate('failed_to_unlink', lang)),
               backgroundColor: Colors.red,
             ),
           );
@@ -234,20 +249,21 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context);
     final sp = Provider.of<SettingsProvider>(context);
+    final lang = sp.language;
     
     return Scaffold(
       appBar: AppBar(
-        title: const Text('مقدم الرعاية'),
+        title: Text(AppTranslations.translate('caregiver', lang)),
         backgroundColor: sp.themeColor,
         foregroundColor: Colors.white,
         bottom: userProvider.isCaregiver
             ? TabBar(
                 controller: _tabController,
                 indicatorColor: Colors.white,
-                tabs: const [
-                  Tab(text: 'الدعوات'),
-                  Tab(text: 'المرضى'),
-                  Tab(text: 'الإشعارات'),
+                tabs: [
+                  Tab(text: AppTranslations.translate('invitations', lang)),
+                  Tab(text: AppTranslations.translate('patients', lang)),
+                  Tab(text: AppTranslations.translate('notifications', lang)),
                 ],
               )
             : null,
@@ -268,6 +284,7 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
   }
   
   Widget _buildPatientView(SettingsProvider sp) {
+    final lang = sp.language;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -282,15 +299,15 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                 children: [
                   Icon(Icons.qr_code_2, size: 80, color: sp.themeColor),
                   const SizedBox(height: 16),
-                  const Text(
-                    'دعوة مقدم رعاية',
+                  Text(
+                    AppTranslations.translate('invite_caregiver', lang),
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'أنشئ رمز دعوة وشاركه مع مقدم الرعاية الخاص بك',
+                  Text(
+                    AppTranslations.translate('share_code_with_caregiver', lang),
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey, fontSize: 14),
+                    style: const TextStyle(color: Colors.grey, fontSize: 14),
                   ),
                   const SizedBox(height: 24),
                   if (_generatedCode != null) ...[
@@ -313,8 +330,8 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                             ),
                           ),
                           const SizedBox(height: 8),
-                          const Text(
-                            'صالح لمدة 24 ساعة',
+                          Text(
+                            AppTranslations.translate('code_valid_24_hours', lang),
                             style: TextStyle(color: Colors.grey, fontSize: 12),
                           ),
                         ],
@@ -328,11 +345,13 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                             onPressed: () {
                               Clipboard.setData(ClipboardData(text: _generatedCode!));
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('تم نسخ الرمز')),
+                                SnackBar(
+                                  content: Text(AppTranslations.translate('code_copied', lang)),
+                                ),
                               );
                             },
                             icon: const Icon(Icons.copy),
-                            label: const Text('نسخ الرمز'),
+                            label: Text(AppTranslations.translate('copy_code', lang)),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: sp.themeColor,
                               foregroundColor: Colors.white,
@@ -348,7 +367,7 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                               _codeExpiryTimer?.cancel();
                             },
                             icon: const Icon(Icons.refresh),
-                            label: const Text('رمز جديد'),
+                            label: Text(AppTranslations.translate('new_code', lang)),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: sp.themeColor,
                               side: BorderSide(color: sp.themeColor),
@@ -362,7 +381,7 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                     ElevatedButton.icon(
                       onPressed: _generateInvitation,
                       icon: const Icon(Icons.add),
-                      label: const Text('إنشاء رمز دعوة'),
+                      label: Text(AppTranslations.translate('generate_invitation_code', lang)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: sp.themeColor,
                         foregroundColor: Colors.white,
@@ -398,8 +417,8 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'مقدم الرعاية المرتبط',
+                              Text(
+                                AppTranslations.translate('linked_caregiver', lang),
                                 style: TextStyle(fontSize: 12, color: Colors.grey),
                               ),
                               const SizedBox(height: 4),
@@ -423,7 +442,7 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                     OutlinedButton.icon(
                       onPressed: _unlinkCaregiver,
                       icon: const Icon(Icons.link_off),
-                      label: const Text('إلغاء الربط'),
+                      label: Text(AppTranslations.translate('unlink_caregiver', lang)),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.red,
                         side: const BorderSide(color: Colors.red),
@@ -438,15 +457,15 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
             Card(
               elevation: 2,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              child: const Padding(
+              child: Padding(
                 padding: EdgeInsets.all(20),
                 child: Column(
                   children: [
                     Icon(Icons.person_add_disabled, size: 60, color: Colors.grey),
                     SizedBox(height: 12),
                     Text(
-                      'لم يتم ربط مقدم رعاية بعد',
-                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                      AppTranslations.translate('no_linked_caregiver', lang),
+                      style: const TextStyle(fontSize: 16, color: Colors.grey),
                     ),
                   ],
                 ),
@@ -458,6 +477,7 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
   }
   
   Widget _buildInvitationsTab(SettingsProvider sp) {
+    final lang = sp.language;
     return RefreshIndicator(
       onRefresh: _loadData,
       child: SingleChildScrollView(
@@ -474,21 +494,21 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'إدخال رمز الدعوة',
+                    Text(
+                      AppTranslations.translate('enter_invitation_code', lang),
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      'أدخل الرمز الذي حصلت عليه من المريض',
+                    Text(
+                      AppTranslations.translate('enter_code_from_patient', lang),
                       style: TextStyle(color: Colors.grey, fontSize: 14),
                     ),
                     const SizedBox(height: 16),
                     TextField(
                       controller: _codeController,
                       decoration: InputDecoration(
-                        labelText: 'رمز الدعوة',
-                        hintText: 'مثال: ABC123',
+                        labelText: AppTranslations.translate('invitation_code', lang),
+                        hintText: AppTranslations.translate('invitation_code_example', lang),
                         prefixIcon: const Icon(Icons.vpn_key),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       ),
@@ -506,7 +526,7 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                     ElevatedButton.icon(
                       onPressed: _enterCode,
                       icon: const Icon(Icons.link),
-                      label: const Text('ربط الحساب'),
+                      label: Text(AppTranslations.translate('link_account', lang)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: sp.themeColor,
                         foregroundColor: Colors.white,
@@ -526,15 +546,15 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
               Card(
                 elevation: 2,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                child: const Padding(
+                child: Padding(
                   padding: EdgeInsets.all(40),
                   child: Column(
                     children: [
                       Icon(Icons.inbox, size: 80, color: Colors.grey),
                       SizedBox(height: 16),
                       Text(
-                        'لا توجد دعوات معلقة',
-                        style: TextStyle(fontSize: 18, color: Colors.grey),
+                        AppTranslations.translate('no_pending_invitations', lang),
+                        style: const TextStyle(fontSize: 18, color: Colors.grey),
                       ),
                     ],
                   ),
@@ -544,8 +564,8 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'الدعوات المعلقة',
+                  Text(
+                    AppTranslations.translate('pending_invitations', lang),
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
@@ -567,7 +587,7 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                       ),
                       subtitle: Text(
-                        'رمز الدعوة: ${invitation['invitationCode']}',
+                        '${AppTranslations.translate('invitation_code', lang)}: ${invitation['invitationCode']}',
                         style: const TextStyle(fontSize: 14),
                       ),
                       trailing: Row(
@@ -594,18 +614,19 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
   }
   
   Widget _buildLinkedPatientsTab(SettingsProvider sp) {
+    final lang = sp.language;
     return RefreshIndicator(
       onRefresh: _loadData,
       child: _linkedPatients.isEmpty
-          ? const Center(
+          ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.people_outline, size: 80, color: Colors.grey),
                   SizedBox(height: 16),
                   Text(
-                    'لم يتم ربط أي مرضى بعد',
-                    style: TextStyle(fontSize: 18, color: Colors.grey),
+                    AppTranslations.translate('no_linked_patients', lang),
+                    style: const TextStyle(fontSize: 18, color: Colors.grey),
                   ),
                 ],
               ),
@@ -640,7 +661,9 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                     onTap: () {
                       // TODO: Navigate to patient details
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('عرض تفاصيل المريض - قريباً')),
+                        SnackBar(
+                          content: Text(AppTranslations.translate('view_patient_details', lang)),
+                        ),
                       );
                     },
                   ),
@@ -668,10 +691,10 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                 style: const TextStyle(fontSize: 18, color: Colors.grey),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'ستظهر هنا أيضاً تنبيهات الطوارئ المصنفة كصفارة إنذار',
+              Text(
+                AppTranslations.translate('siren_alerts_appear_here', lang),
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: Colors.grey),
+                style: const TextStyle(fontSize: 14, color: Colors.grey),
               ),
             ],
           ),
@@ -728,7 +751,7 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                   Text(
                     isSiren
                         ? AppTranslations.translate('siren_classification', lang)
-                        : 'Classification: ${classification.isEmpty ? 'high' : classification}',
+                        : '${AppTranslations.translate('classification_label', lang)}: ${classification.isEmpty ? 'high' : classification}',
                     style: TextStyle(
                       fontSize: 12,
                       color: isSiren ? Colors.red : Colors.grey,
@@ -755,8 +778,8 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                         } catch (_) {
                           if (!mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('فشل تحديث حالة التنبيه'),
+                            SnackBar(
+                              content: Text(AppTranslations.translate('failed_update_alert_status', lang)),
                               backgroundColor: Colors.red,
                             ),
                           );
