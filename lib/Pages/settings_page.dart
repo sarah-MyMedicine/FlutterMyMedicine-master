@@ -18,6 +18,8 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   final _nameCtrl = TextEditingController();
   final _ageCtrl = TextEditingController();
+  final _patientUsernameCtrl = TextEditingController();
+  final _caregiverCodeCtrl = TextEditingController();
   Map<String, dynamic>? _linkedCaregiver;
   bool _isLoadingCaregiver = false;
 
@@ -145,7 +147,91 @@ class _SettingsPageState extends State<SettingsPage> {
   void dispose() {
     _nameCtrl.dispose();
     _ageCtrl.dispose();
+    _patientUsernameCtrl.dispose();
+    _caregiverCodeCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _linkPatientWithCode(String lang) async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    if (!userProvider.isCaregiver || userProvider.username == null) return;
+
+    _patientUsernameCtrl.clear();
+    _caregiverCodeCtrl.clear();
+    final data = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Text(AppTranslations.translate('link_patient_with_code', lang)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _patientUsernameCtrl,
+                decoration: InputDecoration(
+                  labelText: AppTranslations.translate('patient_username_label', lang),
+                  hintText: AppTranslations.translate('username', lang),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _caregiverCodeCtrl,
+                textCapitalization: TextCapitalization.characters,
+                maxLength: 6,
+                decoration: InputDecoration(
+                  labelText: AppTranslations.translate('invitation_code', lang),
+                  hintText: AppTranslations.translate('invitation_code_example', lang),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(AppTranslations.translate('cancel', lang)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(ctx).pop({
+                  'patientUsername': _patientUsernameCtrl.text.trim().toLowerCase(),
+                  'code': _caregiverCodeCtrl.text.trim().toUpperCase(),
+                });
+              },
+              child: Text(AppTranslations.translate('link_account', lang)),
+            ),
+          ],
+        );
+      },
+    );
+
+    final patientUsername = data?['patientUsername'] ?? '';
+    final code = data?['code'] ?? '';
+    if (patientUsername.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppTranslations.translate('please_enter_patient_username', lang))),
+      );
+      return;
+    }
+    if (code.isEmpty) return;
+
+    final success = await ApiService().acceptInvitation(
+      invitationCode: code,
+      caregiverUsername: userProvider.username!,
+      patientUsername: patientUsername,
+    );
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success
+              ? AppTranslations.translate('linked_successfully', lang)
+              : AppTranslations.translate('invalid_invitation_code', lang),
+        ),
+        backgroundColor: success ? Colors.green : Colors.red,
+      ),
+    );
   }
 
   Future<void> _logout(String lang) async {
@@ -251,14 +337,19 @@ class _SettingsPageState extends State<SettingsPage> {
     return Consumer<SettingsProvider>(
       builder: (context, sp, _) {
         final lang = sp.language;
+        final theme = Theme.of(context);
+        final isDark = theme.brightness == Brightness.dark;
+        final surfaceMuted = isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade100;
+        final subtleText = isDark ? Colors.white70 : Colors.grey;
         return Directionality(
           textDirection: lang == 'ar' ? TextDirection.rtl : TextDirection.ltr,
           child: Scaffold(
-            backgroundColor: Colors.grey[50],
+            backgroundColor: theme.scaffoldBackgroundColor,
             appBar: AppBar(
               title: Text(AppTranslations.translate('settings', lang)),
               centerTitle: true,
-              backgroundColor: Colors.white,
+              backgroundColor: theme.appBarTheme.backgroundColor,
+              foregroundColor: theme.appBarTheme.foregroundColor,
               elevation: 1,
             ),
             body: Column(
@@ -344,7 +435,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
                       Consumer<UserProvider>(
                         builder: (context, userProvider, _) {
-                          if (!userProvider.isPatient) {
+                          if (!userProvider.isPatient && !userProvider.isCaregiver) {
                             return const SizedBox.shrink();
                           }
 
@@ -354,17 +445,17 @@ class _SettingsPageState extends State<SettingsPage> {
                                 lang: lang,
                                 title: AppTranslations.translate('caregiver_link', lang),
                                 children: [
-                                  if (_isLoadingCaregiver)
+                                  if (userProvider.isPatient && _isLoadingCaregiver)
                                     const Padding(
                                       padding: EdgeInsets.symmetric(vertical: 8),
                                       child: Center(child: CircularProgressIndicator()),
                                     )
-                                  else if (_linkedCaregiver != null)
+                                  else if (userProvider.isPatient && _linkedCaregiver != null)
                                     Container(
                                       width: double.infinity,
                                       padding: const EdgeInsets.all(12),
                                       decoration: BoxDecoration(
-                                        color: Colors.grey.shade100,
+                                        color: surfaceMuted,
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Column(
@@ -372,10 +463,10 @@ class _SettingsPageState extends State<SettingsPage> {
                                         children: [
                                           Text(
                                             AppTranslations.translate('linked_caregiver', lang),
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontSize: 12,
                                               fontWeight: FontWeight.w500,
-                                              color: Colors.grey,
+                                              color: subtleText,
                                             ),
                                           ),
                                           const SizedBox(height: 6),
@@ -389,15 +480,15 @@ class _SettingsPageState extends State<SettingsPage> {
                                           const SizedBox(height: 2),
                                           Text(
                                             '@${_linkedCaregiver!['username']?.toString() ?? ''}',
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontSize: 13,
-                                              color: Colors.black54,
+                                              color: subtleText,
                                             ),
                                           ),
                                         ],
                                       ),
                                     )
-                                  else
+                                  else if (userProvider.isPatient)
                                     SizedBox(
                                       width: double.infinity,
                                       child: ElevatedButton(
@@ -413,6 +504,23 @@ class _SettingsPageState extends State<SettingsPage> {
                                         ),
                                         child: Text(
                                           AppTranslations.translate('add_caregiver', lang),
+                                        ),
+                                      ),
+                                    )
+                                  else
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: ElevatedButton.icon(
+                                        onPressed: () => _linkPatientWithCode(lang),
+                                        icon: const Icon(Icons.vpn_key),
+                                        label: Text(
+                                          AppTranslations.translate('link_patient_with_code', lang),
+                                        ),
+                                        style: ElevatedButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(vertical: 12),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -478,7 +586,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                       onChanged: (v) => sp.setGender(v),
                                       decoration: InputDecoration(
                                         filled: true,
-                                        fillColor: Colors.grey[100],
+                                        fillColor: surfaceMuted,
                                         border: OutlineInputBorder(
                                           borderRadius: BorderRadius.circular(8),
                                           borderSide: BorderSide.none,
@@ -488,9 +596,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                           vertical: 8,
                                         ),
                                       ),
-                                      dropdownColor: Colors.white,
-                                      style: const TextStyle(
-                                        color: Colors.black,
+                                      dropdownColor: surfaceMuted,
+                                      style: TextStyle(
+                                        color: theme.colorScheme.onSurface,
                                         fontSize: 14,
                                       ),
                                     ),
@@ -564,7 +672,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             },
                             decoration: InputDecoration(
                               filled: true,
-                              fillColor: Colors.grey[100],
+                              fillColor: surfaceMuted,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                                 borderSide: BorderSide.none,
@@ -574,9 +682,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                 vertical: 8,
                               ),
                             ),
-                            dropdownColor: Colors.white,
-                            style: const TextStyle(
-                              color: Colors.black,
+                            dropdownColor: surfaceMuted,
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
                               fontSize: 14,
                             ),
                           ),
@@ -653,7 +761,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             initialValue: sp.language,
                             decoration: InputDecoration(
                               filled: true,
-                              fillColor: Colors.grey[100],
+                              fillColor: surfaceMuted,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                                 borderSide: BorderSide.none,
@@ -673,8 +781,11 @@ class _SettingsPageState extends State<SettingsPage> {
                                 child: Text('English 🇬🇧'),
                               ),
                             ],
-                            dropdownColor: Colors.white,
-                            style: const TextStyle(color: Colors.black, fontSize: 14),
+                            dropdownColor: surfaceMuted,
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
+                              fontSize: 14,
+                            ),
                             onChanged: (value) async {
                               if (value != null) {
                                 await sp.setLanguage(value);
@@ -698,7 +809,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Colors.blue.shade50,
+                              color: isDark ? const Color(0xFF1B2531) : Colors.blue.shade50,
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
@@ -706,7 +817,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                 Icon(
                                   Icons.info_outline,
                                   size: 20,
-                                  color: Colors.blue.shade700,
+                                  color: isDark ? Colors.lightBlue[200] : Colors.blue.shade700,
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
@@ -714,7 +825,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                     AppTranslations.translate('translation_note', lang),
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: Colors.blue.shade700,
+                                      color: isDark ? Colors.lightBlue[200] : Colors.blue.shade700,
                                     ),
                                   ),
                                 ),
@@ -733,10 +844,10 @@ class _SettingsPageState extends State<SettingsPage> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: theme.cardColor,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
+                        color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.05),
                         blurRadius: 10,
                         offset: const Offset(0, -2),
                       ),
@@ -756,8 +867,8 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                           child: Text(
                             AppTranslations.translate('cancel', lang),
-                            style: const TextStyle(
-                              color: Colors.grey,
+                            style: TextStyle(
+                              color: subtleText,
                               fontSize: 16,
                             ),
                           ),
@@ -817,13 +928,15 @@ class _SettingsPageState extends State<SettingsPage> {
     Color? iconColor,
     required List<Widget> children,
   }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -836,7 +949,7 @@ class _SettingsPageState extends State<SettingsPage> {
           Row(
             children: [
               if (icon != null) ...[
-                Icon(icon, color: iconColor ?? Colors.black, size: 24),
+                Icon(icon, color: iconColor ?? theme.colorScheme.onSurface, size: 24),
                 const SizedBox(width: 8),
               ],
               Text(
@@ -862,6 +975,8 @@ class _SettingsPageState extends State<SettingsPage> {
     TextInputType? keyboardType,
     required Function(String) onChanged,
   }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -879,7 +994,7 @@ class _SettingsPageState extends State<SettingsPage> {
           decoration: InputDecoration(
             hintText: hint,
             filled: true,
-            fillColor: Colors.grey[100],
+            fillColor: isDark ? const Color(0xFF1E1E1E) : Colors.grey[100],
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide.none,
@@ -896,6 +1011,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildColorPicker(SettingsProvider sp) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final colors = [
       Colors.amber,
       Colors.deepPurple,
@@ -908,7 +1024,7 @@ class _SettingsPageState extends State<SettingsPage> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: colors.map((color) {
-        final isSelected = sp.themeColor.value == color.value;
+        final isSelected = sp.themeColor.toARGB32() == color.toARGB32();
         return GestureDetector(
           onTap: () => sp.setThemeColor(color),
           child: Container(
@@ -918,11 +1034,11 @@ class _SettingsPageState extends State<SettingsPage> {
               color: color,
               shape: BoxShape.circle,
               border: isSelected
-                  ? Border.all(color: Colors.black, width: 3)
+                  ? Border.all(color: isDark ? Colors.white : Colors.black, width: 3)
                   : null,
               boxShadow: [
                 BoxShadow(
-                  color: color.withOpacity(0.3),
+                  color: color.withValues(alpha: 0.3),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),

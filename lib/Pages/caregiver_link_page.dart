@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../providers/user_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/api_service.dart';
@@ -8,7 +9,14 @@ import '../utils/translations.dart';
 import 'dart:async';
 
 class CaregiverLinkPage extends StatefulWidget {
-  const CaregiverLinkPage({super.key});
+  final String? initialInvitationCode;
+  final String? initialPatientUsername;
+
+  const CaregiverLinkPage({
+    super.key,
+    this.initialInvitationCode,
+    this.initialPatientUsername,
+  });
 
   @override
   _CaregiverLinkPageState createState() => _CaregiverLinkPageState();
@@ -23,6 +31,7 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
   List<Map<String, dynamic>> _caregiverAlerts = [];
   Map<String, dynamic>? _linkedCaregiver;
   bool _isLoading = false;
+  final _patientUsernameController = TextEditingController();
   final _codeController = TextEditingController();
   
   @override
@@ -30,11 +39,30 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _loadData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _tryProcessInitialCode();
+    });
+  }
+
+  Future<void> _tryProcessInitialCode() async {
+    final code = widget.initialInvitationCode?.trim().toUpperCase();
+    final patientUsername = widget.initialPatientUsername?.trim().toLowerCase();
+    if (code == null || code.isEmpty || patientUsername == null || patientUsername.isEmpty) {
+      return;
+    }
+
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    if (!userProvider.isCaregiver) return;
+
+    _patientUsernameController.text = patientUsername;
+    _codeController.text = code;
+    await _enterCode();
   }
   
   @override
   void dispose() {
     _tabController.dispose();
+    _patientUsernameController.dispose();
     _codeController.dispose();
     _codeExpiryTimer?.cancel();
     super.dispose();
@@ -115,13 +143,14 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
     }
   }
   
-  Future<void> _acceptInvitation(String code) async {
+  Future<void> _acceptInvitation(String code, String patientUsername) async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final apiService = ApiService();
     
     final success = await apiService.acceptInvitation(
       invitationCode: code,
       caregiverUsername: userProvider.username!,
+      patientUsername: patientUsername,
     );
     
     if (mounted) {
@@ -160,9 +189,17 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
   Future<void> _enterCode() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final apiService = ApiService();
+    final patientUsername = _patientUsernameController.text.trim().toLowerCase();
+    final lang = Provider.of<SettingsProvider>(context, listen: false).language;
+
+    if (patientUsername.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppTranslations.translate('please_enter_patient_username', lang))),
+      );
+      return;
+    }
     
     if (_codeController.text.isEmpty) {
-      final lang = Provider.of<SettingsProvider>(context, listen: false).language;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(AppTranslations.translate('please_enter_invitation_code', lang))),
       );
@@ -172,6 +209,7 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
     final success = await apiService.acceptInvitation(
       invitationCode: _codeController.text.toUpperCase().trim(),
       caregiverUsername: userProvider.username!,
+      patientUsername: patientUsername,
     );
     
     if (mounted) {
@@ -377,6 +415,31 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                         ),
                       ],
                     ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          final code = _generatedCode;
+                          final patientUsername =
+                              Provider.of<UserProvider>(context, listen: false).username;
+                          if (patientUsername == null || patientUsername.isEmpty) return;
+                          if (code == null || code.isEmpty) return;
+                          final deepLink =
+                              'mymedicine://caregiver-link?patient=${Uri.encodeComponent(patientUsername)}&code=${Uri.encodeComponent(code)}';
+                          final shareText =
+                              '${AppTranslations.translate('open_link_to_connect', lang)}\n$deepLink';
+                          Share.share(shareText);
+                        },
+                        icon: const Icon(Icons.share),
+                        label: Text(AppTranslations.translate('share_link', lang)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: sp.themeColor,
+                          side: BorderSide(color: sp.themeColor),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
                   ] else
                     ElevatedButton.icon(
                       onPressed: _generateInvitation,
@@ -505,6 +568,18 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                     ),
                     const SizedBox(height: 16),
                     TextField(
+                      controller: _patientUsernameController,
+                      decoration: InputDecoration(
+                        labelText: AppTranslations.translate('patient_username_label', lang),
+                        hintText: AppTranslations.translate('username', lang),
+                        prefixIcon: const Icon(Icons.person_outline),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      textDirection: TextDirection.ltr,
+                      textAlign: TextAlign.start,
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
                       controller: _codeController,
                       decoration: InputDecoration(
                         labelText: AppTranslations.translate('invitation_code', lang),
@@ -595,7 +670,10 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                         children: [
                           IconButton(
                             icon: const Icon(Icons.check_circle, color: Colors.green, size: 32),
-                            onPressed: () => _acceptInvitation(invitation['invitationCode']),
+                            onPressed: () => _acceptInvitation(
+                              invitation['invitationCode'],
+                              invitation['patientUsername']?.toString() ?? '',
+                            ),
                           ),
                           IconButton(
                             icon: const Icon(Icons.cancel, color: Colors.red, size: 32),

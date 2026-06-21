@@ -34,6 +34,16 @@
 				<string>com.googleusercontent.apps.203573212812-2pju0m9fgob0683ar560j9a879fvp6r2</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>mymedicine.caregiver.link</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>mymedicine</string>
+			</array>
+		</dict>
 	</array>
 	<key>GIDClientID</key>
 	<string>203573212812-2pju0m9fgob0683ar560j9a879fvp6r2.apps.googleusercontent.com</string>

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:app_links/app_links.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -90,6 +91,8 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  final AppLinks _appLinks = AppLinks();
+  StreamSubscription<Uri>? _linkSubscription;
   bool _isFirstTime = false;
   bool _isLanguageSelected = false;
   bool _isUserLoggedIn = false;
@@ -102,6 +105,49 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     _checkFirstTime();
     _checkMissedDosesOnStartup();
     _initializePushNotificationsAfterMount();
+    _initializeDeepLinks();
+  }
+
+  void _initializeDeepLinks() {
+    _linkSubscription = _appLinks.uriLinkStream.listen((uri) {
+      _handleIncomingLink(uri);
+    }, onError: (error) {
+      debugPrint('[main] Deep link error: $error');
+    });
+
+    unawaited(
+      _appLinks.getInitialLink().then((uri) {
+        if (uri != null) {
+          _handleIncomingLink(uri);
+        }
+      }).catchError((error) {
+        debugPrint('[main] Initial deep link error: $error');
+      }),
+    );
+  }
+
+  void _handleIncomingLink(Uri uri) {
+    final normalizedHost = uri.host.toLowerCase();
+    final normalizedPath = uri.path.toLowerCase();
+    final isCaregiverLink =
+        uri.scheme == 'mymedicine' &&
+        (normalizedHost == 'caregiver-link' || normalizedPath == '/caregiver-link');
+
+    if (!isCaregiverLink) return;
+
+    final code = uri.queryParameters['code']?.trim().toUpperCase();
+    final patientUsername = uri.queryParameters['patient']?.trim().toLowerCase();
+    final navigator = _navigatorKey.currentState;
+    if (navigator == null) return;
+
+    navigator.push(
+      MaterialPageRoute(
+        builder: (_) => CaregiverLinkPage(
+          initialInvitationCode: code,
+          initialPatientUsername: patientUsername,
+        ),
+      ),
+    );
   }
 
   void _initializePushNotificationsAfterMount() {
@@ -120,6 +166,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   
   @override
   void dispose() {
+    _linkSubscription?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

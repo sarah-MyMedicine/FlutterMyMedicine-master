@@ -1088,6 +1088,7 @@ class ApiService {
   Future<bool> acceptInvitation({
     required String invitationCode,
     required String caregiverUsername,
+    required String patientUsername,
   }) async {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
@@ -1097,6 +1098,7 @@ class ApiService {
         body: {
           'invitationCode': invitationCode,
           'caregiverUsername': caregiverUsername,
+          'patientUsername': patientUsername,
         },
       );
 

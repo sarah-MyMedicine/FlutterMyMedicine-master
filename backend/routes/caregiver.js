@@ -59,14 +59,18 @@ router.get('/invitations/:username', authMiddleware, async (req, res) => {
 
 router.post('/accept-invitation', authMiddleware, async (req, res) => {
   try {
-    const { invitationCode, caregiverUsername } = req.body;
-    if (!invitationCode || !caregiverUsername) {
+    const { invitationCode, caregiverUsername, patientUsername } = req.body;
+    if (!invitationCode || !caregiverUsername || !patientUsername) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
     const invitation = await store.getInvitationByCode(invitationCode);
     if (!invitation || invitation.status !== 'pending' || new Date(invitation.expiresAt) <= new Date()) {
       return res.status(404).json({ message: 'Invalid or expired invitation code' });
+    }
+
+    if (String(patientUsername).trim().toLowerCase() !== String(invitation.patientUsername || '').trim().toLowerCase()) {
+      return res.status(400).json({ message: 'Patient username does not match this invitation code' });
     }
 
     const caregiver = await store.getUserByUsername(caregiverUsername.toLowerCase());
