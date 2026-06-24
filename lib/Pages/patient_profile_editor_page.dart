@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/user_provider.dart';
 import '../services/api_service.dart';
+import '../services/patient_data_sync_service.dart';
 import '../utils/translations.dart';
 
 class PatientProfileEditorPage extends StatefulWidget {
@@ -124,6 +125,11 @@ class _PatientProfileEditorPageState extends State<PatientProfileEditorPage> {
       await ApiService().savePatientDataSnapshot(
         snapshot,
         patientUsername: targetUsername,
+      );
+      if (!mounted) return;
+      await PatientDataSyncService().syncAfterAuthentication(
+        context: context,
+        username: targetUsername,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

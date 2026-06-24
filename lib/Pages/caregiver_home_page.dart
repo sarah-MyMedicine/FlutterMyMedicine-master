@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:async';
 
 import '../components/footer.dart';
 import '../components/medication_list.dart';
@@ -7,6 +8,7 @@ import '../providers/medication_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/user_provider.dart';
 import '../services/api_service.dart';
+import '../services/patient_data_sync_service.dart';
 import '../utils/translations.dart';
 import 'adherence_log_page.dart';
 import 'appointments_page.dart';
@@ -32,6 +34,10 @@ class _CaregiverHomePageState extends State<CaregiverHomePage>
   TabController? _tabController;
   List<Map<String, dynamic>> _linkedPatients = <Map<String, dynamic>>[];
   bool _isLoading = true;
+  bool _isSwitchingProfile = false;
+  int _activeTabIndex = 0;
+  bool _isHandlingTabChange = false;
+  Timer? _liveRefreshTimer;
 
   @override
   void initState() {
@@ -41,8 +47,85 @@ class _CaregiverHomePageState extends State<CaregiverHomePage>
 
   @override
   void dispose() {
+    _liveRefreshTimer?.cancel();
+    _tabController?.removeListener(_handleTabChange);
     _tabController?.dispose();
     super.dispose();
+  }
+
+  String? _targetUsernameForTab(int index) {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    if (index == 0) return userProvider.username?.trim().toLowerCase();
+
+    final patientIndex = index - 1;
+    if (patientIndex < 0 || patientIndex >= _linkedPatients.length) {
+      return userProvider.username?.trim().toLowerCase();
+    }
+
+    final username = (_linkedPatients[patientIndex]['username'] ?? '').toString().trim().toLowerCase();
+    if (username.isEmpty) return userProvider.username?.trim().toLowerCase();
+    return username;
+  }
+
+  void _configureLiveRefreshForActiveTab() {
+    _liveRefreshTimer?.cancel();
+    if (_activeTabIndex == 0) return;
+
+    _liveRefreshTimer = Timer.periodic(const Duration(seconds: 20), (_) async {
+      if (!mounted || _isHandlingTabChange) return;
+      final currentIndex = _tabController?.index ?? 0;
+      if (currentIndex != _activeTabIndex) return;
+
+      final username = _targetUsernameForTab(currentIndex);
+      if (username == null || username.isEmpty) return;
+
+      try {
+        await PatientDataSyncService().syncAfterAuthentication(
+          context: context,
+          username: username,
+        );
+      } catch (e) {
+        debugPrint('Live refresh failed for $username: $e');
+      }
+    });
+  }
+
+  Future<void> _switchProfileForTab(int index) async {
+    if (!mounted) return;
+    if (_isHandlingTabChange) return;
+
+    final username = _targetUsernameForTab(index);
+    if (username == null || username.isEmpty) return;
+
+    _isHandlingTabChange = true;
+    if (mounted) {
+      setState(() => _isSwitchingProfile = true);
+    }
+
+    try {
+      await PatientDataSyncService().syncLocalToCloudIfAuthenticated();
+      if (!mounted) return;
+      await PatientDataSyncService().syncAfterAuthentication(
+        context: context,
+        username: username,
+      );
+      _activeTabIndex = index;
+      _configureLiveRefreshForActiveTab();
+    } catch (e) {
+      debugPrint('Failed to switch profile context to $username: $e');
+    } finally {
+      _isHandlingTabChange = false;
+      if (mounted) {
+        setState(() => _isSwitchingProfile = false);
+      }
+    }
+  }
+
+  void _handleTabChange() {
+    final controller = _tabController;
+    if (controller == null) return;
+    if (controller.index == _activeTabIndex) return;
+    _switchProfileForTab(controller.index);
   }
 
   Future<void> _loadLinkedPatients() async {
@@ -66,8 +149,11 @@ class _CaregiverHomePageState extends State<CaregiverHomePage>
         _linkedPatients = patients;
         _tabController?.dispose();
         _tabController = TabController(length: _linkedPatients.length + 1, vsync: this);
+        _tabController?.addListener(_handleTabChange);
+        _activeTabIndex = 0;
         _isLoading = false;
       });
+      await _switchProfileForTab(0);
     } catch (e) {
       debugPrint('Error loading linked patients: $e');
       if (!mounted) return;
@@ -121,6 +207,13 @@ class _CaregiverHomePageState extends State<CaregiverHomePage>
         ],
       ),
       bottomNavigationBar: const Footer(),
+      floatingActionButton: _isSwitchingProfile
+          ? const SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : null,
     );
   }
 }

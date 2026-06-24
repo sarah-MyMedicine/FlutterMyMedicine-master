@@ -204,6 +204,7 @@ class _SymptomDialogState extends State<_SymptomDialog> {
   @override
   Widget build(BuildContext context) {
     final lang = widget.lang;
+    final sp = Provider.of<SettingsProvider>(context, listen: false);
     
     return Dialog(
       insetPadding: const EdgeInsets.all(16),

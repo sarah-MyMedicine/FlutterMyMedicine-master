@@ -17,6 +17,7 @@ import 'services/notification_service.dart';
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
 import 'services/push_notification_service.dart';
+import 'services/patient_data_sync_service.dart';
 import 'firebase_options.dart';
 import 'providers/medication_provider.dart';
 import 'providers/blood_pressure_provider.dart';
@@ -94,6 +95,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   final AppLinks _appLinks = AppLinks();
   StreamSubscription<Uri>? _linkSubscription;
+  Timer? _patientLiveSyncTimer;
   bool _isFirstTime = false;
   bool _isLanguageSelected = false;
   bool _isUserLoggedIn = false;
@@ -107,6 +109,31 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     _checkMissedDosesOnStartup();
     _initializePushNotificationsAfterMount();
     _initializeDeepLinks();
+    _startPatientLiveSync();
+  }
+
+  void _startPatientLiveSync() {
+    _patientLiveSyncTimer?.cancel();
+    _patientLiveSyncTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      _syncPatientDataFromCloud();
+    });
+  }
+
+  Future<void> _syncPatientDataFromCloud() async {
+    try {
+      if (!mounted) return;
+      final userProvider = context.read<UserProvider>();
+      if (!userProvider.isLoggedIn || !userProvider.isPatient) return;
+      final username = userProvider.username;
+      if (username == null || username.isEmpty) return;
+
+      await PatientDataSyncService().syncAfterAuthentication(
+        context: context,
+        username: username,
+      );
+    } catch (e) {
+      debugPrint('[main] Patient live sync failed: $e');
+    }
   }
 
   void _initializeDeepLinks() {
@@ -168,6 +195,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void dispose() {
     _linkSubscription?.cancel();
+    _patientLiveSyncTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -178,6 +206,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       // App came back to foreground, check for missed doses
       debugPrint('[main] App resumed, checking for missed doses');
       _checkMissedDoses();
+      _syncPatientDataFromCloud();
     }
   }
   

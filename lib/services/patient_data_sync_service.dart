@@ -239,7 +239,7 @@ class PatientDataSyncService {
     await prefs.remove(_ownerKey);
     await NotificationService().resetTrackedMedicationSchedules();
 
-    if (context != null) {
+    if (context != null && context.mounted) {
       await _reloadProviders(context);
     }
   }
@@ -271,6 +271,7 @@ class PatientDataSyncService {
           username: normalizedUsername,
           snapshot: cloudSnapshot,
         );
+        if (!context.mounted) return;
         await _reloadProviders(context);
         debugPrint('[PatientDataSync] Pulled cloud snapshot for $username');
         return;
@@ -287,6 +288,7 @@ class PatientDataSyncService {
           username: normalizedUsername,
           snapshot: localSnapshot,
         );
+        if (!context.mounted) return;
         await _reloadProviders(context);
         debugPrint('[PatientDataSync] Seeded cloud snapshot from local data for $username');
       } else if (_isMeaningfulData(cachedSnapshot)) {
@@ -295,6 +297,7 @@ class PatientDataSyncService {
         try {
           await ApiService().savePatientDataSnapshot(cachedSnapshot, patientUsername: normalizedUsername);
         } catch (_) {}
+        if (!context.mounted) return;
         await _reloadProviders(context);
         debugPrint('[PatientDataSync] Restored cached local snapshot for $username');
       } else {
@@ -306,6 +309,7 @@ class PatientDataSyncService {
           snapshot: <String, dynamic>{},
         );
         await ApiService().savePatientDataSnapshot(<String, dynamic>{}, patientUsername: normalizedUsername);
+        if (!context.mounted) return;
         await _reloadProviders(context);
         debugPrint('[PatientDataSync] Cleared stale local data and initialized empty cloud snapshot for $username');
       }
@@ -317,6 +321,7 @@ class PatientDataSyncService {
         await _clearTrackedLocalData(prefs);
       }
       await prefs.setString(_ownerKey, normalizedUsername);
+      if (!context.mounted) return;
       await _reloadProviders(context);
     }
   }
@@ -330,16 +335,18 @@ class PatientDataSyncService {
       if (username == null || username.isEmpty) return;
 
       final snapshot = _collectSnapshot(prefs);
-      final normalizedUsername = username.toLowerCase();
+      final ownerUsername =
+          (prefs.getString(_ownerKey) ?? username).trim().toLowerCase();
+      if (ownerUsername.isEmpty) return;
       await _cacheSnapshotForUser(
         prefs: prefs,
-        username: normalizedUsername,
+        username: ownerUsername,
         snapshot: snapshot,
       );
       await ApiService()
-          .savePatientDataSnapshot(snapshot, patientUsername: normalizedUsername)
+          .savePatientDataSnapshot(snapshot, patientUsername: ownerUsername)
           .timeout(const Duration(seconds: 5));
-      await prefs.setString(_ownerKey, normalizedUsername);
+      await prefs.setString(_ownerKey, ownerUsername);
     } catch (e) {
       debugPrint('[PatientDataSync] syncLocalToCloudIfAuthenticated error: $e');
     }
