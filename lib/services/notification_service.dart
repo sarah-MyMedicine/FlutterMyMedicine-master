@@ -112,6 +112,17 @@ class NotificationService {
           playSound: true,
         ),
       );
+
+      await androidImpl?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'sos_alarm',
+          'SOS Emergency Alarm',
+          description: 'High-priority SOS alerts from linked patients',
+          importance: Importance.max,
+          enableVibration: true,
+          playSound: true,
+        ),
+      );
       debugPrint('[NotificationService] Medicine channel created/verified');
     } catch (e) {
       debugPrint('[NotificationService] Error creating channel: $e');
@@ -1011,6 +1022,42 @@ class NotificationService {
           enableVibration: true,
         ),
         iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentBanner: true,
+          presentList: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
+      ),
+    );
+  }
+
+  Future<void> showSosAlarmNotification({required String title, required String body}) async {
+    await init();
+    await _ensureDarwinPermissions();
+
+    final id = DateTime.now().millisecondsSinceEpoch & 0x7fffffff;
+    await _plugin.show(
+      id: id,
+      title: title,
+      body: body,
+      notificationDetails: NotificationDetails(
+        android: AndroidNotificationDetails(
+          'sos_alarm',
+          'SOS Emergency Alarm',
+          channelDescription: 'High-priority SOS alerts from linked patients',
+          importance: Importance.max,
+          priority: Priority.max,
+          playSound: true,
+          enableVibration: true,
+          fullScreenIntent: true,
+          category: AndroidNotificationCategory.alarm,
+          visibility: NotificationVisibility.public,
+          audioAttributesUsage: AudioAttributesUsage.alarm,
+        ),
+        iOS: DarwinNotificationDetails(
+          sound: 'default.caf',
+          interruptionLevel: InterruptionLevel.timeSensitive,
           presentAlert: true,
           presentBanner: true,
           presentList: true,

@@ -620,12 +620,15 @@ class ApiService {
 
   // ==================== PATIENT DATA SYNC ====================
 
-  Future<Map<String, dynamic>> getPatientDataSnapshot() async {
+  Future<Map<String, dynamic>> getPatientDataSnapshot({String? patientUsername}) async {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
     try {
+      final path = patientUsername == null || patientUsername.trim().isEmpty
+          ? '/patient-data'
+          : '/patient-data/${Uri.encodeComponent(patientUsername.trim().toLowerCase())}';
       final response = await _getRequest(
-        '/patient-data',
+        path,
         timeout: const Duration(seconds: 12),
       );
 
@@ -645,13 +648,23 @@ class ApiService {
     }
   }
 
-  Future<void> savePatientDataSnapshot(Map<String, dynamic> data) async {
+  Future<void> savePatientDataSnapshot(
+    Map<String, dynamic> data, {
+    String? patientUsername,
+  }) async {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
     try {
+      final path = patientUsername == null || patientUsername.trim().isEmpty
+          ? '/patient-data'
+          : '/patient-data/${Uri.encodeComponent(patientUsername.trim().toLowerCase())}';
       final response = await _putRequest(
-        '/patient-data',
-        body: {'data': data},
+        path,
+        body: {
+          'data': data,
+          if (patientUsername != null && patientUsername.trim().isNotEmpty)
+            'patientUsername': patientUsername.trim().toLowerCase(),
+        },
         timeout: const Duration(seconds: 12),
       );
 
@@ -1106,14 +1119,13 @@ class ApiService {
         debugPrint('[ApiService] Invitation accepted: $invitationCode');
         return true;
       } else {
-        debugPrint(
-          '[ApiService] Failed to accept invitation: ${response.body}',
-        );
-        return false;
+        final error = _extractApiError(response, 'Failed to accept invitation');
+        debugPrint('[ApiService] Failed to accept invitation: $error');
+        throw Exception(error);
       }
     } catch (e) {
       debugPrint('[ApiService] Accept invitation error: $e');
-      return false;
+      rethrow;
     }
   }
 

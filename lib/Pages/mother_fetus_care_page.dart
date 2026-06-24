@@ -179,7 +179,7 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
       builder: (context, sp, child) {
         final lang = sp.language;
         return Scaffold(
-          backgroundColor: const Color(0xFFE8F5F3),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
             title: Text(
               AppTranslations.translate('mother_fetus_care_title', lang),

@@ -62,7 +62,7 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
         return Directionality(
           textDirection: lang == 'ar' ? TextDirection.rtl : TextDirection.ltr,
           child: Scaffold(
-            backgroundColor: const Color(0xFFE8F5F3),
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             appBar: AppBar(
               title: Text(
                 AppTranslations.translate('menopause_stage_title', lang),

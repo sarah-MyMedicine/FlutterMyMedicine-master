@@ -146,13 +146,19 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
   Future<void> _acceptInvitation(String code, String patientUsername) async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final apiService = ApiService();
-    
-    final success = await apiService.acceptInvitation(
-      invitationCode: code,
-      caregiverUsername: userProvider.username!,
-      patientUsername: patientUsername,
-    );
-    
+
+    bool success = false;
+    String? errorMessage;
+    try {
+      success = await apiService.acceptInvitation(
+        invitationCode: code,
+        caregiverUsername: userProvider.username!,
+        patientUsername: patientUsername,
+      );
+    } catch (e) {
+      errorMessage = e.toString();
+    }
+
     if (mounted) {
       final lang = Provider.of<SettingsProvider>(context, listen: false).language;
       if (success) {
@@ -161,9 +167,15 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
         );
         _loadData();
       } else {
+        final err = (errorMessage ?? '').toLowerCase();
+        final limitReached = err.contains('up to 10 patients');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppTranslations.translate('failed_to_accept_invitation', lang)),
+            content: Text(
+              limitReached
+                  ? AppTranslations.translate('max_patients_limit_reached', lang)
+                  : AppTranslations.translate('failed_to_accept_invitation', lang),
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -206,11 +218,17 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
       return;
     }
     
-    final success = await apiService.acceptInvitation(
-      invitationCode: _codeController.text.toUpperCase().trim(),
-      caregiverUsername: userProvider.username!,
-      patientUsername: patientUsername,
-    );
+    bool success = false;
+    String? errorMessage;
+    try {
+      success = await apiService.acceptInvitation(
+        invitationCode: _codeController.text.toUpperCase().trim(),
+        caregiverUsername: userProvider.username!,
+        patientUsername: patientUsername,
+      );
+    } catch (e) {
+      errorMessage = e.toString();
+    }
     
     if (mounted) {
       final lang = Provider.of<SettingsProvider>(context, listen: false).language;
@@ -221,9 +239,15 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
         );
         _loadData();
       } else {
+        final err = (errorMessage ?? '').toLowerCase();
+        final limitReached = err.contains('up to 10 patients');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppTranslations.translate('invalid_invitation_code', lang)),
+            content: Text(
+              limitReached
+                  ? AppTranslations.translate('max_patients_limit_reached', lang)
+                  : AppTranslations.translate('invalid_invitation_code', lang),
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -574,6 +598,8 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                         hintText: AppTranslations.translate('username', lang),
                         prefixIcon: const Icon(Icons.person_outline),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        filled: true,
+                        fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[100],
                       ),
                       textDirection: TextDirection.ltr,
                       textAlign: TextAlign.start,
@@ -586,6 +612,8 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                         hintText: AppTranslations.translate('invitation_code_example', lang),
                         prefixIcon: const Icon(Icons.vpn_key),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        filled: true,
+                        fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[100],
                       ),
                       textDirection: TextDirection.ltr,
                       textAlign: TextAlign.center,

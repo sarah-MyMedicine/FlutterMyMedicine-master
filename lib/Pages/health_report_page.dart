@@ -71,7 +71,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
         return Directionality(
           textDirection: lang == 'ar' ? ui.TextDirection.rtl : ui.TextDirection.ltr,
           child: Scaffold(
-            backgroundColor: Colors.grey[50],
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             appBar: AppBar(
             leading: IconButton(
               icon: Icon(lang == 'ar' ? Icons.arrow_forward : Icons.arrow_back),

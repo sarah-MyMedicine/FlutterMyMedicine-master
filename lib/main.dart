@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mymedicineapp/Pages/home.dart';
+import 'package:mymedicineapp/Pages/caregiver_home_page.dart';
 import 'package:mymedicineapp/Pages/onboarding_page.dart';
 import 'package:mymedicineapp/Pages/language_selection_page.dart';
 import 'package:mymedicineapp/Pages/login_page.dart';
@@ -230,7 +231,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     NotificationService().setNavigatorKey(_navigatorKey);
 
     Widget getInitialPage() {
-      // Priority: Login > Language > Onboarding > Home
+          // Priority: Login > Language > Onboarding > Home/CaregiverHome
       if (!_isUserLoggedIn) {
         return const LoginPage();
       } else if (!_isLanguageSelected) {
@@ -238,7 +239,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       } else if (_isFirstTime) {
         return const OnboardingPage();
       } else {
-        return const HomePage();
+            // Route caregivers to their home, patients to patient home
+            final isCaregiver = context.read<UserProvider>().isCaregiver;
+            return isCaregiver ? const CaregiverHomePage() : const HomePage();
       }
     }
 
@@ -253,7 +256,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           themeMode: ThemeMode.system,
           home: getInitialPage(),
           routes: {
-            '/home': (context) => const HomePage(),
+                      '/home': (context) {
+                        final isCaregiver = context.read<UserProvider>().isCaregiver;
+                        return isCaregiver ? const CaregiverHomePage() : const HomePage();
+                      },
+                      '/caregiver-home': (context) => const CaregiverHomePage(),
             '/onboarding': (context) => const OnboardingPage(),
             '/language': (context) => const LanguageSelectionPage(),
             '/login': (context) => const LoginPage(),

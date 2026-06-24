@@ -202,6 +202,8 @@ class _LoginPageState extends State<LoginPage> {
                     'password_reset_email_note',
                     language,
                   ),
+                  filled: true,
+                  fillColor: Theme.of(stfContext).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[100],
                 ),
               ),
               actions: [

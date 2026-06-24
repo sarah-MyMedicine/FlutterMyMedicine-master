@@ -260,7 +260,7 @@ class PatientDataSyncService {
     );
 
     try {
-      final cloudSnapshot = await ApiService().getPatientDataSnapshot();
+      final cloudSnapshot = await ApiService().getPatientDataSnapshot(patientUsername: normalizedUsername);
       final hasCloudData = _isMeaningfulData(cloudSnapshot);
 
       if (hasCloudData) {
@@ -280,7 +280,7 @@ class PatientDataSyncService {
           owner == null || owner.toLowerCase() == normalizedUsername;
 
       if (localBelongsToCurrentUser && _isMeaningfulData(localSnapshot)) {
-        await ApiService().savePatientDataSnapshot(localSnapshot);
+        await ApiService().savePatientDataSnapshot(localSnapshot, patientUsername: normalizedUsername);
         await prefs.setString(_ownerKey, normalizedUsername);
         await _cacheSnapshotForUser(
           prefs: prefs,
@@ -293,7 +293,7 @@ class PatientDataSyncService {
         await _applySnapshot(prefs, cachedSnapshot);
         await prefs.setString(_ownerKey, normalizedUsername);
         try {
-          await ApiService().savePatientDataSnapshot(cachedSnapshot);
+          await ApiService().savePatientDataSnapshot(cachedSnapshot, patientUsername: normalizedUsername);
         } catch (_) {}
         await _reloadProviders(context);
         debugPrint('[PatientDataSync] Restored cached local snapshot for $username');
@@ -305,7 +305,7 @@ class PatientDataSyncService {
           username: normalizedUsername,
           snapshot: <String, dynamic>{},
         );
-        await ApiService().savePatientDataSnapshot(<String, dynamic>{});
+        await ApiService().savePatientDataSnapshot(<String, dynamic>{}, patientUsername: normalizedUsername);
         await _reloadProviders(context);
         debugPrint('[PatientDataSync] Cleared stale local data and initialized empty cloud snapshot for $username');
       }
@@ -337,7 +337,7 @@ class PatientDataSyncService {
         snapshot: snapshot,
       );
       await ApiService()
-          .savePatientDataSnapshot(snapshot)
+          .savePatientDataSnapshot(snapshot, patientUsername: normalizedUsername)
           .timeout(const Duration(seconds: 5));
       await prefs.setString(_ownerKey, normalizedUsername);
     } catch (e) {

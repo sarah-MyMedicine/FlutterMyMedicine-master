@@ -22,9 +22,9 @@ class _SymptomLogPageState extends State<SymptomLogPage> {
         return Directionality(
           textDirection: lang == 'ar' ? TextDirection.rtl : TextDirection.ltr,
           child: Scaffold(
-            backgroundColor: const Color(0xFFF6F8F8),
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             appBar: AppBar(
-              backgroundColor: const Color(0xFF57B6A8),
+              backgroundColor: sp.themeColor,
               elevation: 0,
               leading: IconButton(
                 icon: Icon(lang == 'ar' ? Icons.arrow_back : Icons.arrow_forward, color: Colors.white),
@@ -43,7 +43,7 @@ class _SymptomLogPageState extends State<SymptomLogPage> {
                   child: ElevatedButton.icon(
                     onPressed: () => _openNewEntryDialog(lang),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF57B6A8),
+                      backgroundColor: sp.themeColor,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                       elevation: 0,
@@ -71,16 +71,16 @@ class _SymptomLogPageState extends State<SymptomLogPage> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const SizedBox(height: 12),
-          const Icon(Icons.warning_amber_rounded, color: Color(0xFFBDBDBD), size: 30),
+          Icon(Icons.warning_amber_rounded, color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[600] : Color(0xFFBDBDBD), size: 30),
           const SizedBox(height: 12),
           Text(
             AppTranslations.translate('no_symptoms_recorded', lang),
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF525252)),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Color(0xFF525252)),
           ),
           const SizedBox(height: 6),
           Text(
             AppTranslations.translate('click_to_start_tracking', lang),
-            style: const TextStyle(fontSize: 13, color: Color(0xFF7B7B7B)),
+            style: TextStyle(fontSize: 13, color: Theme.of(context).brightness == Brightness.dark ? Colors.white54 : Color(0xFF7B7B7B)),
           ),
         ],
       ),
@@ -96,7 +96,7 @@ class _SymptomLogPageState extends State<SymptomLogPage> {
           return Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.white,
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
@@ -114,12 +114,12 @@ class _SymptomLogPageState extends State<SymptomLogPage> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF57B6A8).withOpacity(0.15),
+                        color: Theme.of(context).primaryColor.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
                         e.severity,
-                        style: const TextStyle(color: Color(0xFF57B6A8), fontSize: 12, fontWeight: FontWeight.w600),
+                        style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 12, fontWeight: FontWeight.w600),
                       ),
                     ),
                     const Spacer(),
@@ -287,7 +287,7 @@ class _SymptomDialogState extends State<_SymptomDialog> {
                   Expanded(
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF57B6A8),
+                        backgroundColor: sp.themeColor,
                         foregroundColor: Colors.white,
                       ),
                       onPressed: () {
@@ -316,6 +316,7 @@ class _SymptomDialogState extends State<_SymptomDialog> {
   }
 
   Widget _buildTextField(String label, String hint, TextEditingController controller, String lang, {bool hasDropdown = false}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -328,7 +329,7 @@ class _SymptomDialogState extends State<_SymptomDialog> {
               decoration: InputDecoration(
                 hintText: hint,
                 filled: true,
-                fillColor: Colors.grey[100],
+                fillColor: isDark ? Colors.grey[800] : Colors.grey[100],
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -346,7 +347,7 @@ class _SymptomDialogState extends State<_SymptomDialog> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.grey.shade300),
-                    color: Colors.grey.shade50,
+                    color: isDark ? Colors.grey[700] : Colors.grey.shade50,
                   ),
                   child: Text(
                     AppTranslations.translate('arrow', lang),

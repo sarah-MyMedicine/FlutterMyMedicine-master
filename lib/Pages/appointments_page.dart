@@ -30,9 +30,9 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
         return Directionality(
           textDirection: lang == 'ar' ? TextDirection.rtl : TextDirection.ltr,
           child: Scaffold(
-            backgroundColor: const Color(0xFFF6F8F8),
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             appBar: AppBar(
-              backgroundColor: const Color(0xFF57B6A8),
+              backgroundColor: settings.themeColor,
               elevation: 0,
               leading: IconButton(
                 icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -51,7 +51,7 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
                   child: ElevatedButton.icon(
                     onPressed: () => _openNewAppointmentDialog(lang),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF57B6A8),
+                      backgroundColor: settings.themeColor,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                       elevation: 0,
@@ -80,16 +80,16 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const SizedBox(height: 12),
-          const Icon(Icons.calendar_month, color: Color(0xFF57B6A8), size: 50),
+          Icon(Icons.calendar_month, color: Theme.of(context).primaryColor, size: 50),
           const SizedBox(height: 12),
           Text(
             AppTranslations.translate('no_appointments', lang),
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF525252)),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Color(0xFF525252)),
           ),
           const SizedBox(height: 6),
           Text(
             '${AppTranslations.translate('add', lang)} ${AppTranslations.translate('appointments', lang)}',
-            style: const TextStyle(fontSize: 13, color: Color(0xFF7B7B7B)),
+            style: TextStyle(fontSize: 13, color: Theme.of(context).brightness == Brightness.dark ? Colors.white54 : Color(0xFF7B7B7B)),
           ),
         ],
       ),
@@ -108,7 +108,7 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
           return Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.white,
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
@@ -143,7 +143,7 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.edit_outlined, color: Color(0xFF57B6A8), size: 20),
+                          icon: Icon(Icons.edit_outlined, color: Theme.of(context).primaryColor, size: 20),
                           onPressed: () => _openEditAppointmentDialog(appt),
                         ),
                         IconButton(
@@ -157,11 +157,11 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    const Icon(Icons.calendar_today, size: 14, color: Color(0xFF57B6A8)),
+                    Icon(Icons.calendar_today, size: 14, color: Theme.of(context).primaryColor),
                     const SizedBox(width: 4),
                     Text(dateStr, style: const TextStyle(fontSize: 12)),
                     const SizedBox(width: 16),
-                    const Icon(Icons.access_time, size: 14, color: Color(0xFF57B6A8)),
+                    Icon(Icons.access_time, size: 14, color: Theme.of(context).primaryColor),
                     const SizedBox(width: 4),
                     Text(timeStr, style: const TextStyle(fontSize: 12)),
                   ],
@@ -359,7 +359,7 @@ class _AppointmentDialogState extends State<_AppointmentDialog> {
                   Expanded(
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF57B6A8),
+                        backgroundColor: Theme.of(context).primaryColor,
                         foregroundColor: Colors.white,
                       ),
                       onPressed: () {
@@ -401,6 +401,7 @@ class _AppointmentDialogState extends State<_AppointmentDialog> {
   }
 
   Widget _buildTextField(String label, String hint, TextEditingController controller, {IconData? icon}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -411,7 +412,7 @@ class _AppointmentDialogState extends State<_AppointmentDialog> {
           decoration: InputDecoration(
             hintText: hint,
             filled: true,
-            fillColor: Colors.grey[100],
+            fillColor: isDark ? Colors.grey[800] : Colors.grey[100],
             prefixIcon: icon != null ? Icon(icon, size: 20) : null,
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             border: OutlineInputBorder(
@@ -425,6 +426,7 @@ class _AppointmentDialogState extends State<_AppointmentDialog> {
   }
 
   Widget _buildMultilineField(String label, String hint, TextEditingController controller) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -436,7 +438,7 @@ class _AppointmentDialogState extends State<_AppointmentDialog> {
           decoration: InputDecoration(
             hintText: hint,
             filled: true,
-            fillColor: Colors.grey[100],
+            fillColor: isDark ? Colors.grey[800] : Colors.grey[100],
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),

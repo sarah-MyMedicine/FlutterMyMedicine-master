@@ -45,7 +45,7 @@ class AdherenceLogPage extends StatelessWidget {
                 onPressed: () => Navigator.pop(context),
               ),
             ),
-            backgroundColor: const Color(0xFFF5F5F5),
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             body: Consumer<AdherenceProvider>(
               builder: (context, adherence, _) {
                 final records = adherence.records;

@@ -31,7 +31,9 @@ class BloodPressurePage extends StatelessWidget {
           // Target Blood Pressure Card
           Card(
             margin: const EdgeInsets.all(12),
-            color: Colors.red.shade50,
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.red.withOpacity(0.2)
+                : Colors.red.shade50,
             child: ListTile(
               leading: const Icon(Icons.favorite, color: Colors.red),
               title: Text(AppTranslations.translate('target_for_blood_pressure', lang), style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -214,6 +216,8 @@ class BloodPressurePage extends StatelessWidget {
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
                 labelText: AppTranslations.translate('target_systolic_bp', lang),
+                filled: true,
+                fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[100],
               ),
             ),
             const SizedBox(height: 16),
@@ -222,6 +226,8 @@ class BloodPressurePage extends StatelessWidget {
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
                 labelText: AppTranslations.translate('target_diastolic_bp', lang),
+                filled: true,
+                fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[100],
               ),
             ),
           ],

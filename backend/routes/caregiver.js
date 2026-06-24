@@ -5,6 +5,7 @@ const { authMiddleware } = require('../middleware/auth');
 const store = require('../services/firestore_store');
 
 const router = express.Router();
+const MAX_PATIENTS_PER_CAREGIVER = 10;
 
 router.post('/generate-invitation', authMiddleware, async (req, res) => {
   try {
@@ -87,6 +88,12 @@ router.post('/accept-invitation', authMiddleware, async (req, res) => {
     }
 
     const patientIds = Array.isArray(caregiver.patientIds) ? caregiver.patientIds : [];
+    if (!patientIds.includes(patient.id) && patientIds.length >= MAX_PATIENTS_PER_CAREGIVER) {
+      return res.status(400).json({
+        message: `Caregiver can link up to ${MAX_PATIENTS_PER_CAREGIVER} patients only`,
+      });
+    }
+
     if (!patientIds.includes(patient.id)) {
       patientIds.push(patient.id);
     }
@@ -334,6 +341,7 @@ router.post('/notify-emergency', authMiddleware, async (req, res) => {
         token: caregiver.fcmToken,
         title: '🚨 Siren Emergency Alert',
         body: resolvedMessage,
+        channelId: 'sos_alarm',
         data: {
           type: 'emergency_siren',
           alertId: alert.id,

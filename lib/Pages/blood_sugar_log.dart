@@ -31,7 +31,9 @@ class BloodSugarPage extends StatelessWidget {
           // Target Blood Sugar Card
           Card(
             margin: const EdgeInsets.all(12),
-            color: Colors.orange.shade50,
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.orange.withOpacity(0.2)
+                : Colors.orange.shade50,
             child: ListTile(
               leading: const Icon(Icons.water_drop, color: Colors.orange),
               title: Text(AppTranslations.translate('target_for_blood_sugar', lang), style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -204,6 +206,8 @@ class BloodSugarPage extends StatelessWidget {
           keyboardType: TextInputType.number,
           decoration: InputDecoration(
             labelText: AppTranslations.translate('target_blood_sugar_level', lang),
+            filled: true,
+            fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[100],
           ),
         ),
         actions: [

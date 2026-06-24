@@ -35,7 +35,11 @@ class _RankPresentation {
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
-  static const bool _isEmergencySirenComingSoon = true;
+  Color _shiftLightness(Color color, double delta) {
+    final hsl = HSLColor.fromColor(color);
+    final adjusted = (hsl.lightness + delta).clamp(0.0, 1.0);
+    return hsl.withLightness(adjusted).toColor();
+  }
 
   _RankPresentation _rankPresentation(MedicationRankStatus status) {
     final rank = status.currentTier?.title;
@@ -75,18 +79,6 @@ class HomePage extends StatelessWidget {
   }
 
   Future<void> _handleEmergencyTap(BuildContext context, String lang) async {
-    if (_isEmergencySirenComingSoon) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '${AppTranslations.translate('send_siren_alert', lang)} - ${AppTranslations.translate('coming_soon', lang)}',
-          ),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-      return;
-    }
-
     final userProvider = Provider.of<UserProvider>(context, listen: false);
 
     if (!userProvider.isPatient) {
@@ -184,6 +176,9 @@ class HomePage extends StatelessWidget {
                       Consumer<SettingsProvider>(
                         builder: (context, settings, _) {
                           final lang = settings.language;
+                          final baseColor = settings.themeColor;
+                          final gradientStart = _shiftLightness(baseColor, 0.08);
+                          final gradientEnd = _shiftLightness(baseColor, -0.08);
                           return GestureDetector(
                             onTap: () {
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -203,8 +198,8 @@ class HomePage extends StatelessWidget {
                                 vertical: 14,
                               ),
                               decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFF1EBEA6), Color(0xFF05B3A7)],
+                                gradient: LinearGradient(
+                                  colors: [gradientStart, gradientEnd],
                                 ),
                                 borderRadius: BorderRadius.circular(12),
                                 boxShadow: [

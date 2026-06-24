@@ -351,6 +351,7 @@ class AppTranslations {
       'invitation_code_example': 'مثال: ABC123',
       'share_code_with_caregiver': 'أنشئ رمز دعوة وشاركه مع مقدم الرعاية الخاص بك',
       'code_expired': 'انتهت صلاحية رمز الدعوة',
+      'max_patients_limit_reached': 'لا يمكن ربط أكثر من 10 مرضى لكل مقدم رعاية',
       
       // Days of Week
       'sunday': 'الأحد',
@@ -1206,6 +1207,7 @@ class AppTranslations {
       'invitation_code_example': 'Example: ABC123',
       'share_code_with_caregiver': 'Generate an invitation code and share it with your caregiver',
       'code_expired': 'Invitation code expired',
+      'max_patients_limit_reached': 'A caregiver can link up to 10 patients only',
       
       // Days of Week
       'sunday': 'Sunday',

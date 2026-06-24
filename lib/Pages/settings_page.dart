@@ -20,8 +20,40 @@ class _SettingsPageState extends State<SettingsPage> {
   final _ageCtrl = TextEditingController();
   final _patientUsernameCtrl = TextEditingController();
   final _caregiverCodeCtrl = TextEditingController();
+  PatientGender? _draftGender;
+  Color _draftThemeColor = const Color(0xFF36BBA0);
+  List<String> _draftChronicDiseases = <String>[];
+  String _draftVibrationPattern = 'default';
+  String _draftLanguage = 'ar';
+  bool _isInitializing = true;
   Map<String, dynamic>? _linkedCaregiver;
   bool _isLoadingCaregiver = false;
+
+  void _initializeDraftFromProvider(SettingsProvider sp) {
+    _nameCtrl.text = sp.name;
+    _ageCtrl.text = sp.age?.toString() ?? '';
+    _draftGender = sp.gender;
+    _draftThemeColor = sp.themeColor;
+    _draftChronicDiseases = List<String>.from(sp.chronicDiseases);
+    _draftVibrationPattern = sp.vibrationPattern;
+    _draftLanguage = sp.language;
+  }
+
+  void _toggleDraftChronicDisease(String disease) {
+    const noDiseases = 'لا توجد أمراض مزمنة';
+    setState(() {
+      if (_draftChronicDiseases.contains(disease)) {
+        _draftChronicDiseases.remove(disease);
+      } else {
+        if (disease == noDiseases) {
+          _draftChronicDiseases.clear();
+        } else {
+          _draftChronicDiseases.remove(noDiseases);
+        }
+        _draftChronicDiseases.add(disease);
+      }
+    });
+  }
 
   Future<void> _loadLinkedCaregiver() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
@@ -85,12 +117,12 @@ class _SettingsPageState extends State<SettingsPage> {
     return int.tryParse(normalized);
   }
 
-  bool _isRequiredProfileComplete(SettingsProvider sp) {
+  bool _isRequiredProfileComplete() {
     final name = _nameCtrl.text.trim();
     final age = _parseLocalizedInt(_ageCtrl.text);
     final hasValidName = name.isNotEmpty && name != 'زائر';
     final hasValidAge = age != null && age > 0;
-    final hasGender = sp.gender != null;
+    final hasGender = _draftGender != null;
     return hasValidName && hasValidAge && hasGender;
   }
 
@@ -107,8 +139,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Future<void> _runVibrationTest(SettingsProvider sp) async {
-    final pattern = sp.vibrationPattern;
+  Future<void> _runVibrationTest(String pattern) async {
 
     switch (pattern) {
       case 'short':
@@ -136,10 +167,13 @@ class _SettingsPageState extends State<SettingsPage> {
     final sp = Provider.of<SettingsProvider>(context, listen: false);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await sp.load();
-      _nameCtrl.text = sp.name;
-      _ageCtrl.text = sp.age?.toString() ?? '';
+      if (!mounted) return;
+      _initializeDraftFromProvider(sp);
       await _loadLinkedCaregiver();
-      setState(() {});
+      if (!mounted) return;
+      setState(() {
+        _isInitializing = false;
+      });
     });
   }
 
@@ -171,6 +205,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 decoration: InputDecoration(
                   labelText: AppTranslations.translate('patient_username_label', lang),
                   hintText: AppTranslations.translate('username', lang),
+                  filled: true,
+                  fillColor: Theme.of(ctx).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[100],
                 ),
               ),
               const SizedBox(height: 8),
@@ -181,6 +217,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 decoration: InputDecoration(
                   labelText: AppTranslations.translate('invitation_code', lang),
                   hintText: AppTranslations.translate('invitation_code_example', lang),
+                  filled: true,
+                  fillColor: Theme.of(ctx).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[100],
                 ),
               ),
             ],
@@ -215,19 +253,29 @@ class _SettingsPageState extends State<SettingsPage> {
     }
     if (code.isEmpty) return;
 
-    final success = await ApiService().acceptInvitation(
-      invitationCode: code,
-      caregiverUsername: userProvider.username!,
-      patientUsername: patientUsername,
-    );
+    bool success = false;
+    String? errorMessage;
+    try {
+      success = await ApiService().acceptInvitation(
+        invitationCode: code,
+        caregiverUsername: userProvider.username!,
+        patientUsername: patientUsername,
+      );
+    } catch (e) {
+      errorMessage = e.toString();
+    }
 
     if (!mounted) return;
+    final err = (errorMessage ?? '').toLowerCase();
+    final limitReached = err.contains('up to 10 patients');
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           success
               ? AppTranslations.translate('linked_successfully', lang)
-              : AppTranslations.translate('invalid_invitation_code', lang),
+              : (limitReached
+                  ? AppTranslations.translate('max_patients_limit_reached', lang)
+                  : AppTranslations.translate('invalid_invitation_code', lang)),
         ),
         backgroundColor: success ? Colors.green : Colors.red,
       ),
@@ -336,11 +384,19 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     return Consumer<SettingsProvider>(
       builder: (context, sp, _) {
-        final lang = sp.language;
+        final lang = _draftLanguage;
         final theme = Theme.of(context);
         final isDark = theme.brightness == Brightness.dark;
         final surfaceMuted = isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade100;
         final subtleText = isDark ? Colors.white70 : Colors.grey;
+        final saveForeground = ThemeData.estimateBrightnessForColor(_draftThemeColor) == Brightness.dark
+          ? Colors.white
+          : Colors.black;
+        if (_isInitializing) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
         return Directionality(
           textDirection: lang == 'ar' ? TextDirection.rtl : TextDirection.ltr,
           child: Scaffold(
@@ -508,21 +564,42 @@ class _SettingsPageState extends State<SettingsPage> {
                                       ),
                                     )
                                   else
-                                    SizedBox(
-                                      width: double.infinity,
-                                      child: ElevatedButton.icon(
-                                        onPressed: () => _linkPatientWithCode(lang),
-                                        icon: const Icon(Icons.vpn_key),
-                                        label: Text(
-                                          AppTranslations.translate('link_patient_with_code', lang),
-                                        ),
-                                        style: ElevatedButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(vertical: 12),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(8),
+                                    Column(
+                                      children: [
+                                        SizedBox(
+                                          width: double.infinity,
+                                          child: ElevatedButton.icon(
+                                            onPressed: () => _linkPatientWithCode(lang),
+                                            icon: const Icon(Icons.vpn_key),
+                                            label: Text(
+                                              AppTranslations.translate('link_patient_with_code', lang),
+                                            ),
+                                            style: ElevatedButton.styleFrom(
+                                              padding: const EdgeInsets.symmetric(vertical: 12),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                            ),
                                           ),
                                         ),
-                                      ),
+                                        const SizedBox(height: 8),
+                                        SizedBox(
+                                          width: double.infinity,
+                                          child: OutlinedButton.icon(
+                                            onPressed: () => Navigator.of(context).pushNamed('/caregiver-link'),
+                                            icon: const Icon(Icons.people_outline),
+                                            label: Text(
+                                              AppTranslations.translate('linked_patients', lang),
+                                            ),
+                                            style: OutlinedButton.styleFrom(
+                                              padding: const EdgeInsets.symmetric(vertical: 12),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                 ],
                               ),
@@ -541,7 +618,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             label: '${AppTranslations.translate('name', lang)} *',
                             controller: _nameCtrl,
                             hint: AppTranslations.translate('visitor', lang),
-                            onChanged: (v) => sp.setName(v),
+                            onChanged: (_) {},
                           ),
                           const SizedBox(height: 12),
                           Row(
@@ -552,10 +629,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                   controller: _ageCtrl,
                                   hint: '',
                                   keyboardType: TextInputType.number,
-                                  onChanged: (v) {
-                                    final n = _parseLocalizedInt(v);
-                                    sp.setAge(n);
-                                  },
+                                  onChanged: (_) {},
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -572,7 +646,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                     ),
                                     const SizedBox(height: 8),
                                     DropdownButtonFormField<PatientGender>(
-                                      initialValue: sp.gender,
+                                      key: ValueKey(_draftGender),
+                                      initialValue: _draftGender,
                                       items: [
                                         DropdownMenuItem(
                                           value: PatientGender.male,
@@ -583,7 +658,11 @@ class _SettingsPageState extends State<SettingsPage> {
                                           child: Text(AppTranslations.translate('female', lang)),
                                         ),
                                       ],
-                                      onChanged: (v) => sp.setGender(v),
+                                      onChanged: (v) {
+                                        setState(() {
+                                          _draftGender = v;
+                                        });
+                                      },
                                       decoration: InputDecoration(
                                         filled: true,
                                         fillColor: surfaceMuted,
@@ -616,7 +695,14 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                           ),
                           const SizedBox(height: 12),
-                          _buildColorPicker(sp),
+                          _buildColorPicker(
+                            selectedColor: _draftThemeColor,
+                            onChanged: (color) {
+                              setState(() {
+                                _draftThemeColor = color;
+                              });
+                            },
+                          ),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -633,7 +719,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             style: const TextStyle(fontSize: 13, color: Colors.grey),
                           ),
                           const SizedBox(height: 12),
-                          ..._buildChronicDiseaseCheckboxes(sp, lang),
+                          ..._buildChronicDiseaseCheckboxes(lang),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -652,7 +738,8 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                           const SizedBox(height: 8),
                           DropdownButtonFormField<String>(
-                            initialValue: sp.vibrationPattern,
+                            key: ValueKey(_draftVibrationPattern),
+                            initialValue: _draftVibrationPattern,
                             items: [
                               DropdownMenuItem(
                                 value: 'default',
@@ -668,7 +755,10 @@ class _SettingsPageState extends State<SettingsPage> {
                               ),
                             ],
                             onChanged: (v) {
-                              if (v != null) sp.setVibrationPattern(v);
+                              if (v == null) return;
+                              setState(() {
+                                _draftVibrationPattern = v;
+                              });
                             },
                             decoration: InputDecoration(
                               filled: true,
@@ -693,7 +783,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             width: double.infinity,
                             child: ElevatedButton.icon(
                               onPressed: () async {
-                                await _runVibrationTest(sp);
+                                await _runVibrationTest(_draftVibrationPattern);
                                 if (!context.mounted) return;
                                 final message = lang == 'ar'
                                     ? 'تم اختبار الاهتزاز'
@@ -758,7 +848,8 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                           const SizedBox(height: 12),
                           DropdownButtonFormField<String>(
-                            initialValue: sp.language,
+                            key: ValueKey(_draftLanguage),
+                            initialValue: _draftLanguage,
                             decoration: InputDecoration(
                               filled: true,
                               fillColor: surfaceMuted,
@@ -786,22 +877,11 @@ class _SettingsPageState extends State<SettingsPage> {
                               color: theme.colorScheme.onSurface,
                               fontSize: 14,
                             ),
-                            onChanged: (value) async {
+                            onChanged: (value) {
                               if (value != null) {
-                                await sp.setLanguage(value);
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        AppTranslations.translate(
-                                          value == 'ar' ? 'language_changed_ar' : 'language_changed_en',
-                                          value,
-                                        ),
-                                      ),
-                                      duration: const Duration(seconds: 2),
-                                    ),
-                                  );
-                                }
+                                setState(() {
+                                  _draftLanguage = value;
+                                });
                               }
                             },
                           ),
@@ -878,26 +958,53 @@ class _SettingsPageState extends State<SettingsPage> {
                       Expanded(
                         flex: 2,
                         child: ElevatedButton(
-                          onPressed: () {
-                            if (!_isRequiredProfileComplete(sp)) {
+                          onPressed: () async {
+                            if (!_isRequiredProfileComplete()) {
                               _showRequiredProfileMessage(lang);
                               return;
                             }
 
+                            final parsedAge = _parseLocalizedInt(_ageCtrl.text);
+                            await sp.setName(_nameCtrl.text);
+                            await sp.setAge(parsedAge);
+                            await sp.setGender(_draftGender);
+                            await sp.setThemeColor(_draftThemeColor);
+                            await sp.setVibrationPattern(_draftVibrationPattern);
+                            await sp.setLanguage(_draftLanguage);
+
+                            final currentDiseases = List<String>.from(sp.chronicDiseases);
+                            for (final disease in currentDiseases) {
+                              if (!_draftChronicDiseases.contains(disease)) {
+                                await sp.toggleChronicDisease(disease);
+                              }
+                            }
+                            for (final disease in _draftChronicDiseases) {
+                              if (!currentDiseases.contains(disease)) {
+                                await sp.toggleChronicDisease(disease);
+                              }
+                            }
+
+                            if (!mounted) return;
+
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('تم حفظ الإعدادات'),
-                                duration: Duration(seconds: 1),
+                              SnackBar(
+                                content: Text(
+                                  AppTranslations.translate('saved_successfully', _draftLanguage),
+                                ),
+                                duration: const Duration(seconds: 1),
                               ),
                             );
                             Future.delayed(
                               const Duration(milliseconds: 500),
-                              () => Navigator.pop(context),
+                              () {
+                                if (!mounted) return;
+                                Navigator.pop(context);
+                              },
                             );
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.teal,
-                            foregroundColor: Colors.white,
+                            backgroundColor: _draftThemeColor,
+                            foregroundColor: saveForeground,
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
@@ -1010,7 +1117,10 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildColorPicker(SettingsProvider sp) {
+  Widget _buildColorPicker({
+    required Color selectedColor,
+    required ValueChanged<Color> onChanged,
+  }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final colors = [
       Colors.amber,
@@ -1024,9 +1134,9 @@ class _SettingsPageState extends State<SettingsPage> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: colors.map((color) {
-        final isSelected = sp.themeColor.toARGB32() == color.toARGB32();
+        final isSelected = selectedColor.toARGB32() == color.toARGB32();
         return GestureDetector(
-          onTap: () => sp.setThemeColor(color),
+          onTap: () => onChanged(color),
           child: Container(
             width: 50,
             height: 50,
@@ -1053,7 +1163,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  List<Widget> _buildChronicDiseaseCheckboxes(SettingsProvider sp, String lang) {
+  List<Widget> _buildChronicDiseaseCheckboxes(String lang) {
     // Map of Arabic disease names (for storage) to translation keys
     final diseaseMap = {
       'ارتفاع ضغط الدم': 'chronic_disease_hypertension',
@@ -1073,8 +1183,8 @@ class _SettingsPageState extends State<SettingsPage> {
       final translationKey = entry.value; // Translation key
       
       return CheckboxListTile(
-        value: sp.chronicDiseases.contains(diseaseKey),
-        onChanged: (v) => sp.toggleChronicDisease(diseaseKey),
+        value: _draftChronicDiseases.contains(diseaseKey),
+        onChanged: (_) => _toggleDraftChronicDisease(diseaseKey),
         title: Text(
           AppTranslations.translate(translationKey, lang),
           style: const TextStyle(fontSize: 14),
