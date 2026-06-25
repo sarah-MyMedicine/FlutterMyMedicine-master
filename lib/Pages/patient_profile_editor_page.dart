@@ -5,6 +5,7 @@ import '../providers/settings_provider.dart';
 import '../providers/user_provider.dart';
 import '../services/api_service.dart';
 import '../services/patient_data_sync_service.dart';
+import '../utils/number_parser.dart';
 import '../utils/translations.dart';
 
 class PatientProfileEditorPage extends StatefulWidget {
@@ -96,7 +97,7 @@ class _PatientProfileEditorPageState extends State<PatientProfileEditorPage> {
     final targetUsername = widget.patientUsername?.trim().toLowerCase() ?? userProvider.username?.toLowerCase();
 
     final name = _nameController.text.trim();
-    final age = int.tryParse(_ageController.text.trim());
+    final age = tryParseIntLocalized(_ageController.text.trim());
 
     if (name.isEmpty || age == null || age <= 0 || _gender == null || targetUsername == null || targetUsername.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(

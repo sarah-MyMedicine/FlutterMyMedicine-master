@@ -179,8 +179,6 @@ class _SymptomDialogState extends State<_SymptomDialog> {
   final _notesCtrl = TextEditingController();
   late String _severity;
   late Map<String, bool> _riskFactors;
-  bool _shareWithOrg = false;
-  bool _keepPrivate = true;
   
   @override
   void initState() {
@@ -268,13 +266,6 @@ class _SymptomDialogState extends State<_SymptomDialog> {
                 AppTranslations.translate('additional_description', lang),
                 _notesCtrl,
               ),
-              const SizedBox(height: 12),
-              Text(
-                AppTranslations.translate('sharing_privacy_options', lang),
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 8),
-              _buildShareOptions(lang),
               const SizedBox(height: 16),
               Row(
                 children: [
@@ -436,37 +427,6 @@ class _SymptomDialogState extends State<_SymptomDialog> {
           activeColor: const Color(0xFF57B6A8),
         );
       }).toList(),
-    );
-  }
-
-  Widget _buildShareOptions(String lang) {
-    return Column(
-      children: [
-        SwitchListTile(
-          value: _shareWithOrg,
-          onChanged: (v) => setState(() => _shareWithOrg = v),
-          title: Text(AppTranslations.translate('notify_medical_authorities', lang)),
-          subtitle: Text(AppTranslations.translate('notify_medical_desc', lang)),
-          activeThumbColor: const Color(0xFF57B6A8),
-          contentPadding: EdgeInsets.zero,
-        ),
-        RadioListTile<bool>(
-          value: true,
-          groupValue: _keepPrivate,
-          onChanged: (_) => setState(() => _keepPrivate = true),
-          title: Text(AppTranslations.translate('keep_personal_only', lang)),
-          subtitle: Text(AppTranslations.translate('save_personal_desc', lang)),
-          contentPadding: EdgeInsets.zero,
-        ),
-        RadioListTile<bool>(
-          value: false,
-          groupValue: _keepPrivate,
-          onChanged: (_) => setState(() => _keepPrivate = false),
-          title: Text(AppTranslations.translate('agree_to_share', lang)),
-          subtitle: Text(AppTranslations.translate('agree_share_desc', lang)),
-          contentPadding: EdgeInsets.zero,
-        ),
-      ],
     );
   }
 }

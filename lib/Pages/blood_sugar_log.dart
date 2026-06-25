@@ -5,6 +5,7 @@ import '../providers/settings_provider.dart';
 import '../components/blood_sugar_form_modal.dart';
 import '../components/blood_sugar_report_modal.dart';
 import '../utils/translations.dart';
+import '../utils/number_parser.dart';
 
 class BloodSugarPage extends StatelessWidget {
   const BloodSugarPage({super.key});
@@ -217,7 +218,7 @@ class BloodSugarPage extends StatelessWidget {
           ),
           ElevatedButton(
             onPressed: () {
-              final value = int.tryParse(controller.text);
+              final value = tryParseIntLocalized(controller.text);
               if (value != null) {
                 settingsProvider.setTargetBloodSugar(value);
                 Navigator.pop(context);

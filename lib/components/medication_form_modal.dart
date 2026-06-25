@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/medication_provider.dart';
 import '../providers/settings_provider.dart';
 import '../utils/translations.dart';
+import '../utils/number_parser.dart';
 
 class MedicationFormModal extends StatefulWidget {
   // onSave supports optional named params for imagePath, intervalHours, startTime, startDate, chronicDisease, doctorName, doctorSpecialty, pillCount, and warningBarrier
@@ -415,7 +416,7 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                             final raw = (v ?? '').trim();
                             if (raw.isEmpty) return null;
 
-                            final count = int.tryParse(raw);
+                            final count = tryParseIntLocalized(raw);
                             if (count == null || count <= 0) {
                               return AppTranslations.translate('pill_count_must_be_positive', lang);
                             }
@@ -435,7 +436,7 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                             final raw = (v ?? '').trim();
                             if (raw.isEmpty) return null;
 
-                            final barrier = int.tryParse(raw);
+                            final barrier = tryParseIntLocalized(raw);
                             if (barrier == null || barrier < 0) {
                               return AppTranslations.translate('warning_barrier_must_be_valid', lang);
                             }
@@ -655,8 +656,8 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                   final intervalHours = _calculateIntervalHours();
                   final doctorName = _doctorNameController.text.trim();
                   final doctorSpecialty = _doctorSpecialtyController.text.trim();
-                  final pillCount = int.tryParse(_pillCountController.text.trim());
-                  final warningBarrier = int.tryParse(_warningBarrierController.text.trim());
+                  final pillCount = tryParseIntLocalized(_pillCountController.text.trim());
+                  final warningBarrier = tryParseIntLocalized(_warningBarrierController.text.trim());
 
                   widget.onSave(
                     _nameController.text.trim(),

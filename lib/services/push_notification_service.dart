@@ -95,6 +95,8 @@ class PushNotificationService {
       if (body.isNotEmpty) {
         if (type == 'emergency_siren') {
           await NotificationService().showSosAlarmNotification(title: title, body: body);
+        } else if (type == 'missed_dose') {
+          await NotificationService().showMissedDoseAlarmNotification(title: title, body: body);
         } else {
           await NotificationService().showAlertNotification(title: title, body: body);
         }

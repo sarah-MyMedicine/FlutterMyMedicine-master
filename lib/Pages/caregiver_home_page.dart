@@ -246,7 +246,7 @@ class _CaregiverPersonalMenuTab extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        lang == 'ar' ? 'لوحة مقدم الرعاية' : 'Caregiver Dashboard',
+                        lang == 'ar' ? 'لوحة المراقب الدوائي' : 'Medication Monitor Dashboard',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -460,8 +460,8 @@ class _PatientMenuTab extends StatelessWidget {
                                 SnackBar(
                                   content: Text(
                                     lang == 'ar'
-                                        ? 'عرض قائمة المريض فقط لمقدم الرعاية'
-                                        : 'Patient menu preview for caregiver only',
+                                        ? 'عرض قائمة المريض فقط للمراقب الدوائي'
+                                        : 'Patient menu preview for medication monitor only',
                                   ),
                                 ),
                               );

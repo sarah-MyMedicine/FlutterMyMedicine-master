@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/settings_provider.dart';
 import '../utils/translations.dart';
+import '../utils/number_parser.dart';
 
 class BloodPressureFormModal extends StatefulWidget {
   final void Function(int systolic, int diastolic) onSave;
@@ -69,7 +70,7 @@ class _BloodPressureFormModalState extends State<BloodPressureFormModal> {
                             decoration: InputDecoration(
                               labelText: AppTranslations.translate('systolic', lang)
                             ),
-                            validator: (v) => (v == null || int.tryParse(v) == null) 
+                            validator: (v) => (v == null || tryParseIntLocalized(v) == null)
                               ? AppTranslations.translate('enter_number', lang) 
                               : null,
                           ),
@@ -82,7 +83,7 @@ class _BloodPressureFormModalState extends State<BloodPressureFormModal> {
                             decoration: InputDecoration(
                               labelText: AppTranslations.translate('diastolic', lang)
                             ),
-                            validator: (v) => (v == null || int.tryParse(v) == null) 
+                            validator: (v) => (v == null || tryParseIntLocalized(v) == null)
                               ? AppTranslations.translate('enter_number', lang) 
                               : null,
                           ),
@@ -94,7 +95,10 @@ class _BloodPressureFormModalState extends State<BloodPressureFormModal> {
                   ElevatedButton(
                     onPressed: () {
                       if (_formKey.currentState?.validate() ?? false) {
-                        widget.onSave(int.parse(_sysCtrl.text.trim()), int.parse(_diaCtrl.text.trim()));
+                        final sys = tryParseIntLocalized(_sysCtrl.text);
+                        final dia = tryParseIntLocalized(_diaCtrl.text);
+                        if (sys == null || dia == null) return;
+                        widget.onSave(sys, dia);
                         Navigator.of(context).pop();
                       }
                     },

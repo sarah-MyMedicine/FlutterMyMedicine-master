@@ -5,6 +5,7 @@ import '../providers/settings_provider.dart';
 import '../components/blood_pressure_form_modal.dart';
 import '../components/blood_pressure_report_modal.dart';
 import '../utils/translations.dart';
+import '../utils/number_parser.dart';
 
 class BloodPressurePage extends StatelessWidget {
   const BloodPressurePage({super.key});
@@ -239,8 +240,8 @@ class BloodPressurePage extends StatelessWidget {
           ),
           ElevatedButton(
             onPressed: () {
-              final sys = int.tryParse(sysController.text);
-              final dia = int.tryParse(diaController.text);
+              final sys = tryParseIntLocalized(sysController.text);
+              final dia = tryParseIntLocalized(diaController.text);
               if (sys != null && dia != null) {
                 settingsProvider.setTargetSystolic(sys);
                 settingsProvider.setTargetDiastolic(dia);

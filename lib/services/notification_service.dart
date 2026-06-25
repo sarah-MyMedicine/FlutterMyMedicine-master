@@ -14,6 +14,7 @@ import 'package:timezone/timezone.dart' as tz;
 import '../providers/medication_provider.dart';
 import '../providers/adherence_provider.dart';
 import '../providers/settings_provider.dart';
+import '../utils/number_parser.dart';
 import '../utils/translations.dart';
 
 class NotificationService {
@@ -93,9 +94,9 @@ class NotificationService {
           AndroidFlutterLocalNotificationsPlugin>();
       await androidImpl?.createNotificationChannel(
         const AndroidNotificationChannel(
-          'medicine_channel',
-          'Medicine reminders',
-          description: 'Reminders to take medicines',
+          'medication_monitor_alarm',
+          'Medication Monitor Alarms',
+          description: 'Alarm reminders to take medicines',
           importance: Importance.max,
           enableVibration: true,
           playSound: true,
@@ -105,8 +106,19 @@ class NotificationService {
       await androidImpl?.createNotificationChannel(
         const AndroidNotificationChannel(
           'caregiver_alerts',
-          'Caregiver Alerts',
-          description: 'Emergency and adherence alerts sent to caregivers',
+          'Medication Monitor Alerts',
+          description: 'Emergency and adherence alerts sent to medication monitors',
+          importance: Importance.max,
+          enableVibration: true,
+          playSound: true,
+        ),
+      );
+
+      await androidImpl?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'missed_dose_alarm',
+          'Missed Dose Alarm',
+          description: 'High-priority alarm for missed doses',
           importance: Importance.max,
           enableVibration: true,
           playSound: true,
@@ -375,17 +387,26 @@ class NotificationService {
           scheduledDate: tzDateTime,
           notificationDetails: const NotificationDetails(
             android: AndroidNotificationDetails(
-              'medicine_channel',
-              'Medicine reminders',
-              channelDescription: 'Reminders to take medicines',
+              'medication_monitor_alarm',
+              'Medication Monitor Alarms',
+              channelDescription: 'Alarm reminders to take medicines',
               importance: Importance.max,
               priority: Priority.max,
               playSound: true,
+              enableVibration: true,
               fullScreenIntent: true,
               visibility: NotificationVisibility.public,
               audioAttributesUsage: AudioAttributesUsage.alarm,
             ),
-            iOS: DarwinNotificationDetails(),
+            iOS: DarwinNotificationDetails(
+              sound: 'default.caf',
+              interruptionLevel: InterruptionLevel.timeSensitive,
+              presentAlert: true,
+              presentBanner: true,
+              presentList: true,
+              presentBadge: true,
+              presentSound: true,
+            ),
           ),
           androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
           payload: payload,
@@ -425,16 +446,25 @@ class NotificationService {
             ),
             notificationDetails: const NotificationDetails(
               android: AndroidNotificationDetails(
-                'medicine_channel',
-                'Medicine reminders',
-                channelDescription: 'Reminders to take medicines',
+                'medication_monitor_alarm',
+                'Medication Monitor Alarms',
+                channelDescription: 'Alarm reminders to take medicines',
                 importance: Importance.max,
                 priority: Priority.max,
                 playSound: true,
+                enableVibration: true,
                 fullScreenIntent: true,
                 visibility: NotificationVisibility.public,
               ),
-              iOS: DarwinNotificationDetails(),
+              iOS: DarwinNotificationDetails(
+                sound: 'default.caf',
+                interruptionLevel: InterruptionLevel.timeSensitive,
+                presentAlert: true,
+                presentBanner: true,
+                presentList: true,
+                presentBadge: true,
+                presentSound: true,
+              ),
             ),
             androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
             payload: payload,
@@ -497,17 +527,26 @@ class NotificationService {
         body: body,
         notificationDetails: const NotificationDetails(
           android: AndroidNotificationDetails(
-            'medicine_channel',
-            'Medicine reminders',
-            channelDescription: 'Reminders to take medicines',
+            'medication_monitor_alarm',
+            'Medication Monitor Alarms',
+            channelDescription: 'Alarm reminders to take medicines',
             importance: Importance.max,
             priority: Priority.max,
             playSound: true,
+            enableVibration: true,
             fullScreenIntent: true,
             visibility: NotificationVisibility.public,
             audioAttributesUsage: AudioAttributesUsage.alarm,
           ),
-          iOS: DarwinNotificationDetails(),
+          iOS: DarwinNotificationDetails(
+            sound: 'default.caf',
+            interruptionLevel: InterruptionLevel.timeSensitive,
+            presentAlert: true,
+            presentBanner: true,
+            presentList: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
         ),
         payload: payload,
       );
@@ -763,7 +802,7 @@ class NotificationService {
               actions: [
                 ElevatedButton(
                   onPressed: () {
-                    final parsed = int.tryParse(controller.text.trim());
+                    final parsed = tryParseIntLocalized(controller.text.trim());
                     if (parsed == null || parsed <= 0) {
                       setState(() {
                         errorText = AppTranslations.translate('pill_tracker_refill_invalid', lang);
@@ -818,17 +857,26 @@ class NotificationService {
         body: 'Tap me to verify the dialog shows!',
         notificationDetails: const NotificationDetails(
           android: AndroidNotificationDetails(
-            'medicine_channel',
-            'Medicine reminders',
-            channelDescription: 'Reminders to take medicines',
+            'medication_monitor_alarm',
+            'Medication Monitor Alarms',
+            channelDescription: 'Alarm reminders to take medicines',
             importance: Importance.max,
             priority: Priority.max,
             playSound: true,
+            enableVibration: true,
             fullScreenIntent: true,
             visibility: NotificationVisibility.public,
             audioAttributesUsage: AudioAttributesUsage.alarm,
           ),
-          iOS: DarwinNotificationDetails(),
+          iOS: DarwinNotificationDetails(
+            sound: 'default.caf',
+            interruptionLevel: InterruptionLevel.timeSensitive,
+            presentAlert: true,
+            presentBanner: true,
+            presentList: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
         ),
         payload: jsonEncode({
           'prefix': 'test',
@@ -901,17 +949,26 @@ class NotificationService {
         scheduledDate: tzDateTime,
         notificationDetails: const NotificationDetails(
           android: AndroidNotificationDetails(
-            'medicine_channel',
-            'Medicine reminders',
-            channelDescription: 'Reminders to take medicines',
+            'medication_monitor_alarm',
+            'Medication Monitor Alarms',
+            channelDescription: 'Alarm reminders to take medicines',
             importance: Importance.max,
             priority: Priority.max,
             playSound: true,
+            enableVibration: true,
             fullScreenIntent: true,
             visibility: NotificationVisibility.public,
             audioAttributesUsage: AudioAttributesUsage.alarm,
           ),
-          iOS: DarwinNotificationDetails(),
+          iOS: DarwinNotificationDetails(
+            sound: 'default.caf',
+            interruptionLevel: InterruptionLevel.timeSensitive,
+            presentAlert: true,
+            presentBanner: true,
+            presentList: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
         ),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         payload: payload,
@@ -957,9 +1014,9 @@ class NotificationService {
         scheduledDate: scheduledDate,
         notificationDetails: NotificationDetails(
           android: AndroidNotificationDetails(
-            'medicine_channel',
-            'Medicine reminders',
-            channelDescription: 'Reminders to take medicines',
+            'medication_monitor_alarm',
+            'Medication Monitor Alarms',
+            channelDescription: 'Alarm reminders to take medicines',
             importance: Importance.max,
             priority: Priority.max,
             playSound: true,
@@ -1014,14 +1071,50 @@ class NotificationService {
       notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
           'caregiver_alerts',
-          'Caregiver Alerts',
-          channelDescription: 'Emergency and adherence alerts sent to caregivers',
+          'Medication Monitor Alerts',
+          channelDescription: 'Emergency and adherence alerts sent to medication monitors',
           importance: Importance.max,
           priority: Priority.high,
           playSound: true,
           enableVibration: true,
         ),
         iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentBanner: true,
+          presentList: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
+      ),
+    );
+  }
+
+  Future<void> showMissedDoseAlarmNotification({required String title, required String body}) async {
+    await init();
+    await _ensureDarwinPermissions();
+
+    final id = DateTime.now().millisecondsSinceEpoch & 0x7fffffff;
+    await _plugin.show(
+      id: id,
+      title: title,
+      body: body,
+      notificationDetails: const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'missed_dose_alarm',
+          'Missed Dose Alarm',
+          channelDescription: 'High-priority alarm for missed doses',
+          importance: Importance.max,
+          priority: Priority.max,
+          playSound: true,
+          enableVibration: true,
+          fullScreenIntent: true,
+          category: AndroidNotificationCategory.alarm,
+          visibility: NotificationVisibility.public,
+          audioAttributesUsage: AudioAttributesUsage.alarm,
+        ),
+        iOS: DarwinNotificationDetails(
+          sound: 'default.caf',
+          interruptionLevel: InterruptionLevel.timeSensitive,
           presentAlert: true,
           presentBanner: true,
           presentList: true,

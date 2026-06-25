@@ -275,6 +275,7 @@ router.post('/notify-missed-dose', authMiddleware, async (req, res) => {
         token: caregiver.fcmToken,
         title: 'تنبيه: جرعات دواء مفقودة',
         body: `${patient.name} فاته ${consecutiveMissed} جرعات من ${medicationName}`,
+        channelId: 'missed_dose_alarm',
         data: {
           type: 'missed_dose',
           patientUsername: patient.username,

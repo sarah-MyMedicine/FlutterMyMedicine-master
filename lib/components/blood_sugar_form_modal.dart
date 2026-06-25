@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/settings_provider.dart';
 import '../utils/translations.dart';
+import '../utils/number_parser.dart';
 
 class BloodSugarFormModal extends StatefulWidget {
   final void Function(int value) onSave;
@@ -60,7 +61,7 @@ class _BloodSugarFormModalState extends State<BloodSugarFormModal> {
                       decoration: InputDecoration(
                         labelText: AppTranslations.translate('mgdl', lang)
                       ),
-                      validator: (v) => (v == null || int.tryParse(v) == null) 
+                      validator: (v) => (v == null || tryParseIntLocalized(v) == null)
                         ? AppTranslations.translate('enter_number', lang) 
                         : null,
                     ),
@@ -69,7 +70,9 @@ class _BloodSugarFormModalState extends State<BloodSugarFormModal> {
                   ElevatedButton(
                     onPressed: () {
                       if (_formKey.currentState?.validate() ?? false) {
-                        widget.onSave(int.parse(_valCtrl.text.trim()));
+                        final value = tryParseIntLocalized(_valCtrl.text);
+                        if (value == null) return;
+                        widget.onSave(value);
                         Navigator.of(context).pop();
                       }
                     },
