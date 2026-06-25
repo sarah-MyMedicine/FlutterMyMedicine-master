@@ -321,9 +321,14 @@ class _LabResultsPageState extends State<LabResultsPage> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => Scaffold(
+          backgroundColor: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF0F1115)
+              : Colors.black,
           appBar: AppBar(
             title: Text(AppTranslations.translate('view_result', lang)),
-            backgroundColor: Colors.black,
+            backgroundColor: Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xFF181B22)
+                : Colors.black,
             actions: [
               IconButton(
                 icon: const Icon(Icons.edit),
@@ -334,7 +339,6 @@ class _LabResultsPageState extends State<LabResultsPage> {
               ),
             ],
           ),
-          backgroundColor: Colors.black,
           body: Column(
             children: [
               Expanded(
@@ -348,11 +352,15 @@ class _LabResultsPageState extends State<LabResultsPage> {
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
-                  color: Colors.black87,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFF171A20)
+                      : Colors.black87,
                   child: Text(
                     result.description,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Theme.of(context).colorScheme.onSurface
+                          : Colors.white,
                       fontSize: 14,
                     ),
                     textAlign: TextAlign.center,
@@ -370,6 +378,8 @@ class _LabResultsPageState extends State<LabResultsPage> {
     return Consumer<SettingsProvider>(
       builder: (context, sp, child) {
         final lang = sp.language;
+        final theme = Theme.of(context);
+        final isDark = theme.brightness == Brightness.dark;
         return Directionality(
           textDirection: lang == 'ar' ? TextDirection.rtl : TextDirection.ltr,
           child: Scaffold(
@@ -395,7 +405,7 @@ class _LabResultsPageState extends State<LabResultsPage> {
                           AppTranslations.translate('no_lab_results_found', lang),
                           style: TextStyle(
                             fontSize: 18,
-                            color: Colors.grey.shade600,
+                            color: theme.colorScheme.onSurface,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -403,7 +413,7 @@ class _LabResultsPageState extends State<LabResultsPage> {
                           AppTranslations.translate('add_first_result', lang),
                           style: TextStyle(
                             fontSize: 14,
-                            color: Colors.grey.shade500,
+                            color: theme.textTheme.bodySmall?.color,
                           ),
                         ),
                       ],
@@ -422,6 +432,7 @@ class _LabResultsPageState extends State<LabResultsPage> {
                       final result = _labResults[index];
                       return Card(
                         clipBehavior: Clip.antiAlias,
+                        color: theme.cardColor,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
@@ -437,7 +448,7 @@ class _LabResultsPageState extends State<LabResultsPage> {
                                       height: double.infinity,
                                       errorBuilder: (context, error, stackTrace) {
                                         return Container(
-                                          color: Colors.grey.shade200,
+                                          color: isDark ? const Color(0xFF232832) : Colors.grey.shade200,
                                           child: const Center(
                                             child: Icon(
                                               Icons.broken_image,
@@ -457,7 +468,7 @@ class _LabResultsPageState extends State<LabResultsPage> {
                                       children: [
                                         Container(
                                           decoration: BoxDecoration(
-                                            color: Colors.black.withOpacity(0.6),
+                                            color: Colors.black.withValues(alpha: 0.6),
                                             shape: BoxShape.circle,
                                           ),
                                           child: IconButton(
@@ -474,7 +485,7 @@ class _LabResultsPageState extends State<LabResultsPage> {
                                         const SizedBox(width: 4),
                                         Container(
                                           decoration: BoxDecoration(
-                                            color: Colors.black.withOpacity(0.6),
+                                            color: Colors.black.withValues(alpha: 0.6),
                                             shape: BoxShape.circle,
                                           ),
                                           child: IconButton(
@@ -497,12 +508,12 @@ class _LabResultsPageState extends State<LabResultsPage> {
                             if (result.description.isNotEmpty)
                               Container(
                                 padding: const EdgeInsets.all(8),
-                                color: Colors.grey.shade100,
+                                color: isDark ? const Color(0xFF232832) : Colors.grey.shade100,
                                 child: Text(
                                   result.description,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 12,
-                                    color: Colors.black87,
+                                    color: theme.colorScheme.onSurface,
                                   ),
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,

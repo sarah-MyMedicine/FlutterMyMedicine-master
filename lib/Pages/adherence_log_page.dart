@@ -75,6 +75,9 @@ class AdherenceLogPage extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
                   itemCount: records.length,
                   itemBuilder: (context, index) {
+                    final theme = Theme.of(context);
+                    final onSurface = theme.colorScheme.onSurface;
+                    final isDark = theme.brightness == Brightness.dark;
                     final record = records[index];
                     final medicationName = record['medicationName'] ?? '';
                     final dose = record['dose'] ?? '';
@@ -84,11 +87,11 @@ class AdherenceLogPage extends StatelessWidget {
                       margin: const EdgeInsets.only(bottom: 16),
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: theme.cardColor,
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
+                            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
@@ -116,19 +119,19 @@ class AdherenceLogPage extends StatelessWidget {
                                     const SizedBox(height: 10),
                                     Text(
                                       medicationName,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 17,
                                         fontWeight: FontWeight.bold,
-                                        color: Colors.black87,
+                                        color: onSurface,
                                         height: 1.3,
                                       ),
                                     ),
                                     const SizedBox(height: 6),
                                     Text(
                                       dose,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 14,
-                                        color: Colors.black54,
+                                        color: theme.textTheme.bodySmall?.color,
                                       ),
                                     ),
                                   ],
@@ -137,14 +140,14 @@ class AdherenceLogPage extends StatelessWidget {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF8F8F8),
+                                  color: isDark ? const Color(0xFF232832) : const Color(0xFFF8F8F8),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
                                   '${lang == 'ar' ? 'م' : ''} ${_formatTime(timestamp)}',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 12,
-                                    color: Colors.black87,
+                                    color: onSurface,
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),

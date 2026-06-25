@@ -148,15 +148,18 @@ class PubertyStageInfoPage extends StatelessWidget {
     String? subtitle,
     List<String>? bulletPoints,
   }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final onSurface = theme.colorScheme.onSurface;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE91E63), width: 2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -185,10 +188,10 @@ class PubertyStageInfoPage extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             content,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               height: 1.6,
-              color: Colors.black87,
+              color: onSurface,
             ),
             textAlign: TextAlign.justify,
           ),
@@ -197,7 +200,7 @@ class PubertyStageInfoPage extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFFFAFAFA),
+                color: isDark ? const Color(0xFF232832) : const Color(0xFFFAFAFA),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -205,10 +208,10 @@ class PubertyStageInfoPage extends StatelessWidget {
                 children: [
                   Text(
                     subtitle,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                      color: onSurface,
                     ),
                     textAlign: lang == 'ar' ? TextAlign.right : TextAlign.left,
                   ),
@@ -223,10 +226,10 @@ class PubertyStageInfoPage extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   point,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 13,
                                     height: 1.5,
-                                    color: Colors.black87,
+                                    color: onSurface,
                                   ),
                                 ),
                               ),
@@ -244,14 +247,16 @@ class PubertyStageInfoPage extends StatelessWidget {
   }
 
   Widget _buildTipsCard(BuildContext context, String lang) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF9E6),
+        color: isDark ? const Color(0xFF3B3320) : const Color(0xFFFFF9E6),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -289,6 +294,7 @@ class PubertyStageInfoPage extends StatelessWidget {
   }
 
   Widget _buildTipItem(BuildContext context, String lang, String emoji, String text) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -297,10 +303,10 @@ class PubertyStageInfoPage extends StatelessWidget {
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               height: 1.5,
-              color: Colors.black87,
+              color: onSurface,
             ),
           ),
         ),

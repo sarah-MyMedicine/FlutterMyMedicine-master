@@ -95,12 +95,24 @@ class AppTranslations {
       'medication_rank_unranked': 'بداية الطريق',
       'medication_rank_start': 'أكمل 3 أيام متتالية بلا أي جرعة فائتة لتحصل على رتبة المعدّل',
       'medication_rank_next': 'الرتبة التالية:',
-      'medication_rank_highest': 'وصلت إلى رتبة الملك، وهي أعلى رتبة في التطبيق',
+      'medication_rank_highest': 'وصلت إلى رتبة الذيب، وهي أعلى رتبة في التطبيق',
       'medication_rank_streak': 'يوم متتالٍ',
       'coming_soon': 'قريبا',
       'pharmacist_consultation': 'استشارة صيدلي',
       'get_info_about_medicines': 'احصل على معلومات عن الأدوية',
       'free_consultation': 'استشارة مجانية',
+        'my_menu': 'قائمتي',
+        'my_profile': 'ملفي الشخصي',
+        'edit_my_profile': 'تعديل ملفي الشخصي',
+        'edit_profile': 'تعديل الملف الشخصي',
+        'medication_monitor_dashboard': 'لوحة المراقب الدوائي',
+        'medication_monitor_tabs_hint':
+          'يمكنك التبديل بين تبويبك الشخصي وتبويبات المرضى لعرض نفس قائمة المريض.',
+        'patient_menu_preview_medication_monitor_only':
+          'عرض قائمة المريض فقط للمراقب الدوائي',
+        'reminder': 'تذكير',
+        'hydration': 'الترطيب',
+        'reports': 'التقارير',
       
       // Medication Form
       'medication_name': 'اسم الدواء',
@@ -951,12 +963,24 @@ class AppTranslations {
       'medication_rank_unranked': 'Getting Started',
       'medication_rank_start': 'Complete 3 consecutive days with no missed doses to earn رتبة المعدّل',
       'medication_rank_next': 'Next rank:',
-      'medication_rank_highest': 'You reached رتبة الملك, the highest rank in the app',
+      'medication_rank_highest': 'You reached رتبة الذيب, the highest rank in the app',
       'medication_rank_streak': 'day streak',
       'coming_soon': 'Coming Soon',
       'pharmacist_consultation': 'Pharmacist Consultation',
       'get_info_about_medicines': 'Get information about medicines',
       'free_consultation': 'Free Consultation',
+        'my_menu': 'My Menu',
+        'my_profile': 'My Profile',
+        'edit_my_profile': 'Edit My Profile',
+        'edit_profile': 'Edit Profile',
+        'medication_monitor_dashboard': 'Medication Monitor Dashboard',
+        'medication_monitor_tabs_hint':
+          'Switch between your personal tab and patient tabs to view the same patient main menu.',
+        'patient_menu_preview_medication_monitor_only':
+          'Patient menu preview for medication monitor only',
+        'reminder': 'Reminder',
+        'hydration': 'Hydration',
+        'reports': 'Reports',
       
       // Medication Form
       'medication_name': 'Medication Name',

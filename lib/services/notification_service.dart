@@ -14,6 +14,7 @@ import 'package:timezone/timezone.dart' as tz;
 import '../providers/medication_provider.dart';
 import '../providers/adherence_provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/user_provider.dart';
 import '../utils/number_parser.dart';
 import '../utils/translations.dart';
 
@@ -39,6 +40,18 @@ class NotificationService {
     'ندري الدواء التزام، بس مفعوله يخليك تمشي وتتونس بدون تعب! 😉',
     'الحبايه دا تباوع عليك وتگول: اشربني هسة وخلصني! 😂',
     'وينك يا طيب؟ اشتاقينا للالتزام مالتك، لا تخلي السلسلة تنقطع!',
+  ];
+
+  final List<String> _morningPositiveMessages = [
+    'صباح الخير يا بطل! ☀️ حبة وحدة هسة تخلي يومك كله نشاط، لا تنساها.',
+  ];
+
+  final String _heartPressureMorningMessage =
+      'شلون الهمة اليوم؟ قلبك ينتظرك تاخذ العلاج حتى يبلش يومه صح. ❤️';
+
+  final List<String> _familyReminderMessages = [
+    'أهلك يحبوك وينتظرون يسمعون إنك أخذت علاجك.. طمنهم بضغطة زر! 👨‍👩‍👧‍👦',
+    'تذكر.. صحتك مو بس إلك، هي سعادة لكل بيتكم. أخذت الحبّة لو بعد؟',
   ];
 
   void setNavigatorKey(GlobalKey<NavigatorState> key) {
@@ -253,6 +266,44 @@ class NotificationService {
     return message.contains('Maximum limit of concurrent alarms 500 reached');
   }
 
+  bool _isPatientContext(BuildContext context) {
+    try {
+      return context.read<UserProvider>().isPatient;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> _hasHeartAndHypertensionConditions() async {
+    final prefs = await SharedPreferences.getInstance();
+    final diseases = prefs.getStringList('settings_chronic_diseases') ?? const <String>[];
+    final hasPressure = diseases.contains('ارتفاع ضغط الدم');
+    final hasHeart = diseases.any((disease) => disease.contains('قلب'));
+    return hasPressure && hasHeart;
+  }
+
+  String _pickRandomMessage(List<String> messages) {
+    if (messages.isEmpty) return '';
+    final random = Random();
+    return messages[random.nextInt(messages.length)];
+  }
+
+  String _buildContextualReminderBody(
+    String baseBody,
+    DateTime scheduled,
+    bool hasHeartAndHypertension,
+  ) {
+    final isMorning = scheduled.hour >= 5 && scheduled.hour <= 11;
+    final contextualMessage = isMorning
+        ? (hasHeartAndHypertension
+            ? _heartPressureMorningMessage
+            : _pickRandomMessage(_morningPositiveMessages))
+        : _pickRandomMessage(_familyReminderMessages);
+
+    if (contextualMessage.isEmpty) return baseBody;
+    return '$baseBody\n$contextualMessage';
+  }
+
   Future<int> _trackedMedicationAlarmCount() async {
     final prefs = await SharedPreferences.getInstance();
     var count = 0;
@@ -336,6 +387,7 @@ class NotificationService {
     final List<int> ids = [];
     int scheduledCount = 0;
     bool isFirstOccurrence = true;
+    final hasHeartAndHypertension = await _hasHeartAndHypertensionConditions();
 
     for (var i = 0; i < safeOccurrences; i++) {
       final scheduled = firstOccurrence.add(Duration(hours: intervalHours * i));
@@ -358,6 +410,12 @@ class NotificationService {
         'id': id,
         'scheduled': scheduled.millisecondsSinceEpoch,
       });
+
+      final contextualBody = _buildContextualReminderBody(
+        body,
+        scheduled,
+        hasHeartAndHypertension,
+      );
 
       try {
         debugPrint('[NotificationService] Scheduling notification $scheduledCount: id=$id, for=$scheduled (T+${scheduled.difference(now).inSeconds}s from now)');
@@ -383,7 +441,7 @@ class NotificationService {
         await _plugin.zonedSchedule(
           id: id,
           title: title,
-          body: body,
+          body: contextualBody,
           scheduledDate: tzDateTime,
           notificationDetails: const NotificationDetails(
             android: AndroidNotificationDetails(
@@ -434,7 +492,7 @@ class NotificationService {
           await _plugin.zonedSchedule(
             id: id,
             title: title,
-            body: body,
+            body: contextualBody,
             scheduledDate: tz.TZDateTime(
               tz.local,
               scheduled.year,
@@ -554,9 +612,14 @@ class NotificationService {
       
       // If app is in foreground, also show the dialog immediately (without requiring a tap)
       if (_navigatorKey != null && _navigatorKey!.currentContext != null) {
-        debugPrint('[NotificationService] App in foreground, showing dialog immediately');
-        final Map<String, dynamic> data = jsonDecode(payload);
-        _handleNotificationTap(data);
+        final currentContext = _navigatorKey!.currentContext!;
+        if (_isPatientContext(currentContext)) {
+          debugPrint('[NotificationService] App in foreground (patient), showing action dialog');
+          final Map<String, dynamic> data = jsonDecode(payload);
+          _handleNotificationTap(data);
+        } else {
+          debugPrint('[NotificationService] App in foreground (medication monitor), notification only');
+        }
       } else {
         debugPrint('[NotificationService] App not in foreground, notification only (user will tap to see dialog)');
       }
@@ -599,6 +662,31 @@ class NotificationService {
     final String name = (data['name'] as String?) ?? 'Medication';
     final String dose = (data['dose'] as String?) ?? '';
     final int? id = data['id'] as int?;
+    final isPatient = _isPatientContext(context);
+
+    if (!isPatient) {
+      showDialog(
+        context: context,
+        barrierDismissible: true,
+        builder: (ctx) {
+          return Directionality(
+            textDirection: TextDirection.rtl,
+            child: AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Text('تنبيه دوائي'),
+              content: Text('$name\n$dose'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('تم'),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+      return;
+    }
 
     showDialog(
       context: context,
@@ -632,9 +720,19 @@ class NotificationService {
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
                     children: [
-                      Text(name, style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.black)),
+                      Text(
+                        name,
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                      ),
                       const SizedBox(height: 6),
-                      Text(dose, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey)),
+                      Text(
+                        dose,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(context).textTheme.bodySmall?.color,
+                            ),
+                      ),
                       const SizedBox(height: 16),
                       SizedBox(
                         width: double.infinity,

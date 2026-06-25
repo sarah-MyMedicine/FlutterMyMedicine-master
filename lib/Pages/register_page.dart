@@ -248,6 +248,8 @@ class _RegisterPageState extends State<RegisterPage> {
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               initialValue: _selectedUserType,
+              dropdownColor: Theme.of(context).colorScheme.surface,
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
               items: [
                 DropdownMenuItem(
                   value: 'patient',
@@ -298,6 +300,8 @@ class _RegisterPageState extends State<RegisterPage> {
                   Expanded(
                     child: DropdownButtonFormField<PatientGender>(
                       initialValue: _selectedGender,
+                      dropdownColor: Theme.of(context).colorScheme.surface,
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                       items: [
                         DropdownMenuItem(
                           value: PatientGender.male,

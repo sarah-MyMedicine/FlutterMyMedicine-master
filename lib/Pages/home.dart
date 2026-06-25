@@ -43,13 +43,6 @@ class HomePage extends StatelessWidget {
 
   _RankPresentation _rankPresentation(MedicationRankStatus status) {
     final rank = status.currentTier?.title;
-    if (rank == 'الملك') {
-      return const _RankPresentation(
-        startColor: Color(0xFF7A4B00),
-        endColor: Color(0xFFF4C542),
-        icon: Icons.workspace_premium,
-      );
-    }
     if (rank == 'الذيب') {
       return const _RankPresentation(
         startColor: Color(0xFF455A64),
@@ -831,7 +824,11 @@ class _SquareTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = highlight ? Colors.red.shade50 : Colors.white;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final bg = highlight
+      ? (isDark ? Colors.red.shade900.withValues(alpha: 0.28) : Colors.red.shade50)
+      : theme.cardColor;
     final hasBackgroundImage =
         backgroundImageAsset != null && backgroundImageAsset!.isNotEmpty;
 
@@ -847,8 +844,15 @@ class _SquareTile extends StatelessWidget {
                 )
               : null,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6)],
-          border: Border.all(color: Colors.grey.withOpacity(0.08)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.12),
+              blurRadius: 6,
+            ),
+          ],
+          border: Border.all(
+            color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.withValues(alpha: 0.08),
+          ),
         ),
         child: hasBackgroundImage
             ? Container(
@@ -872,11 +876,11 @@ class _SquareTile extends StatelessWidget {
                       bottom: 0,
                       child: Text(
                         label,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Colors.white,
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          shadows: [
+                          shadows: const [
                             Shadow(
                               color: Colors.black54,
                               blurRadius: 5,
@@ -951,7 +955,10 @@ class _SquareTile extends StatelessWidget {
                       child: Center(
                         child: Text(
                           label,
-                          style: const TextStyle(fontSize: 12),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.colorScheme.onSurface,
+                          ),
                           textAlign: TextAlign.center,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,

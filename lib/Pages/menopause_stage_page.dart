@@ -714,10 +714,10 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
           const SizedBox(height: 12),
           Text(
             content,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               height: 1.6,
-              color: Colors.black87,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
             textAlign: TextAlign.justify,
           ),
@@ -726,7 +726,9 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFFF0F8FF),
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? const Color(0xFF232832)
+                    : const Color(0xFFF0F8FF),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -750,10 +752,10 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
                   const SizedBox(height: 12),
                   Text(
                     subContent,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       height: 1.5,
-                      color: Colors.black87,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                     textAlign: TextAlign.justify,
                   ),
@@ -765,10 +767,10 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
             const SizedBox(height: 16),
             Text(
               AppTranslations.translate('benefits', lang),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
-                color: Colors.black87,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
               textAlign: lang == 'ar' ? TextAlign.right : TextAlign.left,
             ),
@@ -783,10 +785,10 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
                       Expanded(
                         child: Text(
                           benefit,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
                             height: 1.5,
-                            color: Colors.black87,
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
                       ),
@@ -798,10 +800,10 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
             const SizedBox(height: 16),
             Text(
               AppTranslations.translate('consult_doctor', lang),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
-                color: Colors.black87,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
               textAlign: lang == 'ar' ? TextAlign.right : TextAlign.left,
             ),
@@ -816,10 +818,10 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
                       Expanded(
                         child: Text(
                           item,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
                             height: 1.5,
-                            color: Colors.black87,
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
                       ),

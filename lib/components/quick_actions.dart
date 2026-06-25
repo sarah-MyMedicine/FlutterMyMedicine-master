@@ -10,15 +10,26 @@ class QuickActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<SettingsProvider>(context).language;
+
     return Padding(
       padding: const EdgeInsets.all(12.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _ActionButton(icon: Icons.add_alert, label: 'Reminder'),
+          _ActionButton(
+            icon: Icons.add_alert,
+            label: AppTranslations.translate('reminder', lang),
+          ),
           MyMedicinesTile(),
-          _ActionButton(icon: Icons.water, label: 'Hydration'),
-          _ActionButton(icon: Icons.analytics, label: 'Reports'),
+          _ActionButton(
+            icon: Icons.water,
+            label: AppTranslations.translate('hydration', lang),
+          ),
+          _ActionButton(
+            icon: Icons.analytics,
+            label: AppTranslations.translate('reports', lang),
+          ),
         ],
       ),
     );

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../services/patient_data_sync_service.dart';
+import '../services/notification_service.dart';
 
 class AdherenceLog {
   final String medicationName;
@@ -76,12 +77,65 @@ class _ScheduledDoseResult {
 
 class AdherenceProvider extends ChangeNotifier {
   List<AdherenceLog> _logs = [];
+  static const String _rankMilestoneNotifiedKey =
+      'adherence_rank_last_notified_milestone';
   static const List<MedicationRankTier> _rankTiers = [
     MedicationRankTier(title: 'المعدّل', requiredDays: 3),
     MedicationRankTier(title: 'السبع', requiredDays: 7),
     MedicationRankTier(title: 'الذيب', requiredDays: 30),
-    MedicationRankTier(title: 'الملك', requiredDays: 90),
   ];
+
+  Future<void> _notifyAchievementMilestone({
+    required int streakDays,
+    required String rankTitle,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final alreadyNotified = prefs.getInt(_rankMilestoneNotifiedKey) ?? 0;
+
+    var milestone = 0;
+    String message = '';
+
+    if (streakDays >= 30) {
+      milestone = 30;
+      message =
+          'التزامك بالدوا اليوم يجنن! استمر وراح تشوف الفرق. وصلت رتبة $rankTitle 🐺';
+    } else if (streakDays >= 7) {
+      milestone = 7;
+      message = 'عاشت إيدك! اليوم كملت أسبوع كامل بدون أي تأخير... 🏆';
+    } else if (streakDays >= 3) {
+      milestone = 3;
+      message =
+          'التزامك بالدوا اليوم يجنن! استمر وراح تشوف الفرق. وصلت رتبة $rankTitle';
+    }
+
+    if (milestone == 0 || alreadyNotified >= milestone) {
+      return;
+    }
+
+    await prefs.setInt(_rankMilestoneNotifiedKey, milestone);
+    await NotificationService().showAlertNotification(
+      title: 'إشعار إنجاز',
+      body: message,
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> _loadMedicationSnapshotForRanking() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('medications_v1');
+    if (raw == null || raw.isEmpty) return const <Map<String, dynamic>>[];
+
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return const <Map<String, dynamic>>[];
+
+      return decoded
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    } catch (_) {
+      return const <Map<String, dynamic>>[];
+    }
+  }
 
   void _syncCloudInBackground() {
     unawaited(
@@ -414,6 +468,17 @@ class AdherenceProvider extends ChangeNotifier {
       taken: true,
     ));
     await _saveToPrefs();
+
+    final medications = await _loadMedicationSnapshotForRanking();
+    final rankStatus = calculateRankStatus(medications);
+    final rankTitle = rankStatus.currentTier?.title;
+    if (rankTitle != null) {
+      await _notifyAchievementMilestone(
+        streakDays: rankStatus.streakDays,
+        rankTitle: rankTitle,
+      );
+    }
+
     notifyListeners();
   }
 

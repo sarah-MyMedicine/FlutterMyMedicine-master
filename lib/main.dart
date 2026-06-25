@@ -299,9 +299,20 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           builder: (context, child) {
             return Consumer<SettingsProvider>(
               builder: (context, settings, _) {
+                final theme = Theme.of(context);
+                final fallbackTextStyle = theme.textTheme.bodyMedium ??
+                    TextStyle(color: theme.colorScheme.onSurface);
                 return Directionality(
                   textDirection: settings.language == 'ar' ? TextDirection.rtl : TextDirection.ltr,
-                  child: child!,
+                  child: DefaultTextStyle.merge(
+                    style: fallbackTextStyle.copyWith(
+                      color: theme.colorScheme.onSurface,
+                    ),
+                    child: IconTheme.merge(
+                      data: IconThemeData(color: theme.colorScheme.onSurface),
+                      child: child!,
+                    ),
+                  ),
                 );
               },
             );

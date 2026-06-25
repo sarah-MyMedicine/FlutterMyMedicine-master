@@ -231,15 +231,24 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
     required Widget trailing,
     required bool active,
   }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final onSurface = theme.colorScheme.onSurface;
+    final muted = theme.textTheme.bodySmall?.color ?? (isDark ? Colors.white70 : Colors.black54);
+
     return GestureDetector(
       onTap: () => setState(() => _frequencyType = type),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: active ? const Color(0xFF36BBA0).withOpacity(0.09) : Colors.grey.shade50,
+          color: active
+              ? const Color(0xFF36BBA0).withValues(alpha: 0.09)
+              : (isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade50),
           border: Border.all(
-            color: active ? const Color(0xFF36BBA0) : Colors.grey.shade300,
+            color: active
+                ? const Color(0xFF36BBA0)
+                : (isDark ? Colors.white24 : Colors.grey.shade300),
             width: active ? 1.5 : 1,
           ),
           borderRadius: BorderRadius.circular(10),
@@ -257,7 +266,7 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                 label,
                 style: TextStyle(
                   fontSize: 14,
-                  color: active ? Colors.black87 : Colors.grey,
+                  color: active ? onSurface : muted,
                   fontWeight: active ? FontWeight.w500 : FontWeight.normal,
                 ),
               ),
@@ -277,6 +286,11 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
     return Consumer<SettingsProvider>(
       builder: (context, sp, _) {
         final lang = sp.language;
+        final theme = Theme.of(context);
+        final isDark = theme.brightness == Brightness.dark;
+        final onSurface = theme.colorScheme.onSurface;
+        final muted = theme.textTheme.bodySmall?.color ?? (isDark ? Colors.white70 : Colors.black54);
+        final dropdownBg = theme.colorScheme.surface;
         final viewInsetsBottom = MediaQuery.of(context).viewInsets.bottom;
         
         return SafeArea(
@@ -350,8 +364,8 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                   DropdownButtonFormField<String>(
                     initialValue: _selectedDoctorValue,
                     isExpanded: true,
-                    style: const TextStyle(color: Colors.black),
-                    dropdownColor: Colors.white,
+                    style: TextStyle(color: onSurface),
+                    dropdownColor: dropdownBg,
                     decoration: InputDecoration(
                       labelText: AppTranslations.translate('doctor', lang),
                       helperText: AppTranslations.translate('select_saved_doctor_or_add', lang),
@@ -469,8 +483,8 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                         DropdownButton<int>(
                           value: _hoursValue,
                           underline: const SizedBox(),
-                          style: const TextStyle(color: Colors.black, fontSize: 14),
-                          dropdownColor: Colors.white,
+                          style: TextStyle(color: onSurface, fontSize: 14),
+                          dropdownColor: dropdownBg,
                           items: List.generate(24, (i) => i + 1).map((v) {
                             return DropdownMenuItem<int>(value: v, child: Text('$v'));
                           }).toList(),
@@ -494,8 +508,8 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                     trailing: DropdownButton<int>(
                       value: _weeklyFrequencyTimes,
                       underline: const SizedBox(),
-                      style: const TextStyle(color: Colors.black, fontSize: 14),
-                      dropdownColor: Colors.white,
+                      style: TextStyle(color: onSurface, fontSize: 14),
+                      dropdownColor: dropdownBg,
                       items: List<int>.generate(7, (i) => i + 1)
                           .map((v) => DropdownMenuItem<int>(
                                 value: v,
@@ -517,8 +531,8 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                     trailing: DropdownButton<int>(
                       value: _monthlyFrequencyTimes,
                       underline: const SizedBox(),
-                      style: const TextStyle(color: Colors.black, fontSize: 14),
-                      dropdownColor: Colors.white,
+                      style: TextStyle(color: onSurface, fontSize: 14),
+                      dropdownColor: dropdownBg,
                       items: List<int>.generate(4, (i) => i + 1)
                           .map((v) => DropdownMenuItem<int>(
                                 value: v,
@@ -558,7 +572,7 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                                 ),
                                 child: Text(
                                   _startTime != null ? _startTime!.format(context) : AppTranslations.translate('choose_time', lang),
-                                  style: TextStyle(color: _startTime != null ? Colors.black : Colors.black54)
+                                  style: TextStyle(color: _startTime != null ? onSurface : muted)
                                 ),
                               ),
                             );
@@ -594,7 +608,7 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                                 ),
                                 child: Text(
                                   _startDate != null ? '${_startDate!.year}-${_startDate!.month.toString().padLeft(2, '0')}-${_startDate!.day.toString().padLeft(2, '0')}' : AppTranslations.translate('choose_date', lang),
-                                  style: TextStyle(color: _startDate != null ? Colors.black : Colors.black54)
+                                  style: TextStyle(color: _startDate != null ? onSurface : muted)
                                 ),
                               ),
                             );
@@ -609,28 +623,28 @@ class _MedicationFormModalState extends State<MedicationFormModal> {
                       labelText: AppTranslations.translate('medication_type', lang)
                     ),
                     initialValue: _chronicDisease,
-                    style: const TextStyle(color: Colors.black),
-                    dropdownColor: Colors.white,
+                    style: TextStyle(color: onSurface),
+                    dropdownColor: dropdownBg,
                     items: <DropdownMenuItem<String>>[
                       DropdownMenuItem<String>(
                         value: 'عام',
                         child: Text(
                           AppTranslations.translate('general_medication', lang),
-                          style: const TextStyle(color: Colors.black)
+                          style: TextStyle(color: onSurface)
                         ),
                       ),
                       DropdownMenuItem<String>(
                         value: 'ارتفاع ضغط الدم',
                         child: Text(
                           AppTranslations.translate('blood_pressure_medication', lang),
-                          style: const TextStyle(color: Colors.black)
+                          style: TextStyle(color: onSurface)
                         ),
                       ),
                       DropdownMenuItem<String>(
                         value: 'السكري',
                         child: Text(
                           AppTranslations.translate('blood_sugar_medication', lang),
-                          style: const TextStyle(color: Colors.black)
+                          style: TextStyle(color: onSurface)
                         ),
                       ),
                     ],

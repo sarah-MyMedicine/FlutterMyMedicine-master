@@ -187,11 +187,15 @@ class _CaregiverHomePageState extends State<CaregiverHomePage>
           controller: _tabController,
           isScrollable: true,
           tabs: <Widget>[
-            Tab(text: lang == 'ar' ? 'قائمتي' : 'My Menu'),
+            Tab(text: AppTranslations.translate('my_menu', lang)),
             ..._linkedPatients.map((patient) {
               final username = (patient['username'] ?? '').toString();
               final name = (patient['name'] ?? '').toString();
-              final label = name.isNotEmpty ? name : (username.isNotEmpty ? username : 'Patient');
+              final label = name.isNotEmpty
+                  ? name
+                  : (username.isNotEmpty
+                      ? username
+                      : AppTranslations.translate('patient', lang));
               return Tab(text: label);
             }),
           ],
@@ -221,6 +225,23 @@ class _CaregiverHomePageState extends State<CaregiverHomePage>
 class _CaregiverPersonalMenuTab extends StatelessWidget {
   const _CaregiverPersonalMenuTab();
 
+  Future<void> _openPersonalProfileEditor(BuildContext context, String lang) async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final username = userProvider.username ?? '';
+    final displayName = (userProvider.name ?? '').trim();
+
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => PatientProfileEditorPage(
+          patientUsername: username.isNotEmpty ? username : null,
+          patientDisplayName: displayName.isNotEmpty
+              ? displayName
+              : AppTranslations.translate('my_profile', lang),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
@@ -246,7 +267,10 @@ class _CaregiverPersonalMenuTab extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        lang == 'ar' ? 'لوحة المراقب الدوائي' : 'Medication Monitor Dashboard',
+                        AppTranslations.translate(
+                          'medication_monitor_dashboard',
+                          lang,
+                        ),
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -255,35 +279,133 @@ class _CaregiverPersonalMenuTab extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        lang == 'ar'
-                            ? 'يمكنك التبديل بين تبويبك الشخصي وتبويبات المرضى لعرض نفس قائمة المريض.'
-                            : 'Switch between your personal tab and patient tabs to view the same patient main menu.',
+                        AppTranslations.translate(
+                          'medication_monitor_tabs_hint',
+                          lang,
+                        ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _openPersonalProfileEditor(context, lang),
+                    icon: const Icon(Icons.edit),
+                    label: Text(
+                      AppTranslations.translate('edit_my_profile', lang),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 Directionality(
                   textDirection: TextDirection.rtl,
-                  child: GridView.count(
-                    crossAxisCount: 2,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 1.2,
-                    children: <Widget>[
-                      _CaregiverActionTile(
-                        icon: Icons.people,
-                        label: AppTranslations.translate('caregiver_link', lang),
-                        onTap: () => Navigator.pushNamed(context, '/caregiver-link'),
-                      ),
-                      _CaregiverActionTile(
-                        icon: Icons.settings,
-                        label: AppTranslations.translate('settings', lang),
-                        onTap: () => Navigator.pushNamed(context, '/settings'),
-                      ),
-                    ],
+                  child: Consumer<MedicationProvider>(
+                    builder: (context, medProv, _) {
+                      final items = medProv.items;
+
+                      return GridView.count(
+                        crossAxisCount: 3,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        mainAxisSpacing: 12,
+                        crossAxisSpacing: 12,
+                        childAspectRatio: 1,
+                        children: <Widget>[
+                          _MenuTile(
+                            icon: Icons.calendar_today,
+                            label: AppTranslations.translate('appointments', lang),
+                            backgroundImageAsset:
+                                'assets/button_backgrounds/Medical_Appointments_button.png',
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const AppointmentsPage()),
+                            ),
+                          ),
+                          _MenuTile(
+                            icon: Icons.local_pharmacy,
+                            label: AppTranslations.translate('my_medications', lang),
+                            badge: items.isNotEmpty ? items.length : 0,
+                            backgroundImageAsset:
+                                'assets/button_backgrounds/my_medications_button.png',
+                            onTap: () {
+                              showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                builder: (ctx) => SizedBox(
+                                  height: MediaQuery.of(ctx).size.height * 0.85,
+                                  child: MedicationList(),
+                                ),
+                              );
+                            },
+                          ),
+                          _MenuTile(
+                            icon: Icons.note,
+                            label: AppTranslations.translate('adherence_log', lang),
+                            backgroundImageAsset:
+                                'assets/button_backgrounds/Adherence_Log_button.png',
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const AdherenceLogPage()),
+                            ),
+                          ),
+                          _MenuTile(
+                            icon: Icons.sentiment_satisfied_alt,
+                            label: AppTranslations.translate('symptom_log', lang),
+                            backgroundImageAsset:
+                                'assets/button_backgrounds/Symptom_Log.png',
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const SymptomLogPage()),
+                            ),
+                          ),
+                          _MenuTile(
+                            icon: Icons.medical_services,
+                            label: AppTranslations.translate('health_report', lang),
+                            backgroundImageAsset:
+                                'assets/button_backgrounds/Health_Report_button.png',
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const HealthReportPage()),
+                            ),
+                          ),
+                          _MenuTile(
+                            icon: Icons.vaccines,
+                            label: AppTranslations.translate('lab_results', lang),
+                            backgroundImageAsset:
+                                'assets/button_backgrounds/Lab_results.png',
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const LabResultsPage()),
+                            ),
+                          ),
+                          _MenuTile(
+                            icon: Icons.access_time,
+                            label: AppTranslations.translate('blood_pressure_log', lang),
+                            backgroundImageAsset:
+                                'assets/button_backgrounds/blood_pressure_button.png',
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const BloodPressurePage()),
+                            ),
+                          ),
+                          _MenuTile(
+                            icon: Icons.bloodtype,
+                            label: AppTranslations.translate('blood_sugar_log', lang),
+                            backgroundImageAsset:
+                                'assets/button_backgrounds/blood_sugar_button.png',
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const BloodSugarPage()),
+                            ),
+                          ),
+                          _CaregiverActionTile(
+                            icon: Icons.people,
+                            label: AppTranslations.translate('caregiver_link', lang),
+                            onTap: () => Navigator.pushNamed(context, '/caregiver-link'),
+                          ),
+                          _CaregiverActionTile(
+                            icon: Icons.settings,
+                            label: AppTranslations.translate('settings', lang),
+                            onTap: () => Navigator.pushNamed(context, '/settings'),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ],
@@ -312,7 +434,9 @@ class _PatientMenuTab extends StatelessWidget {
     final lang = settings.language;
     final name = (patient['name'] ?? '').toString();
     final username = (patient['username'] ?? '').toString();
-    final patientLabel = name.isNotEmpty ? name : (username.isNotEmpty ? username : 'Patient');
+    final patientLabel = name.isNotEmpty
+      ? name
+      : (username.isNotEmpty ? username : AppTranslations.translate('patient', lang));
 
     final age = settings.age;
     final isFemale = settings.gender == PatientGender.female;
@@ -360,7 +484,7 @@ class _PatientMenuTab extends StatelessWidget {
                     },
                     icon: const Icon(Icons.edit),
                     label: Text(
-                      lang == 'ar' ? 'تعديل الملف الشخصي' : 'Edit Profile',
+                      AppTranslations.translate('edit_profile', lang),
                     ),
                   ),
                 ),
@@ -459,9 +583,10 @@ class _PatientMenuTab extends StatelessWidget {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
-                                    lang == 'ar'
-                                        ? 'عرض قائمة المريض فقط للمراقب الدوائي'
-                                        : 'Patient menu preview for medication monitor only',
+                                    AppTranslations.translate(
+                                      'patient_menu_preview_medication_monitor_only',
+                                      lang,
+                                    ),
                                   ),
                                 ),
                               );
@@ -619,7 +744,11 @@ class _MenuTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = highlight ? Colors.red.shade50 : Colors.white;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final bg = highlight
+      ? (isDark ? Colors.red.shade900.withValues(alpha: 0.28) : Colors.red.shade50)
+      : theme.cardColor;
     final hasBackgroundImage =
         backgroundImageAsset != null && backgroundImageAsset!.isNotEmpty;
 
@@ -635,8 +764,15 @@ class _MenuTile extends StatelessWidget {
                 )
               : null,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: const <BoxShadow>[BoxShadow(color: Colors.black12, blurRadius: 6)],
-          border: Border.all(color: Colors.grey.withAlpha(20)),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.12),
+              blurRadius: 6,
+            ),
+          ],
+          border: Border.all(
+            color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.withAlpha(20),
+          ),
         ),
         child: hasBackgroundImage
             ? Container(
@@ -710,7 +846,11 @@ class _MenuTile extends StatelessWidget {
                     Text(
                       label,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onSurface,
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),

@@ -123,15 +123,19 @@ class _ProfilePageState extends State<ProfilePage> {
       builder: (context, userProvider, settingsProvider, _) {
         final lang = settingsProvider.language;
         final isRtl = lang == 'ar';
+        final theme = Theme.of(context);
+        final isDark = theme.brightness == Brightness.dark;
+        final onSurface = theme.colorScheme.onSurface;
+        final muted = theme.textTheme.bodySmall?.color ?? (isDark ? Colors.white70 : Colors.grey);
 
         return Directionality(
           textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
           child: Scaffold(
-            backgroundColor: Colors.grey[50],
+            backgroundColor: theme.scaffoldBackgroundColor,
             appBar: AppBar(
               title: Text(AppTranslations.translate('profile', lang)),
               centerTitle: true,
-              backgroundColor: Colors.white,
+              backgroundColor: theme.appBarTheme.backgroundColor,
               elevation: 1,
             ),
             body: SingleChildScrollView(
@@ -142,7 +146,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   // Profile Header Card
                   Card(
                     elevation: 0,
-                    color: Colors.white,
+                    color: theme.cardColor,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -185,18 +189,18 @@ class _ProfilePageState extends State<ProfilePage> {
                               vertical: 12,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.grey[100],
+                              color: isDark ? const Color(0xFF232832) : Colors.grey[100],
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: Colors.grey[300]!,
+                                color: isDark ? Colors.white24 : Colors.grey[300]!,
                               ),
                             ),
                             child: Text(
                               userProvider.username ?? 'N/A',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w500,
-                                color: Colors.black87,
+                                color: onSurface,
                               ),
                             ),
                           ),
@@ -209,16 +213,16 @@ class _ProfilePageState extends State<ProfilePage> {
                   // Password Section
                   Text(
                     AppTranslations.translate('account_security', lang),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                      color: onSurface,
                     ),
                   ),
                   const SizedBox(height: 12),
                   Card(
                     elevation: 0,
-                    color: Colors.white,
+                    color: theme.cardColor,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -244,12 +248,12 @@ class _ProfilePageState extends State<ProfilePage> {
                               vertical: 12,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.grey[100],
+                              color: isDark ? const Color(0xFF232832) : Colors.grey[100],
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color: _isPasswordVisible
                                     ? Colors.blue.shade300
-                                    : Colors.grey[300]!,
+                                    : (isDark ? Colors.white24 : Colors.grey[300]!),
                               ),
                             ),
                             child: Row(
@@ -263,8 +267,8 @@ class _ProfilePageState extends State<ProfilePage> {
                                       fontSize: 16,
                                       fontWeight: FontWeight.w500,
                                       color: _isPasswordVisible
-                                          ? Colors.black87
-                                          : Colors.grey,
+                                          ? onSurface
+                                          : muted,
                                       letterSpacing: _isPasswordVisible ? 0 : 4,
                                     ),
                                   ),

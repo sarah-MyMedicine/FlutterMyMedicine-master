@@ -201,6 +201,8 @@ class _PatientProfileEditorPageState extends State<PatientProfileEditorPage> {
             const SizedBox(height: 8),
             DropdownButtonFormField<PatientGender>(
               initialValue: _gender,
+              dropdownColor: Theme.of(context).colorScheme.surface,
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
               items: [
                 DropdownMenuItem(
                   value: PatientGender.male,

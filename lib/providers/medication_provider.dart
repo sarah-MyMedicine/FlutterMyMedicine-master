@@ -27,6 +27,7 @@ class PillTrackerResult {
 class MedicationProvider extends ChangeNotifier {
   static const String _storageKey = 'medications_v1';
   static const String _missedDosesKey = 'missed_doses_tracking';
+  static const String _ownerKey = 'patient_data_owner_username';
   static const int _scheduleHorizonDays = 14;
   static const int _minScheduledOccurrences = 1;
   static const int _maxScheduledOccurrences = 14;
@@ -159,6 +160,27 @@ class MedicationProvider extends ChangeNotifier {
 
   Future<void> _restoreMedicationSchedules() async {
     await NotificationService().resetTrackedMedicationSchedules();
+
+    final prefs = await SharedPreferences.getInstance();
+    final userType = (prefs.getString('userType') ?? '').trim().toLowerCase();
+    final loggedInUsername =
+        (prefs.getString('username') ?? '').trim().toLowerCase();
+    final activeOwner = (prefs.getString(_ownerKey) ?? loggedInUsername)
+        .trim()
+        .toLowerCase();
+
+    final isCaregiverViewingPatientData =
+        userType == 'caregiver' &&
+        loggedInUsername.isNotEmpty &&
+        activeOwner.isNotEmpty &&
+        activeOwner != loggedInUsername;
+
+    if (isCaregiverViewingPatientData) {
+      debugPrint(
+        '[MedicationProvider] Skipping local reminder scheduling for caregiver when viewing patient owner=$activeOwner',
+      );
+      return;
+    }
 
     final schedulableItems = _items.where((item) {
       final prefix = item['notifPrefix'];
