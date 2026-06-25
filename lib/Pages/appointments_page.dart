@@ -84,12 +84,19 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
           const SizedBox(height: 12),
           Text(
             AppTranslations.translate('no_appointments', lang),
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Color(0xFF525252)),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
             '${AppTranslations.translate('add', lang)} ${AppTranslations.translate('appointments', lang)}',
-            style: TextStyle(fontSize: 13, color: Theme.of(context).brightness == Brightness.dark ? Colors.white54 : Color(0xFF7B7B7B)),
+            style: TextStyle(
+              fontSize: 13,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
           ),
         ],
       ),
@@ -108,7 +115,7 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
           return Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.white,
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
@@ -134,7 +141,10 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
                           const SizedBox(height: 4),
                           Text(
                             appt.specialty,
-                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
                           ),
                         ],
                       ),
@@ -170,7 +180,10 @@ class _AppointmentsPageState extends State<AppointmentsPage> {
                   const SizedBox(height: 8),
                   Text(
                     appt.notes,
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -451,6 +464,7 @@ class _AppointmentDialogState extends State<_AppointmentDialog> {
   }
 
   Widget _buildDateField(String lang) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -474,12 +488,15 @@ class _AppointmentDialogState extends State<_AppointmentDialog> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.grey[100],
+              color: isDark ? Colors.grey[800] : Colors.grey[100],
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
               '${_selectedDate.month}/${_selectedDate.day}/${_selectedDate.year}',
-              style: const TextStyle(fontSize: 14),
+              style: TextStyle(
+                fontSize: 14,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
             ),
           ),
         ),
@@ -488,6 +505,7 @@ class _AppointmentDialogState extends State<_AppointmentDialog> {
   }
 
   Widget _buildTimeField(String lang) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -509,12 +527,15 @@ class _AppointmentDialogState extends State<_AppointmentDialog> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.grey[100],
+              color: isDark ? Colors.grey[800] : Colors.grey[100],
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
               '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}'.replaceFirst(':', ' : '),
-              style: const TextStyle(fontSize: 14),
+              style: TextStyle(
+                fontSize: 14,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
             ),
           ),
         ),

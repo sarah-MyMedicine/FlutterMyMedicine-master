@@ -28,7 +28,7 @@ class BloodSugarReportModal extends StatelessWidget {
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
-                  Text('${AppTranslations.translate('average', lang)}: ${avg.toStringAsFixed(1)} mg/dL'),
+                  Text('${AppTranslations.translate('average', lang)}: ${avg.toStringAsFixed(2)} mg/dL'),
                   const SizedBox(height: 12),
                   ElevatedButton(
                     onPressed: () => Navigator.of(context).pop(),

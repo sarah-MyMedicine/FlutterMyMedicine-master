@@ -149,7 +149,7 @@ class BloodSugarPage extends StatelessWidget {
                   showDialog(
                     context: context,
                     builder: (ctx) => AlertDialog(
-                      backgroundColor: high ? Colors.red.shade50 : Colors.orange.shade50,
+                      backgroundColor: Theme.of(ctx).dialogTheme.backgroundColor,
                       title: Row(
                         children: [
                           Icon(Icons.warning_rounded,
@@ -169,7 +169,10 @@ class BloodSugarPage extends StatelessWidget {
                                 .replaceAll('{target}', '$target mg/dL')
                             : AppTranslations.translate('bs_danger_low', lang)
                                 .replaceAll('{target}', '$target mg/dL'),
-                        style: const TextStyle(fontSize: 15),
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: Theme.of(ctx).colorScheme.onSurface,
+                        ),
                       ),
                       actions: [
                         ElevatedButton(

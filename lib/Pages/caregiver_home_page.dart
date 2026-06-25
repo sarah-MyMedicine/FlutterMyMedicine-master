@@ -14,6 +14,7 @@ import 'adherence_log_page.dart';
 import 'appointments_page.dart';
 import 'blood_pressure_log.dart';
 import 'blood_sugar_log.dart';
+import 'caregiver_link_page.dart';
 import 'health_report_page.dart';
 import 'lab_results_page.dart';
 import 'menopause_stage_page.dart';
@@ -225,23 +226,6 @@ class _CaregiverHomePageState extends State<CaregiverHomePage>
 class _CaregiverPersonalMenuTab extends StatelessWidget {
   const _CaregiverPersonalMenuTab();
 
-  Future<void> _openPersonalProfileEditor(BuildContext context, String lang) async {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final username = userProvider.username ?? '';
-    final displayName = (userProvider.name ?? '').trim();
-
-    await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => PatientProfileEditorPage(
-          patientUsername: username.isNotEmpty ? username : null,
-          patientDisplayName: displayName.isNotEmpty
-              ? displayName
-              : AppTranslations.translate('my_profile', lang),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
@@ -285,17 +269,6 @@ class _CaregiverPersonalMenuTab extends StatelessWidget {
                         ),
                       ),
                     ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () => _openPersonalProfileEditor(context, lang),
-                    icon: const Icon(Icons.edit),
-                    label: Text(
-                      AppTranslations.translate('edit_my_profile', lang),
-                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -394,14 +367,31 @@ class _CaregiverPersonalMenuTab extends StatelessWidget {
                             ),
                           ),
                           _CaregiverActionTile(
-                            icon: Icons.people,
-                            label: AppTranslations.translate('caregiver_link', lang),
-                            onTap: () => Navigator.pushNamed(context, '/caregiver-link'),
+                            icon: Icons.notifications,
+                            label: AppTranslations.translate('notifications', lang),
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const CaregiverLinkPage(initialTabIndex: 2),
+                              ),
+                            ),
                           ),
                           _CaregiverActionTile(
-                            icon: Icons.settings,
-                            label: AppTranslations.translate('settings', lang),
-                            onTap: () => Navigator.pushNamed(context, '/settings'),
+                            icon: Icons.people_alt,
+                            label: AppTranslations.translate('linked_patients', lang),
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const CaregiverLinkPage(initialTabIndex: 1),
+                              ),
+                            ),
+                          ),
+                          _CaregiverActionTile(
+                            icon: Icons.people,
+                            label: AppTranslations.translate('caregiver_link', lang),
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const CaregiverLinkPage(initialTabIndex: 0),
+                              ),
+                            ),
                           ),
                         ],
                       );

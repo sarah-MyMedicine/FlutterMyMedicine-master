@@ -75,12 +75,19 @@ class _SymptomLogPageState extends State<SymptomLogPage> {
           const SizedBox(height: 12),
           Text(
             AppTranslations.translate('no_symptoms_recorded', lang),
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Color(0xFF525252)),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
             AppTranslations.translate('click_to_start_tracking', lang),
-            style: TextStyle(fontSize: 13, color: Theme.of(context).brightness == Brightness.dark ? Colors.white54 : Color(0xFF7B7B7B)),
+            style: TextStyle(
+              fontSize: 13,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
           ),
         ],
       ),
@@ -96,7 +103,7 @@ class _SymptomLogPageState extends State<SymptomLogPage> {
           return Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.white,
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
@@ -125,7 +132,10 @@ class _SymptomLogPageState extends State<SymptomLogPage> {
                     const Spacer(),
                     Text(
                       e.dateLabel,
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
                     ),
                   ],
                 ),
@@ -138,7 +148,10 @@ class _SymptomLogPageState extends State<SymptomLogPage> {
                 if (e.notes.isNotEmpty)
                   Text(
                     e.notes,
-                    style: const TextStyle(fontSize: 13, color: Colors.grey),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
               ],
             ),

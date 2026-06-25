@@ -11,15 +11,17 @@ import 'dart:async';
 class CaregiverLinkPage extends StatefulWidget {
   final String? initialInvitationCode;
   final String? initialPatientUsername;
+  final int? initialTabIndex;
 
   const CaregiverLinkPage({
     super.key,
     this.initialInvitationCode,
     this.initialPatientUsername,
+    this.initialTabIndex,
   });
 
   @override
-  _CaregiverLinkPageState createState() => _CaregiverLinkPageState();
+  State<CaregiverLinkPage> createState() => _CaregiverLinkPageState();
 }
 
 class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTickerProviderStateMixin {
@@ -37,7 +39,11 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    final rawInitialIndex = widget.initialTabIndex ?? 0;
+    final initialIndex = rawInitialIndex < 0
+        ? 0
+        : (rawInitialIndex > 2 ? 2 : rawInitialIndex);
+    _tabController = TabController(length: 3, vsync: this, initialIndex: initialIndex);
     _loadData();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _tryProcessInitialCode();
@@ -369,7 +375,10 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                   Text(
                     AppTranslations.translate('share_code_with_caregiver', lang),
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.grey, fontSize: 14),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontSize: 14,
+                    ),
                   ),
                   const SizedBox(height: 24),
                   if (_generatedCode != null) ...[
@@ -394,7 +403,10 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                           const SizedBox(height: 8),
                           Text(
                             AppTranslations.translate('code_valid_24_hours', lang),
-                            style: TextStyle(color: Colors.grey, fontSize: 12),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
+                              fontSize: 12,
+                            ),
                           ),
                         ],
                       ),
@@ -506,7 +518,10 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                             children: [
                               Text(
                                 AppTranslations.translate('linked_caregiver', lang),
-                                style: TextStyle(fontSize: 12, color: Colors.grey),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Theme.of(context).colorScheme.onSurface,
+                                ),
                               ),
                               const SizedBox(height: 4),
                               Text(
@@ -518,7 +533,10 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                               ),
                               Text(
                                 '@${_linkedCaregiver!['username']}',
-                                style: const TextStyle(fontSize: 14, color: Colors.grey),
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Theme.of(context).colorScheme.onSurface,
+                                ),
                               ),
                             ],
                           ),
@@ -552,7 +570,10 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                     SizedBox(height: 12),
                     Text(
                       AppTranslations.translate('no_linked_caregiver', lang),
-                      style: const TextStyle(fontSize: 16, color: Colors.grey),
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
                     ),
                   ],
                 ),
@@ -588,7 +609,10 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                     const SizedBox(height: 8),
                     Text(
                       AppTranslations.translate('enter_code_from_patient', lang),
-                      style: TextStyle(color: Colors.grey, fontSize: 14),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
+                        fontSize: 14,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     TextField(
@@ -657,7 +681,10 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                       SizedBox(height: 16),
                       Text(
                         AppTranslations.translate('no_pending_invitations', lang),
-                        style: const TextStyle(fontSize: 18, color: Colors.grey),
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
                       ),
                     ],
                   ),
@@ -732,7 +759,10 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                   SizedBox(height: 16),
                   Text(
                     AppTranslations.translate('no_linked_patients', lang),
-                    style: const TextStyle(fontSize: 18, color: Colors.grey),
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
                 ],
               ),
@@ -761,7 +791,10 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                     ),
                     subtitle: Text(
                       '@${patient['username']}',
-                      style: const TextStyle(fontSize: 14, color: Colors.grey),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
                     ),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () {
@@ -794,13 +827,19 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
               Text(
                 AppTranslations.translate('missed_doses_notification_desc', lang),
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 18, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: 18,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
                 AppTranslations.translate('siren_alerts_appear_here', lang),
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 14, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
               ),
             ],
           ),
@@ -860,14 +899,19 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                         : '${AppTranslations.translate('classification_label', lang)}: ${classification.isEmpty ? 'high' : classification}',
                     style: TextStyle(
                       fontSize: 12,
-                      color: isSiren ? Colors.red : Colors.grey,
+                      color: isSiren
+                          ? Colors.red
+                          : Theme.of(context).colorScheme.onSurface,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   if (createdAt != null)
                     Text(
                       '${createdAt.day}/${createdAt.month}/${createdAt.year} ${createdAt.hour.toString().padLeft(2, '0')}:${createdAt.minute.toString().padLeft(2, '0')}',
-                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
                     ),
                 ],
               ),

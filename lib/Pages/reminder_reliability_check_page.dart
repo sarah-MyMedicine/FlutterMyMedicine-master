@@ -103,7 +103,7 @@ class _ReminderReliabilityCheckPageState
                     'reminder_reliability_check_desc',
                     lang,
                   ),
-                  style: const TextStyle(color: Colors.grey),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                 ),
                 const SizedBox(height: 12),
                 if (_isChecking) const LinearProgressIndicator(),
@@ -111,7 +111,9 @@ class _ReminderReliabilityCheckPageState
                   const SizedBox(height: 12),
                   Text(
                     AppTranslations.translate(_error!, lang),
-                    style: const TextStyle(color: Colors.red),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
                   ),
                 ],
                 const SizedBox(height: 16),

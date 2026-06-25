@@ -59,12 +59,18 @@ class AdherenceLogPage extends StatelessWidget {
                         const SizedBox(height: 16),
                         Text(
                           AppTranslations.translate('no_records_yet', lang),
-                          style: const TextStyle(fontSize: 18, color: Colors.grey),
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           AppTranslations.translate('medications_taken_here', lang),
-                          style: const TextStyle(fontSize: 14, color: Colors.grey),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
                         ),
                       ],
                     ),

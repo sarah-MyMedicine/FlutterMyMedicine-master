@@ -45,6 +45,18 @@ class _HealthReportPageState extends State<HealthReportPage> {
     return chronicDisease;
   }
 
+  bool get _isDarkMode => Theme.of(context).brightness == Brightness.dark;
+
+  Color _tableHeaderTint(Color accent) {
+    return _isDarkMode
+        ? accent.withValues(alpha: 0.35)
+        : accent.withValues(alpha: 0.12);
+  }
+
+  Color get _tableBorderColor => _isDarkMode ? Colors.white24 : Colors.black12;
+
+  Color get _mutedTextColor => _isDarkMode ? Colors.white70 : Colors.black54;
+
   @override
   Widget build(BuildContext context) {
     if (!_isLocaleInitialized) {
@@ -364,7 +376,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
                         padding: const EdgeInsets.all(16),
                         child: Text(
                           AppTranslations.translate('no_bp_readings', lang),
-                          style: const TextStyle(color: Colors.grey),
+                          style: TextStyle(color: _mutedTextColor),
                         ),
                       ),
                     )
@@ -372,8 +384,10 @@ class _HealthReportPageState extends State<HealthReportPage> {
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: DataTable(
-                        headingRowColor: WidgetStateProperty.all(Colors.red.shade50),
-                        border: TableBorder.all(color: Colors.grey.shade300),
+                        headingRowColor: WidgetStateProperty.all(
+                          _tableHeaderTint(Colors.red),
+                        ),
+                        border: TableBorder.all(color: _tableBorderColor),
                         columns: [
                           DataColumn(label: Text(AppTranslations.translate('date_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text(AppTranslations.translate('time_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -429,7 +443,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
                         padding: const EdgeInsets.all(16),
                         child: Text(
                           AppTranslations.translate('no_bp_meds_taken', lang),
-                          style: const TextStyle(color: Colors.grey),
+                          style: TextStyle(color: _mutedTextColor),
                         ),
                       ),
                     )
@@ -437,8 +451,10 @@ class _HealthReportPageState extends State<HealthReportPage> {
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: DataTable(
-                        headingRowColor: WidgetStateProperty.all(Colors.blue.shade50),
-                        border: TableBorder.all(color: Colors.grey.shade300),
+                        headingRowColor: WidgetStateProperty.all(
+                          _tableHeaderTint(Colors.blue),
+                        ),
+                        border: TableBorder.all(color: _tableBorderColor),
                         columns: [
                           DataColumn(label: Text(AppTranslations.translate('date_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text(AppTranslations.translate('time_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -491,7 +507,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
           padding: const EdgeInsets.all(24),
           child: Text(
             AppTranslations.translate('bs_not_enabled', lang),
-            style: const TextStyle(color: Colors.grey, fontSize: 16),
+            style: TextStyle(color: _mutedTextColor, fontSize: 16),
             textAlign: TextAlign.center,
           ),
         ),
@@ -549,7 +565,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
                         padding: const EdgeInsets.all(16),
                         child: Text(
                           AppTranslations.translate('no_bs_readings', lang),
-                          style: const TextStyle(color: Colors.grey),
+                          style: TextStyle(color: _mutedTextColor),
                         ),
                       ),
                     )
@@ -557,8 +573,10 @@ class _HealthReportPageState extends State<HealthReportPage> {
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: DataTable(
-                        headingRowColor: WidgetStateProperty.all(Colors.orange.shade50),
-                        border: TableBorder.all(color: Colors.grey.shade300),
+                        headingRowColor: WidgetStateProperty.all(
+                          _tableHeaderTint(Colors.orange),
+                        ),
+                        border: TableBorder.all(color: _tableBorderColor),
                         columns: [
                           DataColumn(label: Text(AppTranslations.translate('date_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text(AppTranslations.translate('time_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -612,7 +630,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
                         padding: const EdgeInsets.all(16),
                         child: Text(
                           AppTranslations.translate('no_bs_meds_taken', lang),
-                          style: const TextStyle(color: Colors.grey),
+                          style: TextStyle(color: _mutedTextColor),
                         ),
                       ),
                     )
@@ -620,8 +638,10 @@ class _HealthReportPageState extends State<HealthReportPage> {
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: DataTable(
-                        headingRowColor: WidgetStateProperty.all(Colors.orange.shade50),
-                        border: TableBorder.all(color: Colors.grey.shade300),
+                        headingRowColor: WidgetStateProperty.all(
+                          _tableHeaderTint(Colors.orange),
+                        ),
+                        border: TableBorder.all(color: _tableBorderColor),
                         columns: [
                           DataColumn(label: Text(AppTranslations.translate('date_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text(AppTranslations.translate('time_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -709,7 +729,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
                     padding: const EdgeInsets.all(16),
                     child: Text(
                       AppTranslations.translate('no_other_meds_taken', lang),
-                      style: const TextStyle(color: Colors.grey),
+                      style: TextStyle(color: _mutedTextColor),
                     ),
                   ),
                 )
@@ -717,8 +737,10 @@ class _HealthReportPageState extends State<HealthReportPage> {
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: DataTable(
-                    headingRowColor: WidgetStateProperty.all(Colors.green.shade50),
-                    border: TableBorder.all(color: Colors.grey.shade300),
+                    headingRowColor: WidgetStateProperty.all(
+                      _tableHeaderTint(Colors.green),
+                    ),
+                    border: TableBorder.all(color: _tableBorderColor),
                     columns: [
                       DataColumn(label: Text(AppTranslations.translate('date_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
                       DataColumn(label: Text(AppTranslations.translate('time_col', lang), style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -936,8 +958,11 @@ class _HealthReportPageState extends State<HealthReportPage> {
     String fileName = lang == 'ar' ? 'تقرير_صحي' : 'health_report';
     if (exportType == 'bloodPressure') {
       fileName = lang == 'ar' ? 'تقرير_ضغط_الدم' : 'blood_pressure_report';
-    } else if (exportType == 'bloodSugar') fileName = lang == 'ar' ? 'تقرير_سكر_الدم' : 'blood_sugar_report';
-    else if (exportType == 'medications') fileName = lang == 'ar' ? 'تقرير_الأدوية' : 'medications_report';
+    } else if (exportType == 'bloodSugar') {
+      fileName = lang == 'ar' ? 'تقرير_سكر_الدم' : 'blood_sugar_report';
+    } else if (exportType == 'medications') {
+      fileName = lang == 'ar' ? 'تقرير_الأدوية' : 'medications_report';
+    }
     
     await Printing.layoutPdf(
       onLayout: (pdflib.PdfPageFormat format) async => doc.save(),

@@ -41,8 +41,8 @@ class AppTheme {
 
   static ThemeData lightTheme(Color primaryColor) {
     final secondary = Color.lerp(primaryColor, Colors.black, 0.1) ?? primaryColor;
-    final onSurface = Color.lerp(primaryColor, Colors.black, 0.3) ?? Colors.black;
-    final secondaryText = Color.lerp(onSurface, Colors.white, 0.35) ?? Colors.black87;
+    const onSurface = Colors.black;
+    const secondaryText = Colors.black;
     final lightBg = Color.lerp(primaryColor, Colors.white, 0.9) ?? Colors.white;
 
     final base = ThemeData.from(
@@ -79,7 +79,7 @@ class AppTheme {
           fontWeight: FontWeight.w600,
         ),
         contentTextStyle: TextStyle(
-          color: secondaryText,
+          color: onSurface,
           fontSize: 14,
         ),
       ),
@@ -147,7 +147,7 @@ class AppTheme {
     final inputFill = const Color(0xFF1E1E1E);
     final border = Color.lerp(primaryColor, Colors.white, 0.35) ?? primaryColor;
     const onSurface = Colors.white;
-    const secondaryText = Colors.white70;
+    const secondaryText = Colors.white;
 
     final base = ThemeData.from(
       colorScheme: ColorScheme.dark(
@@ -183,7 +183,7 @@ class AppTheme {
           fontWeight: FontWeight.w600,
         ),
         contentTextStyle: TextStyle(
-          color: secondaryText,
+          color: onSurface,
           fontSize: 14,
         ),
       ),
@@ -226,8 +226,8 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: inputFill,
-        labelStyle: const TextStyle(color: secondaryText),
-        hintStyle: const TextStyle(color: secondaryText),
+        labelStyle: const TextStyle(color: onSurface),
+        hintStyle: const TextStyle(color: onSurface),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(color: border),

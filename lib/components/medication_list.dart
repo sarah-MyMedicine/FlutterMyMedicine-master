@@ -147,7 +147,7 @@ class MedicationList extends StatelessWidget {
     );
   }
 
-  Widget _buildEmptyState(String lang) {
+  Widget _buildEmptyState(BuildContext context, String lang) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -155,16 +155,19 @@ class MedicationList extends StatelessWidget {
         const SizedBox(height: 12),
         Text(
           AppTranslations.translate('no_medications', lang),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF525252),
+            color: Theme.of(context).colorScheme.onSurface,
           ),
         ),
         const SizedBox(height: 6),
         Text(
           AppTranslations.translate('add_medication', lang),
-          style: const TextStyle(fontSize: 13, color: Color(0xFF7B7B7B)),
+          style: TextStyle(
+            fontSize: 13,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
         ),
       ],
     );
@@ -228,7 +231,7 @@ class MedicationList extends StatelessWidget {
             const SizedBox(height: 20),
             Expanded(
               child: items.isEmpty
-                  ? _buildEmptyState(lang)
+                  ? _buildEmptyState(context, lang)
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                       itemCount: items.length,

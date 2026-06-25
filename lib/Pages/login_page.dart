@@ -296,7 +296,10 @@ class _LoginPageState extends State<LoginPage> {
                     const SizedBox(height: 8),
                     Text(
                       AppTranslations.translate('login', lang),
-                      style: TextStyle(fontSize: 18, color: Colors.grey),
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
                     ),
                     const SizedBox(height: 24),
                     TextField(
@@ -363,7 +366,9 @@ class _LoginPageState extends State<LoginPage> {
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           child: Text(
                             AppTranslations.translate('or', lang),
-                            style: const TextStyle(color: Colors.grey),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
                           ),
                         ),
                         const Expanded(child: Divider()),

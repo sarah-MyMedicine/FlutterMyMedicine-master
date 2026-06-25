@@ -319,7 +319,7 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).cardColor,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -342,7 +342,7 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey.shade300),
+                              border: Border.all(color: Theme.of(context).dividerColor),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
@@ -367,7 +367,7 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey.shade300),
+                              border: Border.all(color: Theme.of(context).dividerColor),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
@@ -394,7 +394,7 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey.shade300),
+                              border: Border.all(color: Theme.of(context).dividerColor),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
@@ -417,7 +417,10 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
                   Center(
                     child: Text(
                       AppTranslations.translate('will_calculate_delivery', lang),
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -442,7 +445,7 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -515,7 +518,7 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).cardColor,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -530,7 +533,10 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
                   const SizedBox(height: 8),
                   Text(
                     AppTranslations.translate('count_10_kicks', lang),
-                    style: const TextStyle(fontSize: 14, color: Colors.grey),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                     textDirection: lang == 'ar' ? TextDirection.rtl : TextDirection.ltr,
                     textAlign: lang == 'ar' ? TextAlign.right : TextAlign.left,
                   ),
@@ -542,7 +548,7 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
             Container(
               padding: const EdgeInsets.all(32),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).cardColor,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -557,7 +563,10 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
                   ),
                   Text(
                     AppTranslations.translate('kicks_today', lang),
-                    style: const TextStyle(fontSize: 16, color: Colors.grey),
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
                   const SizedBox(height: 24),
                   // Record button
@@ -594,7 +603,7 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
                     },
                     child: Text(
                       AppTranslations.translate('reset_counter_kicks', lang),
-                      style: const TextStyle(color: Colors.grey),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                     ),
                   ),
                 ],
@@ -628,7 +637,10 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
                   Expanded(
                     child: Text(
                       AppTranslations.translate('tip_prepare_bag', lang),
-                      style: const TextStyle(color: Color(0xFF2196F3), fontSize: 13),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
+                        fontSize: 13,
+                      ),
                       textDirection: lang == 'ar' ? TextDirection.rtl : TextDirection.ltr,
                     ),
                   ),
@@ -894,7 +906,7 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -1011,7 +1023,7 @@ class _MotherFetusCarePanelState extends State<MotherFetusCarePanel> {
               },
               child: Text(
                 AppTranslations.translate('recalculate_date', lang),
-                style: const TextStyle(color: Colors.grey),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
               ),
             ),
           ),

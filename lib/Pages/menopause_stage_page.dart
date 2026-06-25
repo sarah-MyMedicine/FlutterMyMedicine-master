@@ -211,7 +211,7 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).cardColor,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -225,7 +225,10 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
                   const SizedBox(height: 8),
                   Text(
                     AppTranslations.translate('log_daily_symptoms', lang),
-                    style: const TextStyle(fontSize: 14, color: Colors.grey),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                     textAlign: lang == 'ar' ? TextAlign.right : TextAlign.left,
                   ),
                 ],
@@ -326,7 +329,7 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -400,7 +403,7 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
             onPressed: onReset,
             child: Text(
               AppTranslations.translate('reset_counter', lang),
-              style: const TextStyle(color: Colors.grey),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
             ),
           ),
         ],
@@ -421,7 +424,11 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
           Expanded(
             child: Text(
               tip,
-              style: const TextStyle(fontSize: 13, height: 1.5, color: Color(0xFF333333)),
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.5,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
               textAlign: lang == 'ar' ? TextAlign.right : TextAlign.left,
             ),
           ),
@@ -455,7 +462,10 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
                   Expanded(
                     child: Text(
                       AppTranslations.translate('take_care_accept_stage', lang),
-                      style: const TextStyle(color: Color(0xFF2196F3), fontSize: 13),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
+                        fontSize: 13,
+                      ),
                       textAlign: lang == 'ar' ? TextAlign.right : TextAlign.left,
                     ),
                   ),
@@ -537,7 +547,7 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).cardColor,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -551,7 +561,10 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
                   const SizedBox(height: 8),
                   Text(
                     AppTranslations.translate('nutrition_health_desc', lang),
-                    style: const TextStyle(fontSize: 14, color: Colors.grey),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                     textAlign: lang == 'ar' ? TextAlign.right : TextAlign.left,
                   ),
                 ],
@@ -621,7 +634,7 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: accentColor.withOpacity(0.3), width: 2),
       ),
@@ -697,7 +710,7 @@ class _MenopauseStageInfoPageState extends State<MenopauseStageInfoPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(

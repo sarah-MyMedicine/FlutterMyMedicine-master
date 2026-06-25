@@ -155,7 +155,7 @@ class BloodPressurePage extends StatelessWidget {
                   showDialog(
                     context: context,
                     builder: (ctx) => AlertDialog(
-                      backgroundColor: high ? Colors.red.shade50 : Colors.orange.shade50,
+                      backgroundColor: Theme.of(ctx).dialogTheme.backgroundColor,
                       title: Row(
                         children: [
                           Icon(Icons.warning_rounded,
@@ -175,7 +175,10 @@ class BloodPressurePage extends StatelessWidget {
                                 .replaceAll('{target}', '$targetSys/$targetDia')
                             : AppTranslations.translate('bp_danger_low', lang)
                                 .replaceAll('{target}', '$targetSys/$targetDia'),
-                        style: const TextStyle(fontSize: 15),
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: Theme.of(ctx).colorScheme.onSurface,
+                        ),
                       ),
                       actions: [
                         ElevatedButton(

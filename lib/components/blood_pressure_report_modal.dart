@@ -29,8 +29,8 @@ class BloodPressureReportModal extends StatelessWidget {
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
-                  Text('${AppTranslations.translate('average_systolic', lang)}: ${avgSys.toStringAsFixed(1)}'),
-                  Text('${AppTranslations.translate('average_diastolic', lang)}: ${avgDia.toStringAsFixed(1)}'),
+                  Text('${AppTranslations.translate('average_systolic', lang)}: ${avgSys.toStringAsFixed(2)}'),
+                  Text('${AppTranslations.translate('average_diastolic', lang)}: ${avgDia.toStringAsFixed(2)}'),
                   const SizedBox(height: 12),
                   ElevatedButton(
                     onPressed: () => Navigator.of(context).pop(),
