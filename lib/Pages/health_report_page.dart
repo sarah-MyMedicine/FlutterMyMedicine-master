@@ -1,5 +1,7 @@
 import 'dart:ui' as ui;
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
 import '../providers/medication_provider.dart';
 import '../providers/adherence_provider.dart';
@@ -18,6 +20,18 @@ class HealthReportPage extends StatefulWidget {
 
   @override
   State<HealthReportPage> createState() => _HealthReportPageState();
+}
+
+class _AdherenceChartDatum {
+  final String medicationName;
+  final int expected;
+  final int taken;
+
+  const _AdherenceChartDatum({
+    required this.medicationName,
+    required this.expected,
+    required this.taken,
+  });
 }
 
 class _HealthReportPageState extends State<HealthReportPage> {
@@ -56,6 +70,447 @@ class _HealthReportPageState extends State<HealthReportPage> {
   Color get _tableBorderColor => _isDarkMode ? Colors.white24 : Colors.black12;
 
   Color get _mutedTextColor => _isDarkMode ? Colors.white70 : Colors.black54;
+
+  Color get _chartGridColor => _isDarkMode ? Colors.white10 : Colors.black12;
+
+  Color get _chartAxisTextColor => _isDarkMode ? Colors.white70 : Colors.black87;
+
+  int _parseIntervalHours(dynamic value) {
+    if (value is int && value > 0) return value;
+    final parsed = int.tryParse(value?.toString() ?? '');
+    return (parsed != null && parsed > 0) ? parsed : 24;
+  }
+
+  int _computeExpectedDoses({
+    required DateTime start,
+    required DateTime end,
+    required int intervalHours,
+  }) {
+    if (!end.isAfter(start)) return 0;
+    final intervalMinutes = intervalHours * 60;
+    final elapsedMinutes = end.difference(start).inMinutes;
+    return (elapsedMinutes / intervalMinutes).floor() + 1;
+  }
+
+  List<_AdherenceChartDatum> _buildAdherenceChartData({
+    required MedicationProvider medicationProvider,
+    required AdherenceProvider adherenceProvider,
+    required DateTime startDate,
+    required DateTime endDate,
+  }) {
+    final data = <_AdherenceChartDatum>[];
+
+    for (final medication in medicationProvider.items) {
+      final name = (medication['name'] ?? '').toString().trim();
+      if (name.isEmpty) continue;
+
+      final intervalHours = _parseIntervalHours(medication['intervalHours']);
+      final medStart = DateTime.tryParse((medication['startDate'] ?? '').toString());
+      final effectiveStart = medStart != null && medStart.isAfter(startDate)
+          ? medStart
+          : startDate;
+
+      final expected = _computeExpectedDoses(
+        start: effectiveStart,
+        end: endDate,
+        intervalHours: intervalHours,
+      );
+
+      if (expected <= 0) continue;
+
+      final taken = adherenceProvider.logs.where((log) {
+        return log.taken &&
+            log.medicationName == name &&
+            !log.when.isBefore(effectiveStart) &&
+            !log.when.isAfter(endDate);
+      }).length;
+
+      data.add(
+        _AdherenceChartDatum(
+          medicationName: name,
+          expected: expected,
+          taken: math.min(taken, expected),
+        ),
+      );
+    }
+
+    return data;
+  }
+
+  Widget _buildAdherenceComparisonChart(
+    List<_AdherenceChartDatum> chartData,
+    String lang,
+  ) {
+    if (chartData.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(12),
+        child: Text(
+          AppTranslations.translate('no_adherence_chart_data', lang),
+          style: TextStyle(color: _mutedTextColor),
+        ),
+      );
+    }
+
+    final visibleData = chartData.take(8).toList();
+    final maxValue = visibleData
+        .map((d) => math.max(d.expected, d.taken))
+        .fold<int>(1, (prev, value) => math.max(prev, value));
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(width: 10, height: 10, color: Colors.grey),
+            const SizedBox(width: 6),
+            Text(AppTranslations.translate('expected_portions', lang)),
+            const SizedBox(width: 14),
+            Container(width: 10, height: 10, color: primaryColor),
+            const SizedBox(width: 6),
+            Text(AppTranslations.translate('taken_portions', lang)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 230,
+          child: BarChart(
+            BarChartData(
+              maxY: maxValue.toDouble() + 1,
+              alignment: BarChartAlignment.spaceAround,
+              gridData: FlGridData(
+                show: true,
+                drawVerticalLine: false,
+                horizontalInterval: math.max(1, (maxValue / 4).ceil()).toDouble(),
+                getDrawingHorizontalLine: (value) => FlLine(
+                  color: _chartGridColor,
+                  strokeWidth: 1,
+                ),
+              ),
+              borderData: FlBorderData(
+                show: true,
+                border: Border(
+                  left: BorderSide(color: _tableBorderColor),
+                  bottom: BorderSide(color: _tableBorderColor),
+                  right: BorderSide.none,
+                  top: BorderSide.none,
+                ),
+              ),
+              barTouchData: BarTouchData(enabled: true),
+              titlesData: FlTitlesData(
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 32,
+                    interval: math.max(1, (maxValue / 4).ceil()).toDouble(),
+                    getTitlesWidget: (value, meta) {
+                      return Text(
+                        value.toInt().toString(),
+                        style: TextStyle(fontSize: 10, color: _chartAxisTextColor),
+                      );
+                    },
+                  ),
+                ),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 42,
+                    getTitlesWidget: (value, meta) {
+                      final index = value.toInt();
+                      if (index < 0 || index >= visibleData.length) {
+                        return const SizedBox.shrink();
+                      }
+
+                      final label = visibleData[index].medicationName;
+                      final shortened = label.length > 8 ? '${label.substring(0, 8)}…' : label;
+                      return SideTitleWidget(
+                        axisSide: meta.axisSide,
+                        child: Text(
+                          shortened,
+                          style: TextStyle(fontSize: 10, color: _chartAxisTextColor),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              barGroups: List.generate(visibleData.length, (index) {
+                final item = visibleData[index];
+                return BarChartGroupData(
+                  x: index,
+                  barsSpace: 4,
+                  barRods: [
+                    BarChartRodData(
+                      toY: item.expected.toDouble(),
+                      width: 11,
+                      color: Colors.grey,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(4),
+                        topRight: Radius.circular(4),
+                      ),
+                    ),
+                    BarChartRodData(
+                      toY: item.taken.toDouble(),
+                      width: 11,
+                      color: primaryColor,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(4),
+                        topRight: Radius.circular(4),
+                      ),
+                    ),
+                  ],
+                );
+              }),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBloodPressureTrendChart(List<BloodPressureReading> readings, String lang) {
+    if (readings.isEmpty) return const SizedBox.shrink();
+
+    final sorted = [...readings]..sort((a, b) => a.when.compareTo(b.when));
+    final trend = sorted.length > 14 ? sorted.sublist(sorted.length - 14) : sorted;
+    final maxValue = trend.map((r) => r.systolic).fold<int>(1, math.max).toDouble();
+    final minValue = trend.map((r) => r.diastolic).fold<int>(999, math.min).toDouble();
+    final minY = math.max(0.0, minValue - 10);
+    final maxY = maxValue + 10;
+
+    final systolicSpots = List<FlSpot>.generate(
+      trend.length,
+      (index) => FlSpot(index.toDouble(), trend[index].systolic.toDouble()),
+    );
+    final diastolicSpots = List<FlSpot>.generate(
+      trend.length,
+      (index) => FlSpot(index.toDouble(), trend[index].diastolic.toDouble()),
+    );
+
+    final xInterval = trend.length <= 6 ? 1.0 : (trend.length / 6).ceilToDouble();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              AppTranslations.translate('bp_trend_chart_title', lang),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Container(width: 10, height: 10, color: Colors.red),
+                const SizedBox(width: 6),
+                Text(AppTranslations.translate('systolic', lang)),
+                const SizedBox(width: 12),
+                Container(width: 10, height: 10, color: Colors.blue),
+                const SizedBox(width: 6),
+                Text(AppTranslations.translate('diastolic', lang)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 230,
+              child: LineChart(
+                LineChartData(
+                  minX: 0,
+                  maxX: (trend.length - 1).toDouble(),
+                  minY: minY,
+                  maxY: maxY,
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: false,
+                    horizontalInterval: 20,
+                    getDrawingHorizontalLine: (value) => FlLine(
+                      color: _chartGridColor,
+                      strokeWidth: 1,
+                    ),
+                  ),
+                  borderData: FlBorderData(
+                    show: true,
+                    border: Border(
+                      left: BorderSide(color: _tableBorderColor),
+                      bottom: BorderSide(color: _tableBorderColor),
+                      right: BorderSide.none,
+                      top: BorderSide.none,
+                    ),
+                  ),
+                  titlesData: FlTitlesData(
+                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 36,
+                        interval: 20,
+                        getTitlesWidget: (value, meta) => Text(
+                          value.toInt().toString(),
+                          style: TextStyle(fontSize: 10, color: _chartAxisTextColor),
+                        ),
+                      ),
+                    ),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        interval: xInterval,
+                        reservedSize: 30,
+                        getTitlesWidget: (value, meta) {
+                          final index = value.toInt();
+                          if (index < 0 || index >= trend.length) {
+                            return const SizedBox.shrink();
+                          }
+                          final label = DateFormat('M/d').format(trend[index].when);
+                          return SideTitleWidget(
+                            axisSide: meta.axisSide,
+                            child: Text(
+                              label,
+                              style: TextStyle(fontSize: 10, color: _chartAxisTextColor),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: systolicSpots,
+                      isCurved: true,
+                      color: Colors.red,
+                      barWidth: 3,
+                      dotData: const FlDotData(show: false),
+                    ),
+                    LineChartBarData(
+                      spots: diastolicSpots,
+                      isCurved: true,
+                      color: Colors.blue,
+                      barWidth: 3,
+                      dotData: const FlDotData(show: false),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBloodSugarTrendChart(List<BloodSugarReading> readings, String lang) {
+    if (readings.isEmpty) return const SizedBox.shrink();
+
+    final sorted = [...readings]..sort((a, b) => a.when.compareTo(b.when));
+    final trend = sorted.length > 14 ? sorted.sublist(sorted.length - 14) : sorted;
+    final maxValue = trend.map((r) => r.value).fold<int>(1, math.max).toDouble();
+    final minValue = trend.map((r) => r.value).fold<int>(999, math.min).toDouble();
+    final minY = math.max(0.0, minValue - 10);
+    final maxY = maxValue + 10;
+    final valueSpots = List<FlSpot>.generate(
+      trend.length,
+      (index) => FlSpot(index.toDouble(), trend[index].value.toDouble()),
+    );
+    final xInterval = trend.length <= 6 ? 1.0 : (trend.length / 6).ceilToDouble();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              AppTranslations.translate('bs_trend_chart_title', lang),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 230,
+              child: LineChart(
+                LineChartData(
+                  minX: 0,
+                  maxX: (trend.length - 1).toDouble(),
+                  minY: minY,
+                  maxY: maxY,
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: false,
+                    horizontalInterval: 20,
+                    getDrawingHorizontalLine: (value) => FlLine(
+                      color: _chartGridColor,
+                      strokeWidth: 1,
+                    ),
+                  ),
+                  borderData: FlBorderData(
+                    show: true,
+                    border: Border(
+                      left: BorderSide(color: _tableBorderColor),
+                      bottom: BorderSide(color: _tableBorderColor),
+                      right: BorderSide.none,
+                      top: BorderSide.none,
+                    ),
+                  ),
+                  titlesData: FlTitlesData(
+                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 36,
+                        interval: 20,
+                        getTitlesWidget: (value, meta) => Text(
+                          value.toInt().toString(),
+                          style: TextStyle(fontSize: 10, color: _chartAxisTextColor),
+                        ),
+                      ),
+                    ),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        interval: xInterval,
+                        reservedSize: 30,
+                        getTitlesWidget: (value, meta) {
+                          final index = value.toInt();
+                          if (index < 0 || index >= trend.length) {
+                            return const SizedBox.shrink();
+                          }
+                          final label = DateFormat('M/d').format(trend[index].when);
+                          return SideTitleWidget(
+                            axisSide: meta.axisSide,
+                            child: Text(
+                              label,
+                              style: TextStyle(fontSize: 10, color: _chartAxisTextColor),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: valueSpots,
+                      isCurved: true,
+                      color: Colors.orange,
+                      barWidth: 3,
+                      dotData: const FlDotData(show: false),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        color: Colors.orange.withValues(alpha: 0.18),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -347,6 +802,8 @@ class _HealthReportPageState extends State<HealthReportPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          _buildBloodPressureTrendChart(bpReadings, lang),
+          const SizedBox(height: 16),
           // Blood Pressure Readings Table
           Card(
             child: Padding(
@@ -536,6 +993,8 @@ class _HealthReportPageState extends State<HealthReportPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          _buildBloodSugarTrendChart(sugarReadings, lang),
+          const SizedBox(height: 16),
           // Blood Sugar Readings Table
           Card(
             child: Padding(
@@ -686,6 +1145,13 @@ class _HealthReportPageState extends State<HealthReportPage> {
     DateTime startDate,
     String lang,
   ) {
+    final adherenceChartData = _buildAdherenceChartData(
+      medicationProvider: medicationProvider,
+      adherenceProvider: adherenceProvider,
+      startDate: startDate,
+      endDate: DateTime.now(),
+    );
+
     final otherMedsTaken = adherenceProvider.logs
         .where((log) {
           if (!log.when.isAfter(startDate) || !log.taken) return false;
@@ -701,12 +1167,31 @@ class _HealthReportPageState extends State<HealthReportPage> {
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      child: Column(
+        children: [
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    AppTranslations.translate('adherence_chart_title', lang),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildAdherenceComparisonChart(adherenceChartData, lang),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
               Row(
                 
                 children: [
@@ -773,9 +1258,11 @@ class _HealthReportPageState extends State<HealthReportPage> {
                     }).toList(),
                   ),
                 ),
-            ],
+                ],
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
