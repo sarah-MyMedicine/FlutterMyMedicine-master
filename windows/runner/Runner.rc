@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "mymedicineapp" "\0"
+            VALUE "FileDescription", "AL-Munqith" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "mymedicineapp" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
             VALUE "OriginalFilename", "mymedicineapp.exe" "\0"
-            VALUE "ProductName", "mymedicineapp" "\0"
+            VALUE "ProductName", "AL-Munqith" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

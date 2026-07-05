@@ -279,7 +279,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           navigatorKey: _navigatorKey,
-          title: 'My Medicine',
+          title: 'AL-Munqith',
           theme: AppTheme.lightTheme(settingsProvider.themeColor),
           darkTheme: AppTheme.darkTheme(settingsProvider.themeColor),
           themeMode: ThemeMode.system,

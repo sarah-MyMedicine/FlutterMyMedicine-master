@@ -99,7 +99,7 @@ class TutorialPage extends StatelessWidget {
           child: Scaffold(
             backgroundColor: const Color(0xFFF0F9F8),
             appBar: AppBar(
-              title: Text(t('كيف استخدم تطبيق دوائي', 'How To Use My Medicine')),
+              title: Text(t('كيف استخدم تطبيق دوائي', 'How To Use AL-Munqith')),
               backgroundColor: const Color(0xFF14B8A6),
               foregroundColor: Colors.white,
             ),

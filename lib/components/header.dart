@@ -14,7 +14,7 @@ class Header extends StatelessWidget {
         final lang = settings.language;
         final tutorialLabel = lang == 'ar'
           ? 'كيف استخدم تطبيق دوائي'
-          : 'How To Use My Medicine';
+          : 'How To Use AL-Munqith';
         return ColoredBox(
           color: Theme.of(context).colorScheme.primary,
           child: SafeArea(

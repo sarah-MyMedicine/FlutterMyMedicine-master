@@ -6,7 +6,7 @@ class AppTranslations {
   static final Map<String, Map<String, String>> _translations = {
     'ar': {
       // General
-      'app_name': 'دوائي',
+      'app_name': 'AL-Munqith',
       'save': 'حفظ',
       'cancel': 'إلغاء',
       'delete': 'حذف',
@@ -880,7 +880,7 @@ class AppTranslations {
     },
     'en': {
       // General
-      'app_name': 'My Medicine',
+      'app_name': 'AL-Munqith',
       'save': 'Save',
       'cancel': 'Cancel',
       'delete': 'Delete',
@@ -1727,7 +1727,7 @@ class AppTranslations {
       'bp_report_title_pdf': 'Blood Pressure Report',
       'bs_report_title_pdf': 'Blood Sugar Report',
       'other_meds_report_title_pdf': 'Other Medications Report',
-      'disclaimer_text': 'Important notice: My Medicine app does not replace medical advice. Always ensure your doses are prescribed by a doctor or pharmacist.',
+      'disclaimer_text': 'Important notice: AL-Munqith app does not replace medical advice. Always ensure your doses are prescribed by a doctor or pharmacist.',
       'high_bp_chronic': 'High Blood Pressure',
       'diabetes_chronic': 'Diabetes',
       
