@@ -519,6 +519,7 @@ class _AppointmentDialogState extends State<_AppointmentDialog> {
             final picked = await showTimePicker(
               context: context,
               initialTime: _selectedTime,
+              initialEntryMode: TimePickerEntryMode.inputOnly,
             );
             if (picked != null) {
               setState(() => _selectedTime = picked);
