@@ -13,7 +13,7 @@ class Header extends StatelessWidget {
       builder: (context, settings, _) {
         final lang = settings.language;
         final tutorialLabel = lang == 'ar'
-          ? 'كيف استخدم تطبيق دوائي'
+          ? 'كيف استخدم AL-Munqith'
           : 'How To Use AL-Munqith';
         return ColoredBox(
           color: Theme.of(context).colorScheme.primary,

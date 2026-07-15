@@ -35,12 +35,6 @@ class _RankPresentation {
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
-  Color _shiftLightness(Color color, double delta) {
-    final hsl = HSLColor.fromColor(color);
-    final adjusted = (hsl.lightness + delta).clamp(0.0, 1.0);
-    return hsl.withLightness(adjusted).toColor();
-  }
-
   _RankPresentation _rankPresentation(MedicationRankStatus status) {
     final rank = status.currentTier?.title;
     if (rank == 'الذيب') {
@@ -166,75 +160,6 @@ class HomePage extends StatelessWidget {
                   child: Column(
                     children: [
                       // Top info banner (green)
-                      Consumer<SettingsProvider>(
-                        builder: (context, settings, _) {
-                          final lang = settings.language;
-                          final baseColor = settings.themeColor;
-                          final gradientStart = _shiftLightness(baseColor, 0.08);
-                          final gradientEnd = _shiftLightness(baseColor, -0.08);
-                          return GestureDetector(
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    AppTranslations.translate('coming_soon', lang),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                  duration: const Duration(seconds: 2),
-                                ),
-                              );
-                            },
-                            child: Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 14,
-                              ),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [gradientStart, gradientEnd],
-                                ),
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(color: Colors.black12, blurRadius: 6),
-                                ],
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          AppTranslations.translate('pharmacist_consultation', lang),
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Text(
-                                          AppTranslations.translate('get_info_about_medicines', lang),
-                                          style: const TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const Icon(
-                                    Icons.info_outline,
-                                    color: Colors.white70,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 20),
-
                       // Grid of square tiles (3 columns) using Arabic RTL layout
                       Directionality(
                         textDirection: TextDirection.rtl,

@@ -412,12 +412,6 @@ class _PatientMenuTab extends StatelessWidget {
 
   const _PatientMenuTab({required this.patient});
 
-  Color _shiftLightness(Color color, double delta) {
-    final hsl = HSLColor.fromColor(color);
-    final adjusted = (hsl.lightness + delta).clamp(0.0, 1.0);
-    return hsl.withLightness(adjusted).toColor();
-  }
-
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
@@ -476,50 +470,6 @@ class _PatientMenuTab extends StatelessWidget {
                     label: Text(
                       AppTranslations.translate('edit_profile', lang),
                     ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        _shiftLightness(settings.themeColor, 0.08),
-                        _shiftLightness(settings.themeColor, -0.08),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: const <BoxShadow>[
-                      BoxShadow(color: Colors.black12, blurRadius: 6),
-                    ],
-                  ),
-                  child: Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text(
-                              AppTranslations.translate('pharmacist_consultation', lang),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              AppTranslations.translate('get_info_about_medicines', lang),
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(Icons.info_outline, color: Colors.white70),
-                    ],
                   ),
                 ),
                 const SizedBox(height: 20),
