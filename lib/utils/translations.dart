@@ -854,7 +854,7 @@ class AppTranslations {
       'bp_report_title_pdf': 'تقرير ضغط الدم',
       'bs_report_title_pdf': 'تقرير سكر الدم',
       'other_meds_report_title_pdf': 'تقرير الأدوية الأخرى',
-      'disclaimer_text': 'تنويه هام: تطبيق دوائي لا يبديل استشارة الطبيب وتأكد دائماً أن جرعاتك محددة من قبل الطبيب أو الصيدلي.',
+      'disclaimer_text': 'تنويه هام: تطبيق AL-Munqith لا يبديل استشارة الطبيب وتأكد دائماً أن جرعاتك محددة من قبل الطبيب أو الصيدلي.',
       'high_bp_chronic': 'ارتفاع ضغط الدم',
       'diabetes_chronic': 'السكري',
       

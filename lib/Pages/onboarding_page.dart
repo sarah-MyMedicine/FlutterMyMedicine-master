@@ -85,7 +85,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     icon: Icons.waving_hand,
                     iconColor: Colors.amber,
                     content:
-                        'هلو $userName،\n\nكلش فرحنا بوجودك ويانا! نورت تطبيق دوائي\n\nإحنا نعرف إن الالتزام بالأدوية ومتابعة القراءات مو شغلة سهلة وتدوّخ، ولهذا سوينا هذا التطبيق حتى نكون وياك خطوة بخطوة ونشيل عنك هذا الهم.',
+                        'هلو $userName،\n\nكلش فرحنا بوجودك ويانا! نورت تطبيق AL-Munqith\n\nإحنا نعرف إن الالتزام بالأدوية ومتابعة القراءات مو شغلة سهلة وتدوّخ، ولهذا سوينا هذا التطبيق حتى نكون وياك خطوة بخطوة ونشيل عنك هذا الهم.',
                   ),
                   _buildPage(
                     icon: Icons.medical_services,
