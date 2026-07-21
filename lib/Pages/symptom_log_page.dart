@@ -455,6 +455,8 @@ class _SymptomDialogState extends State<_SymptomDialog> {
     required String? selectedValue,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dropdownBg = isDark ? Theme.of(context).cardColor : Colors.white;
+    final dropdownTextColor = Theme.of(context).colorScheme.onSurface;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -466,6 +468,11 @@ class _SymptomDialogState extends State<_SymptomDialog> {
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
           initialValue: selectedValue,
+          dropdownColor: dropdownBg,
+          style: TextStyle(
+            color: dropdownTextColor,
+            fontSize: 14,
+          ),
           decoration: InputDecoration(
             hintText: names.isEmpty
                 ? AppTranslations.translate('no_medications', lang)

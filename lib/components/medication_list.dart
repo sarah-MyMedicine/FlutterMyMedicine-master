@@ -317,6 +317,10 @@ class _MedicationListState extends State<MedicationList> {
         final lang = sp.language;
         final provider = Provider.of<MedicationProvider>(context);
         final items = provider.items;
+        final dropdownBg = Theme.of(context).brightness == Brightness.dark
+            ? Theme.of(context).cardColor
+            : Colors.white;
+        final dropdownTextColor = Theme.of(context).colorScheme.onSurface;
         final doctorOptions = _buildDoctorOptions(items);
 
         final selectedDoctorExists = _selectedDoctorFilter == 'all' ||
@@ -373,6 +377,8 @@ class _MedicationListState extends State<MedicationList> {
                     child: DropdownButtonFormField<String>(
                       key: ValueKey<String>('type_$_selectedTypeFilter'),
                       initialValue: _selectedTypeFilter,
+                      dropdownColor: dropdownBg,
+                      style: TextStyle(color: dropdownTextColor),
                       decoration: InputDecoration(
                         labelText: lang == 'ar' ? 'نوع الدواء' : 'Medication type',
                         border: const OutlineInputBorder(),
@@ -409,6 +415,8 @@ class _MedicationListState extends State<MedicationList> {
                     child: DropdownButtonFormField<String>(
                       key: ValueKey<String>('doctor_${_selectedDoctorFilter}_${doctorOptions.length}'),
                       initialValue: selectedDoctorExists ? _selectedDoctorFilter : 'all',
+                      dropdownColor: dropdownBg,
+                      style: TextStyle(color: dropdownTextColor),
                       decoration: InputDecoration(
                         labelText: lang == 'ar' ? 'الطبيب' : 'Doctor',
                         border: const OutlineInputBorder(),

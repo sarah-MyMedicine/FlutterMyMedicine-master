@@ -44,6 +44,7 @@ class AppTheme {
     const onSurface = Colors.black;
     const secondaryText = Colors.black;
     final lightBg = Color.lerp(primaryColor, Colors.white, 0.9) ?? Colors.white;
+    final lightMenuBg = Color.lerp(primaryColor, Colors.white, 0.95) ?? Colors.white;
 
     final base = ThemeData.from(
       colorScheme: ColorScheme.light(
@@ -102,6 +103,21 @@ class AppTheme {
           surfaceTintColor: const WidgetStatePropertyAll<Color>(Colors.transparent),
         ),
       ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: lightMenuBg,
+        surfaceTintColor: Colors.transparent,
+        textStyle: const TextStyle(
+          color: onSurface,
+          fontSize: 14,
+        ),
+        labelTextStyle: const WidgetStatePropertyAll<TextStyle>(
+          TextStyle(
+            color: onSurface,
+            fontSize: 14,
+          ),
+        ),
+        iconColor: onSurface,
+      ),
       appBarTheme: AppBarTheme(
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
@@ -148,6 +164,7 @@ class AppTheme {
     final border = Color.lerp(primaryColor, Colors.white, 0.35) ?? primaryColor;
     const onSurface = Colors.white;
     const secondaryText = Colors.white;
+    const menuBg = Color(0xFF171A20);
 
     final base = ThemeData.from(
       colorScheme: ColorScheme.dark(
@@ -202,9 +219,24 @@ class AppTheme {
           ),
         ),
         menuStyle: MenuStyle(
-          backgroundColor: WidgetStatePropertyAll<Color>(Color(0xFF171A20)),
+          backgroundColor: WidgetStatePropertyAll<Color>(menuBg),
           surfaceTintColor: WidgetStatePropertyAll<Color>(Colors.transparent),
         ),
+      ),
+      popupMenuTheme: const PopupMenuThemeData(
+        color: menuBg,
+        surfaceTintColor: Colors.transparent,
+        textStyle: TextStyle(
+          color: onSurface,
+          fontSize: 14,
+        ),
+        labelTextStyle: WidgetStatePropertyAll<TextStyle>(
+          TextStyle(
+            color: onSurface,
+            fontSize: 14,
+          ),
+        ),
+        iconColor: onSurface,
       ),
       appBarTheme: AppBarTheme(
         backgroundColor: const Color(0xFF181B22),
