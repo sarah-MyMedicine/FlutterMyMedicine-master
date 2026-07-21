@@ -17,6 +17,7 @@ class MedicationItem extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
+  final VoidCallback? onToggleLastStatus;
 
   const MedicationItem({
     super.key,
@@ -31,6 +32,7 @@ class MedicationItem extends StatelessWidget {
     this.onTap,
     this.onEdit,
     this.onDelete,
+    this.onToggleLastStatus,
   });
 
   String _getFrequencyText(String lang) {
@@ -200,7 +202,7 @@ class MedicationItem extends StatelessWidget {
                                       child: Text(
                                         _getMedicationTypeText(lang),
                                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                          color: _getMedicationTypeColor().withOpacity(0.8),
+                                          color: _getMedicationTypeColor().withValues(alpha: 0.8),
                                           fontWeight: FontWeight.w500,
                                         ),
                                         overflow: TextOverflow.ellipsis,
@@ -259,36 +261,73 @@ class MedicationItem extends StatelessWidget {
                       },
                     ),
                   ),
-                  PopupMenuButton<String>(
-                    onSelected: (value) {
-                      if (value == 'edit') {
-                        onEdit?.call();
-                      } else if (value == 'delete') {
-                        onDelete?.call();
-                      }
+                  Consumer<AdherenceProvider>(
+                    builder: (context, adherenceProvider, _) {
+                      final latestStatus = adherenceProvider.getLatestMedicationTakenStatus(
+                        medicationName: name,
+                        dose: dose,
+                      );
+                      final hasAnyStatus = latestStatus != null;
+                      final toggleTitle = !hasAnyStatus
+                          ? (lang == 'ar'
+                              ? 'لا توجد جرعة مسجلة للتبديل'
+                              : 'No recorded dose to toggle')
+                          : latestStatus
+                              ? (lang == 'ar'
+                                  ? 'تغيير آخر جرعة إلى غير مأخوذة'
+                                  : 'Set last dose as not taken')
+                              : (lang == 'ar'
+                                  ? 'تغيير آخر جرعة إلى مأخوذة'
+                                  : 'Set last dose as taken');
+
+                      return PopupMenuButton<String>(
+                        onSelected: (value) {
+                          if (value == 'edit') {
+                            onEdit?.call();
+                          } else if (value == 'delete') {
+                            onDelete?.call();
+                          } else if (value == 'toggle_last_status') {
+                            onToggleLastStatus?.call();
+                          }
+                        },
+                        itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                          PopupMenuItem<String>(
+                            value: 'edit',
+                            child: Row(
+                              children: [
+                                const Icon(Icons.edit, size: 18),
+                                const SizedBox(width: 12),
+                                Text(AppTranslations.translate('edit', lang)),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem<String>(
+                            value: 'toggle_last_status',
+                            enabled: hasAnyStatus,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  latestStatus == true ? Icons.undo : Icons.check_circle_outline,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(child: Text(toggleTitle)),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem<String>(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                const Icon(Icons.delete, size: 18, color: Colors.red),
+                                const SizedBox(width: 12),
+                                Text(AppTranslations.translate('delete', lang), style: const TextStyle(color: Colors.red)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
                     },
-                    itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                      PopupMenuItem<String>(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            const Icon(Icons.edit, size: 18),
-                            const SizedBox(width: 12),
-                            Text(AppTranslations.translate('edit', lang)),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem<String>(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            const Icon(Icons.delete, size: 18, color: Colors.red),
-                            const SizedBox(width: 12),
-                            Text(AppTranslations.translate('delete', lang), style: const TextStyle(color: Colors.red)),
-                          ],
-                        ),
-                      ),
-                    ],
                   ),
                 ],
               ),

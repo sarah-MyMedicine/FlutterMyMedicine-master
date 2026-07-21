@@ -205,7 +205,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       // App came back to foreground, check for missed doses
       debugPrint('[main] App resumed, checking for missed doses');
-      _checkMissedDoses();
+      _checkMissedDoses().then((_) {
+        return NotificationService().maybeShowDueMedicationPopupOnAppOpen();
+      });
       _syncPatientDataFromCloud();
     }
   }
@@ -214,6 +216,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     // Wait a bit for providers to fully initialize
     await Future.delayed(const Duration(seconds: 2));
     await _checkMissedDoses();
+    await NotificationService().maybeShowDueMedicationPopupOnAppOpen();
   }
   
   Future<void> _checkMissedDoses() async {

@@ -424,6 +424,7 @@ class AdherenceProvider extends ChangeNotifier {
               'medicationName': log.medicationName,
               'dose': log.dose,
               'timestamp': log.when.toIso8601String(),
+              'taken': log.taken,
             })
         .toList();
   }
@@ -479,6 +480,108 @@ class AdherenceProvider extends ChangeNotifier {
       );
     }
 
+    notifyListeners();
+  }
+
+  bool? getLatestMedicationTakenStatus({
+    required String medicationName,
+    String? dose,
+  }) {
+    final normalizedName = medicationName.trim();
+    final normalizedDose = dose?.trim();
+    if (normalizedName.isEmpty) return null;
+
+    AdherenceLog? latest;
+    for (final log in _logs) {
+      final sameMedication = log.medicationName.trim() == normalizedName;
+      final sameDose =
+          normalizedDose == null || normalizedDose.isEmpty || log.dose.trim() == normalizedDose;
+      if (!sameMedication || !sameDose) continue;
+
+      if (latest == null || log.when.isAfter(latest.when)) {
+        latest = log;
+      }
+    }
+
+    return latest?.taken;
+  }
+
+  Future<bool?> toggleLatestMedicationStatus({
+    required String medicationName,
+    String? dose,
+  }) async {
+    final normalizedName = medicationName.trim();
+    final normalizedDose = dose?.trim();
+    if (normalizedName.isEmpty) return null;
+
+    var latestIndex = -1;
+    DateTime? latestWhen;
+
+    for (var i = 0; i < _logs.length; i++) {
+      final log = _logs[i];
+      final sameMedication = log.medicationName.trim() == normalizedName;
+      final sameDose =
+          normalizedDose == null || normalizedDose.isEmpty || log.dose.trim() == normalizedDose;
+      if (!sameMedication || !sameDose) continue;
+
+      if (latestWhen == null || log.when.isAfter(latestWhen)) {
+        latestWhen = log.when;
+        latestIndex = i;
+      }
+    }
+
+    if (latestIndex == -1) return null;
+
+    final latest = _logs[latestIndex];
+    final updated = AdherenceLog(
+      medicationName: latest.medicationName,
+      dose: latest.dose,
+      when: latest.when,
+      taken: !latest.taken,
+    );
+
+    _logs[latestIndex] = updated;
+    await _saveToPrefs();
+    notifyListeners();
+
+    return updated.taken;
+  }
+
+  Future<void> migrateMedicationIdentity({
+    required String oldMedicationName,
+    required String oldDose,
+    required String newMedicationName,
+    required String newDose,
+  }) async {
+    final normalizedOldName = oldMedicationName.trim();
+    final normalizedOldDose = oldDose.trim();
+    final normalizedNewName = newMedicationName.trim();
+    final normalizedNewDose = newDose.trim();
+
+    if (normalizedOldName.isEmpty || normalizedNewName.isEmpty) return;
+    if (normalizedOldName == normalizedNewName &&
+        normalizedOldDose == normalizedNewDose) {
+      return;
+    }
+
+    var changed = false;
+    for (var i = 0; i < _logs.length; i++) {
+      final log = _logs[i];
+      if (log.medicationName.trim() == normalizedOldName &&
+          log.dose.trim() == normalizedOldDose) {
+        _logs[i] = AdherenceLog(
+          medicationName: normalizedNewName,
+          dose: normalizedNewDose,
+          when: log.when,
+          taken: log.taken,
+        );
+        changed = true;
+      }
+    }
+
+    if (!changed) return;
+
+    await _saveToPrefs();
     notifyListeners();
   }
 

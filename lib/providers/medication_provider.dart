@@ -303,6 +303,57 @@ class MedicationProvider extends ChangeNotifier {
     _syncCloudInBackground();
   }
 
+  Future<void> _migrateAdherenceIdentityIfNeeded({
+    required String oldName,
+    required String oldDose,
+    required String newName,
+    required String newDose,
+  }) async {
+    final normalizedOldName = oldName.trim();
+    final normalizedOldDose = oldDose.trim();
+    final normalizedNewName = newName.trim();
+    final normalizedNewDose = newDose.trim();
+
+    if (normalizedOldName.isEmpty || normalizedNewName.isEmpty) return;
+    if (normalizedOldName == normalizedNewName &&
+        normalizedOldDose == normalizedNewDose) {
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('adherence_records');
+    if (raw == null || raw.isEmpty) return;
+
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return;
+
+      var changed = false;
+      final updated = decoded.map((entry) {
+        if (entry is! Map) return entry;
+
+        final map = Map<String, dynamic>.from(entry);
+        final recordName = (map['medicationName'] ?? '').toString().trim();
+        final recordDose = (map['dose'] ?? '').toString().trim();
+
+        if (recordName == normalizedOldName && recordDose == normalizedOldDose) {
+          map['medicationName'] = normalizedNewName;
+          map['dose'] = normalizedNewDose;
+          changed = true;
+        }
+
+        return map;
+      }).toList();
+
+      if (!changed) return;
+
+      await prefs.setString('adherence_records', jsonEncode(updated));
+      _syncCloudInBackground();
+    } catch (e) {
+      debugPrint('[MedicationProvider] Failed to migrate adherence identity: $e');
+    }
+  }
+
   Future<void> add(
     String name,
     String dose, {
@@ -558,6 +609,9 @@ class MedicationProvider extends ChangeNotifier {
     final normalizedStartTime = startTime ?? '';
     final normalizedStartDate = startDate ?? '';
 
+    final oldName = existing['name'] ?? '';
+    final oldDose = existing['dose'] ?? '';
+
     final timingChanged =
         previousInterval != intervalHours ||
         previousStartTime != normalizedStartTime ||
@@ -586,6 +640,13 @@ class MedicationProvider extends ChangeNotifier {
       'notifPrefix': prefix,
       'lastTaken': timingChanged ? null : existing['lastTaken'],
     };
+
+    await _migrateAdherenceIdentityIfNeeded(
+      oldName: oldName,
+      oldDose: oldDose,
+      newName: name,
+      newDose: dose,
+    );
 
     await _saveToPrefs();
 

@@ -33,7 +33,10 @@ class NotificationService {
   GlobalKey<NavigatorState>? _navigatorKey;
   // Queue payloads that arrive before a Navigator/Context is ready
   final List<Map<String, dynamic>> _pendingTaps = <Map<String, dynamic>>[];
+  final List<Map<String, dynamic>> _popupQueue = <Map<String, dynamic>>[];
+  bool _isProcessingPopupQueue = false;
   final Map<int, DateTime> _handledTapIds = <int, DateTime>{};
+  DateTime? _lastAutoPopupAt;
 
   // Motivational messages for skipped medications
   final List<String> _skippedMedicationMessages = [
@@ -57,7 +60,7 @@ class NotificationService {
   void setNavigatorKey(GlobalKey<NavigatorState> key) {
     _navigatorKey = key;
     debugPrint('[NotificationService] navigatorKey set. Flushing any pending taps...');
-    _flushPendingTaps();
+    unawaited(_flushPendingTaps());
   }
 
   Future<void> init() async {
@@ -280,6 +283,118 @@ class NotificationService {
     final hasPressure = diseases.contains('ارتفاع ضغط الدم');
     final hasHeart = diseases.any((disease) => disease.contains('قلب'));
     return hasPressure && hasHeart;
+  }
+
+  DateTime? _latestExpectedDoseAtOrBeforeNow(
+    Map<String, String?> item,
+    DateTime now,
+  ) {
+    final interval = int.tryParse(item['intervalHours'] ?? '24') ?? 24;
+    final lastTakenStr = item['lastTaken'];
+
+    if (lastTakenStr != null && lastTakenStr.isNotEmpty) {
+      final lastTaken = DateTime.tryParse(lastTakenStr);
+      if (lastTaken == null) return null;
+      final expected = lastTaken.add(Duration(hours: interval));
+      return expected.isAfter(now) ? null : expected;
+    }
+
+    final startTime = item['startTime'];
+    if (startTime == null || startTime.isEmpty) return null;
+
+    final parts = startTime.split(':');
+    if (parts.length != 2) return null;
+
+    final h = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    if (h == null || m == null) return null;
+
+    DateTime baseDate = DateTime(now.year, now.month, now.day);
+    final startDate = item['startDate'];
+    if (startDate != null && startDate.isNotEmpty) {
+      final parsedDate = DateTime.tryParse(startDate);
+      if (parsedDate != null) {
+        baseDate = DateTime(parsedDate.year, parsedDate.month, parsedDate.day);
+      }
+    }
+
+    var expected = DateTime(baseDate.year, baseDate.month, baseDate.day, h, m);
+    if (expected.isAfter(now)) return null;
+
+    while (expected.add(Duration(hours: interval)).isBefore(now) ||
+        expected.add(Duration(hours: interval)).isAtSameMomentAs(now)) {
+      expected = expected.add(Duration(hours: interval));
+    }
+
+    return expected;
+  }
+
+  /// Called on app startup/resume to show due medication popup even without tapping notifications.
+  Future<void> maybeShowDueMedicationPopupOnAppOpen() async {
+    if (_navigatorKey == null || _navigatorKey!.currentContext == null) return;
+    if (_pendingTaps.isNotEmpty) return;
+
+    final context = _navigatorKey!.currentContext!;
+    if (!_isPatientContext(context)) return;
+
+    // Debounce to avoid duplicate popups from rapid startup/resume callbacks.
+    final now = DateTime.now();
+    if (_lastAutoPopupAt != null &&
+        now.difference(_lastAutoPopupAt!) < const Duration(seconds: 20)) {
+      return;
+    }
+
+    try {
+      final meds = context.read<MedicationProvider>().items;
+      final dueCandidates = <Map<String, dynamic>>[];
+
+      for (final item in meds) {
+        final prefix = item['notifPrefix'];
+        final name = (item['name'] ?? '').trim();
+        final dose = (item['dose'] ?? '').trim();
+        if (prefix == null || prefix.isEmpty || name.isEmpty || dose.isEmpty) {
+          continue;
+        }
+
+        final expected = _latestExpectedDoseAtOrBeforeNow(item, now);
+        if (expected == null) continue;
+
+        dueCandidates.add({
+          'prefix': prefix,
+          'name': name,
+          'dose': dose,
+          'intervalHours': item['intervalHours'] ?? '24',
+          'expected': expected,
+        });
+      }
+
+      if (dueCandidates.isEmpty) return;
+
+      dueCandidates.sort((a, b) {
+        final aExpected = a['expected'] as DateTime;
+        final bExpected = b['expected'] as DateTime;
+        return aExpected.compareTo(bExpected);
+      });
+
+      final selected = dueCandidates.first;
+      final expected = selected['expected'] as DateTime;
+      final prefix = selected['prefix'] as String;
+      final name = selected['name'] as String;
+      final dose = selected['dose'] as String;
+      final intervalHours = int.tryParse('${selected['intervalHours']}') ?? 24;
+      final syntheticId = (prefix.hashCode ^ expected.millisecondsSinceEpoch) & 0x7fffffff;
+
+      _lastAutoPopupAt = now;
+      await _handleNotificationTap({
+        'prefix': prefix,
+        'name': name,
+        'dose': '$dose · كل $intervalHours ساعة',
+        'id': syntheticId,
+        'scheduled': expected.millisecondsSinceEpoch,
+      });
+    } catch (e) {
+      debugPrint('[NotificationService] Error in app-open due popup check: $e');
+    }
   }
 
   String _pickRandomMessage(List<String> messages) {
@@ -656,7 +771,36 @@ class NotificationService {
       return;
     }
 
-    final context = _navigatorKey!.currentContext!;
+    _popupQueue.add(Map<String, dynamic>.from(data));
+    await _processPopupQueue();
+  }
+
+  Future<void> _processPopupQueue() async {
+    if (_isProcessingPopupQueue) return;
+    _isProcessingPopupQueue = true;
+
+    try {
+      while (_popupQueue.isNotEmpty) {
+        if (_navigatorKey == null || _navigatorKey!.currentContext == null) {
+          break;
+        }
+
+        final context = _navigatorKey!.currentContext!;
+        final data = _popupQueue.removeAt(0);
+        await _showPopupForPayload(context, data);
+      }
+    } finally {
+      _isProcessingPopupQueue = false;
+      if (_popupQueue.isNotEmpty) {
+        _scheduleFlush();
+      }
+    }
+  }
+
+  Future<void> _showPopupForPayload(
+    BuildContext context,
+    Map<String, dynamic> data,
+  ) async {
 
     final String? prefix = data['prefix'] as String?;
     final String name = (data['name'] as String?) ?? 'Medication';
@@ -665,7 +809,7 @@ class NotificationService {
     final isPatient = _isPatientContext(context);
 
     if (!isPatient) {
-      showDialog(
+      await showDialog<void>(
         context: context,
         barrierDismissible: true,
         builder: (ctx) {
@@ -688,7 +832,7 @@ class NotificationService {
       return;
     }
 
-    showDialog(
+    await showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) {
@@ -924,12 +1068,14 @@ class NotificationService {
 
   void _scheduleFlush() {
     // Try on next frame to allow navigator to become available
-    WidgetsBinding.instance.addPostFrameCallback((_) => _flushPendingTaps());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_flushPendingTaps());
+    });
     // Also schedule a small delayed retry as a fallback on cold start
     Future<void>.delayed(const Duration(milliseconds: 200), _flushPendingTaps);
   }
 
-  void _flushPendingTaps() {
+  Future<void> _flushPendingTaps() async {
     if (_navigatorKey == null || _navigatorKey!.currentContext == null) {
       debugPrint('[NotificationService] Flush skipped: context still not ready');
       return;
@@ -939,8 +1085,10 @@ class NotificationService {
     final items = List<Map<String, dynamic>>.from(_pendingTaps);
     _pendingTaps.clear();
     for (final data in items) {
-      _handleNotificationTap(data);
+      await _handleNotificationTap(data);
     }
+
+    await _processPopupQueue();
   }
 
   /// Send an immediate test notification (no scheduling) to debug channel/tap flow

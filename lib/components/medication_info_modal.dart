@@ -11,6 +11,8 @@ class MedicationInfoModal extends StatelessWidget {
   final int intervalHours;
   final String? startTime;
   final String? startDate;
+  final String? doctorName;
+  final String? doctorSpecialty;
 
   const MedicationInfoModal({
     super.key,
@@ -20,6 +22,8 @@ class MedicationInfoModal extends StatelessWidget {
     this.intervalHours = 24,
     this.startTime,
     this.startDate,
+    this.doctorName,
+    this.doctorSpecialty,
   });
 
 
@@ -28,6 +32,10 @@ class MedicationInfoModal extends StatelessWidget {
     return Consumer<SettingsProvider>(
       builder: (context, sp, child) {
         final lang = sp.language;
+        final assignedDoctorName = (doctorName ?? '').trim();
+        final assignedDoctorSpecialty = (doctorSpecialty ?? '').trim();
+        final hasDoctorAssignment =
+            assignedDoctorName.isNotEmpty || assignedDoctorSpecialty.isNotEmpty;
         
         return Padding(
           padding: MediaQuery.of(context).viewInsets,
@@ -55,6 +63,17 @@ class MedicationInfoModal extends StatelessWidget {
                   Text('${AppTranslations.translate('first_dose', lang)}: $startDate $startTime'),
                 if (startTime != null && startDate == null) 
                   Text('${AppTranslations.translate('first_dose', lang)}: $startTime'),
+                if (hasDoctorAssignment) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    '${AppTranslations.translate('doctor_name', lang)}: '
+                    '${assignedDoctorName.isNotEmpty ? assignedDoctorName : '-'}',
+                  ),
+                  if (assignedDoctorSpecialty.isNotEmpty)
+                    Text(
+                      '${AppTranslations.translate('specialty', lang)}: $assignedDoctorSpecialty',
+                    ),
+                ],
                 const SizedBox(height: 12),
                 ElevatedButton(
                   onPressed: () => Navigator.of(context).pop(),

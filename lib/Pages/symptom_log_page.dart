@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../providers/medication_provider.dart';
 import '../providers/settings_provider.dart';
 import '../utils/translations.dart';
 
@@ -12,6 +13,28 @@ class SymptomLogPage extends StatefulWidget {
 
 class _SymptomLogPageState extends State<SymptomLogPage> {
   final List<_SymptomEntry> _entries = [];
+
+  void _openEntryDialog(String lang, {int? editIndex}) {
+    final existingEntry = editIndex != null ? _entries[editIndex] : null;
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => _SymptomDialog(
+        lang: lang,
+        initialEntry: existingEntry,
+        onSave: (entry) {
+          setState(() {
+            if (editIndex != null) {
+              _entries[editIndex] = entry;
+            } else {
+              _entries.add(entry);
+            }
+          });
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -107,7 +130,7 @@ class _SymptomLogPageState extends State<SymptomLogPage> {
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -121,7 +144,7 @@ class _SymptomLogPageState extends State<SymptomLogPage> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor.withOpacity(0.15),
+                        color: Theme.of(context).primaryColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
@@ -137,6 +160,42 @@ class _SymptomLogPageState extends State<SymptomLogPage> {
                         color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
+                    PopupMenuButton<String>(
+                      onSelected: (value) {
+                        if (value == 'edit') {
+                          _openEntryDialog(lang, editIndex: index);
+                        } else if (value == 'delete') {
+                          setState(() {
+                            _entries.removeAt(index);
+                          });
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        PopupMenuItem<String>(
+                          value: 'edit',
+                          child: Row(
+                            children: [
+                              const Icon(Icons.edit, size: 18),
+                              const SizedBox(width: 12),
+                              Text(AppTranslations.translate('edit', lang)),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem<String>(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              const Icon(Icons.delete, size: 18, color: Colors.red),
+                              const SizedBox(width: 12),
+                              Text(
+                                AppTranslations.translate('delete', lang),
+                                style: const TextStyle(color: Colors.red),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -144,6 +203,16 @@ class _SymptomLogPageState extends State<SymptomLogPage> {
                   e.title,
                   style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                 ),
+                if (e.potentialDrug.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    '${AppTranslations.translate('potential_drug_cause', lang)}: ${e.potentialDrug}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 4),
                 if (e.notes.isNotEmpty)
                   Text(
@@ -164,23 +233,19 @@ class _SymptomLogPageState extends State<SymptomLogPage> {
   }
 
   void _openNewEntryDialog(String lang) {
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (_) => _SymptomDialog(
-        lang: lang,
-        onSave: (entry) {
-          setState(() => _entries.add(entry));
-        },
-      ),
-    );
+    _openEntryDialog(lang);
   }
 }
 
 class _SymptomDialog extends StatefulWidget {
   final String lang;
+  final _SymptomEntry? initialEntry;
   final void Function(_SymptomEntry entry) onSave;
-  const _SymptomDialog({required this.lang, required this.onSave});
+  const _SymptomDialog({
+    required this.lang,
+    required this.onSave,
+    this.initialEntry,
+  });
 
   @override
   State<_SymptomDialog> createState() => _SymptomDialogState();
@@ -188,15 +253,21 @@ class _SymptomDialog extends StatefulWidget {
 
 class _SymptomDialogState extends State<_SymptomDialog> {
   final _symptomCtrl = TextEditingController();
-  final _drugCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
+  String? _selectedMedicationName;
   late String _severity;
   late Map<String, bool> _riskFactors;
   
   @override
   void initState() {
     super.initState();
-    _severity = AppTranslations.translate('moderate', widget.lang);
+    final entry = widget.initialEntry;
+    _symptomCtrl.text = entry?.title ?? '';
+    _notesCtrl.text = entry?.notes ?? '';
+    _selectedMedicationName = (entry?.potentialDrug ?? '').trim().isEmpty
+        ? null
+        : entry!.potentialDrug;
+    _severity = entry?.severity ?? AppTranslations.translate('moderate', widget.lang);
     _riskFactors = {
       AppTranslations.translate('smoker', widget.lang): false,
       AppTranslations.translate('has_allergies', widget.lang): false,
@@ -207,7 +278,6 @@ class _SymptomDialogState extends State<_SymptomDialog> {
   @override
   void dispose() {
     _symptomCtrl.dispose();
-    _drugCtrl.dispose();
     _notesCtrl.dispose();
     super.dispose();
   }
@@ -216,6 +286,18 @@ class _SymptomDialogState extends State<_SymptomDialog> {
   Widget build(BuildContext context) {
     final lang = widget.lang;
     final sp = Provider.of<SettingsProvider>(context, listen: false);
+    final medications = context.read<MedicationProvider>().items;
+    final medicationNames = medications
+        .map((item) => (item['name'] ?? '').trim())
+        .where((name) => name.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+    final selectedValue = (_selectedMedicationName != null &&
+            medicationNames.contains(_selectedMedicationName))
+        ? _selectedMedicationName
+        : null;
     
     return Dialog(
       insetPadding: const EdgeInsets.all(16),
@@ -240,7 +322,9 @@ class _SymptomDialogState extends State<_SymptomDialog> {
               const SizedBox(height: 12),
               Center(
                 child: Text(
-                  AppTranslations.translate('record_new_symptom', lang),
+                  widget.initialEntry == null
+                      ? AppTranslations.translate('record_new_symptom', lang)
+                      : AppTranslations.translate('edit', lang),
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -252,12 +336,10 @@ class _SymptomDialogState extends State<_SymptomDialog> {
                 lang,
               ),
               const SizedBox(height: 12),
-              _buildTextField(
-                AppTranslations.translate('potential_drug_cause', lang),
-                AppTranslations.translate('choose_from_medications', lang),
-                _drugCtrl,
-                lang,
-                hasDropdown: true,
+              _buildMedicationDropdown(
+                lang: lang,
+                names: medicationNames,
+                selectedValue: selectedValue,
               ),
               const SizedBox(height: 12),
               Text(
@@ -301,6 +383,7 @@ class _SymptomDialogState extends State<_SymptomDialog> {
                             title: _symptomCtrl.text.isEmpty 
                               ? AppTranslations.translate('symptom_without_name', lang)
                               : _symptomCtrl.text,
+                            potentialDrug: _selectedMedicationName ?? '',
                             notes: _notesCtrl.text,
                             severity: _severity,
                             dateLabel: AppTranslations.translate('today', lang),
@@ -361,6 +444,55 @@ class _SymptomDialogState extends State<_SymptomDialog> {
                 ),
               ),
           ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMedicationDropdown({
+    required String lang,
+    required List<String> names,
+    required String? selectedValue,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          AppTranslations.translate('potential_drug_cause', lang),
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 6),
+        DropdownButtonFormField<String>(
+          initialValue: selectedValue,
+          decoration: InputDecoration(
+            hintText: names.isEmpty
+                ? AppTranslations.translate('no_medications', lang)
+                : AppTranslations.translate('choose_from_medications', lang),
+            filled: true,
+            fillColor: isDark ? Colors.grey[800] : Colors.grey[100],
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide.none,
+            ),
+          ),
+          items: names
+              .map(
+                (name) => DropdownMenuItem<String>(
+                  value: name,
+                  child: Text(name, overflow: TextOverflow.ellipsis),
+                ),
+              )
+              .toList(),
+          onChanged: names.isEmpty
+              ? null
+              : (value) {
+                  setState(() {
+                    _selectedMedicationName = value;
+                  });
+                },
         ),
       ],
     );
@@ -446,12 +578,14 @@ class _SymptomDialogState extends State<_SymptomDialog> {
 
 class _SymptomEntry {
   final String title;
+  final String potentialDrug;
   final String notes;
   final String severity;
   final String dateLabel;
 
   _SymptomEntry({
     required this.title,
+    required this.potentialDrug,
     required this.notes,
     required this.severity,
     required this.dateLabel,
