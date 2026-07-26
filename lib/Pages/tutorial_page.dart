@@ -29,7 +29,7 @@ class TutorialPage extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         '$prefix$text',
-        style: const TextStyle(fontSize: 15, height: 1.5),
+        style: const TextStyle(fontSize: 15, height: 1.5, color: Colors.black87),
         textDirection: textDirection,
         textAlign: textAlign,
       ),

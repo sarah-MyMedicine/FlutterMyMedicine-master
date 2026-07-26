@@ -39,6 +39,9 @@ class _HealthReportPageState extends State<HealthReportPage> {
   bool _isLocaleInitialized = false;
   int _selectedTab = 0;
 
+  static Future<pw.Font>? _cachedArabicFont;
+  static Future<pw.Font>? _cachedArabicFontBold;
+
   @override
   void initState() {
     super.initState();
@@ -1300,9 +1303,9 @@ class _HealthReportPageState extends State<HealthReportPage> {
                       backgroundColor: Colors.red.shade50,
                       foregroundColor: Colors.red.shade900,
                     ),
-                    onPressed: () {
+                    onPressed: () async {
                       Navigator.of(context).pop();
-                      _generatePdf(
+                      await _generatePdf(
                         context,
                         settingsProvider,
                         medicationProvider,
@@ -1325,9 +1328,9 @@ class _HealthReportPageState extends State<HealthReportPage> {
                       backgroundColor: Colors.orange.shade50,
                       foregroundColor: Colors.orange.shade900,
                     ),
-                    onPressed: () {
+                    onPressed: () async {
                       Navigator.of(context).pop();
-                      _generatePdf(
+                      await _generatePdf(
                         context,
                         settingsProvider,
                         medicationProvider,
@@ -1349,9 +1352,9 @@ class _HealthReportPageState extends State<HealthReportPage> {
                     backgroundColor: Colors.green.shade50,
                     foregroundColor: Colors.green.shade900,
                   ),
-                  onPressed: () {
+                  onPressed: () async {
                     Navigator.of(context).pop();
-                    _generatePdf(
+                    await _generatePdf(
                       context,
                       settingsProvider,
                       medicationProvider,
@@ -1373,9 +1376,9 @@ class _HealthReportPageState extends State<HealthReportPage> {
                     backgroundColor: Colors.teal.shade50,
                     foregroundColor: Colors.teal.shade900,
                   ),
-                  onPressed: () {
+                  onPressed: () async {
                     Navigator.of(context).pop();
-                    _generatePdf(
+                    await _generatePdf(
                       context,
                       settingsProvider,
                       medicationProvider,
@@ -1416,29 +1419,35 @@ class _HealthReportPageState extends State<HealthReportPage> {
   ) async {
     final doc = pw.Document();
     final dateFormat = DateFormat('d MMMM yyyy', lang == 'ar' ? 'ar' : 'en');
+    final medicationByName = <String, Map<String, String?>>{
+      for (final medication in medicationProvider.items)
+        (medication['name'] ?? '').trim(): medication,
+    };
     
     final bloodPressureEnabled = settingsProvider.chronicDiseases.contains('ارتفاع ضغط الدم');
     final bloodSugarEnabled = settingsProvider.chronicDiseases.contains('السكري');
 
-    // Load Arabic font
-    final arabicFont = await PdfGoogleFonts.cairoRegular();
-    final arabicFontBold = await PdfGoogleFonts.cairoBold();
+    // Cache fonts across exports to avoid repeated expensive loading.
+    _cachedArabicFont ??= PdfGoogleFonts.cairoRegular();
+    _cachedArabicFontBold ??= PdfGoogleFonts.cairoBold();
+    final arabicFont = await _cachedArabicFont!;
+    final arabicFontBold = await _cachedArabicFontBold!;
 
     if (exportType == 'all') {
       // Export all three types in separate pages
       if (bloodPressureEnabled) {
-        await _addBloodPressurePage(doc, settingsProvider, medicationProvider, adherenceProvider, bloodPressureProvider, startDate, now, arabicFont, arabicFontBold, dateFormat, lang);
+        await _addBloodPressurePage(doc, settingsProvider, medicationByName, adherenceProvider, bloodPressureProvider, startDate, now, arabicFont, arabicFontBold, dateFormat, lang);
       }
       if (bloodSugarEnabled) {
-        await _addBloodSugarPage(doc, settingsProvider, medicationProvider, adherenceProvider, bloodSugarProvider, startDate, now, arabicFont, arabicFontBold, dateFormat, lang);
+        await _addBloodSugarPage(doc, settingsProvider, medicationByName, adherenceProvider, bloodSugarProvider, startDate, now, arabicFont, arabicFontBold, dateFormat, lang);
       }
-      await _addMedicationsPage(doc, settingsProvider, medicationProvider, adherenceProvider, startDate, now, arabicFont, arabicFontBold, dateFormat, lang);
+      await _addMedicationsPage(doc, settingsProvider, medicationByName, adherenceProvider, startDate, now, arabicFont, arabicFontBold, dateFormat, lang);
     } else if (exportType == 'bloodPressure') {
-      await _addBloodPressurePage(doc, settingsProvider, medicationProvider, adherenceProvider, bloodPressureProvider, startDate, now, arabicFont, arabicFontBold, dateFormat, lang);
+      await _addBloodPressurePage(doc, settingsProvider, medicationByName, adherenceProvider, bloodPressureProvider, startDate, now, arabicFont, arabicFontBold, dateFormat, lang);
     } else if (exportType == 'bloodSugar') {
-      await _addBloodSugarPage(doc, settingsProvider, medicationProvider, adherenceProvider, bloodSugarProvider, startDate, now, arabicFont, arabicFontBold, dateFormat, lang);
+      await _addBloodSugarPage(doc, settingsProvider, medicationByName, adherenceProvider, bloodSugarProvider, startDate, now, arabicFont, arabicFontBold, dateFormat, lang);
     } else if (exportType == 'medications') {
-      await _addMedicationsPage(doc, settingsProvider, medicationProvider, adherenceProvider, startDate, now, arabicFont, arabicFontBold, dateFormat, lang);
+      await _addMedicationsPage(doc, settingsProvider, medicationByName, adherenceProvider, startDate, now, arabicFont, arabicFontBold, dateFormat, lang);
     }
 
     // Show print/save dialog
@@ -1451,8 +1460,11 @@ class _HealthReportPageState extends State<HealthReportPage> {
       fileName = lang == 'ar' ? 'تقرير_الأدوية' : 'medications_report';
     }
     
+    // Save once and reuse bytes; Printing may call onLayout multiple times.
+    final pdfBytes = await doc.save();
+
     await Printing.layoutPdf(
-      onLayout: (pdflib.PdfPageFormat format) async => doc.save(),
+      onLayout: (pdflib.PdfPageFormat format) async => pdfBytes,
       name: '${fileName}_${DateFormat('yyyy-MM-dd').format(now)}.pdf',
     );
   }
@@ -1460,7 +1472,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
   Future<void> _addBloodPressurePage(
     pw.Document doc,
     SettingsProvider settingsProvider,
-    MedicationProvider medicationProvider,
+    Map<String, Map<String, String?>> medicationByName,
     AdherenceProvider adherenceProvider,
     BloodPressureProvider bloodPressureProvider,
     DateTime startDate,
@@ -1472,6 +1484,8 @@ class _HealthReportPageState extends State<HealthReportPage> {
   ) async {
     final isArabic = lang == 'ar';
     final pdfTextDirection = isArabic ? pw.TextDirection.rtl : pw.TextDirection.ltr;
+    final rowDateFormat = DateFormat('d/M/yyyy', isArabic ? 'ar' : 'en');
+    final rowTimeFormat = DateFormat('h:mm a', isArabic ? 'ar' : 'en');
 
     final bpReadings = bloodPressureProvider.readings
         .where((r) => r.when.isAfter(startDate))
@@ -1481,10 +1495,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
     final bpMedsTaken = adherenceProvider.logs
         .where((log) {
           if (!log.when.isAfter(startDate) || !log.taken) return false;
-          final med = medicationProvider.items.firstWhere(
-            (m) => m['name'] == log.medicationName,
-            orElse: () => {},
-          );
+          final med = medicationByName[log.medicationName] ?? const <String, String?>{};
           return med.isNotEmpty && med['chronicDisease'] == 'ارتفاع ضغط الدم';
         })
         .toList()
@@ -1569,8 +1580,8 @@ class _HealthReportPageState extends State<HealthReportPage> {
                 ],
                 data: bpReadings.map((reading) {
                   return [
-                    DateFormat('d/M/yyyy', isArabic ? 'ar' : 'en').format(reading.when),
-                    DateFormat('h:mm a', isArabic ? 'ar' : 'en').format(reading.when),
+                    rowDateFormat.format(reading.when),
+                    rowTimeFormat.format(reading.when),
                     '${reading.systolic}',
                     '${reading.diastolic}',
                   ];
@@ -1615,8 +1626,8 @@ class _HealthReportPageState extends State<HealthReportPage> {
                 ],
                 data: bpMedsTaken.map((log) {
                   return [
-                    DateFormat('d/M/yyyy', isArabic ? 'ar' : 'en').format(log.when),
-                    DateFormat('h:mm a', isArabic ? 'ar' : 'en').format(log.when),
+                    rowDateFormat.format(log.when),
+                    rowTimeFormat.format(log.when),
                     log.medicationName,
                     log.dose,
                   ];
@@ -1648,7 +1659,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
   Future<void> _addBloodSugarPage(
     pw.Document doc,
     SettingsProvider settingsProvider,
-    MedicationProvider medicationProvider,
+    Map<String, Map<String, String?>> medicationByName,
     AdherenceProvider adherenceProvider,
     BloodSugarProvider bloodSugarProvider,
     DateTime startDate,
@@ -1660,6 +1671,8 @@ class _HealthReportPageState extends State<HealthReportPage> {
   ) async {
     final isArabic = lang == 'ar';
     final pdfTextDirection = isArabic ? pw.TextDirection.rtl : pw.TextDirection.ltr;
+    final rowDateFormat = DateFormat('d/M/yyyy', isArabic ? 'ar' : 'en');
+    final rowTimeFormat = DateFormat('h:mm a', isArabic ? 'ar' : 'en');
 
     final sugarReadings = bloodSugarProvider.readings
         .where((r) => r.when.isAfter(startDate))
@@ -1669,10 +1682,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
     final sugarMedsTaken = adherenceProvider.logs
         .where((log) {
           if (!log.when.isAfter(startDate) || !log.taken) return false;
-          final med = medicationProvider.items.firstWhere(
-            (m) => m['name'] == log.medicationName,
-            orElse: () => {},
-          );
+          final med = medicationByName[log.medicationName] ?? const <String, String?>{};
           return med.isNotEmpty && med['chronicDisease'] == 'السكري';
         })
         .toList()
@@ -1755,8 +1765,8 @@ class _HealthReportPageState extends State<HealthReportPage> {
                 ],
                 data: sugarReadings.map((reading) {
                   return [
-                    DateFormat('d/M/yyyy', isArabic ? 'ar' : 'en').format(reading.when),
-                    DateFormat('h:mm a', isArabic ? 'ar' : 'en').format(reading.when),
+                    rowDateFormat.format(reading.when),
+                    rowTimeFormat.format(reading.when),
                     '${reading.value}',
                   ];
                 }).toList(),
@@ -1800,8 +1810,8 @@ class _HealthReportPageState extends State<HealthReportPage> {
                 ],
                 data: sugarMedsTaken.map((log) {
                   return [
-                    DateFormat('d/M/yyyy', isArabic ? 'ar' : 'en').format(log.when),
-                    DateFormat('h:mm a', isArabic ? 'ar' : 'en').format(log.when),
+                    rowDateFormat.format(log.when),
+                    rowTimeFormat.format(log.when),
                     log.medicationName,
                     log.dose,
                   ];
@@ -1833,7 +1843,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
   Future<void> _addMedicationsPage(
     pw.Document doc,
     SettingsProvider settingsProvider,
-    MedicationProvider medicationProvider,
+    Map<String, Map<String, String?>> medicationByName,
     AdherenceProvider adherenceProvider,
     DateTime startDate,
     DateTime now,
@@ -1844,14 +1854,13 @@ class _HealthReportPageState extends State<HealthReportPage> {
   ) async {
     final isArabic = lang == 'ar';
     final pdfTextDirection = isArabic ? pw.TextDirection.rtl : pw.TextDirection.ltr;
+    final rowDateFormat = DateFormat('d/M/yyyy', isArabic ? 'ar' : 'en');
+    final rowTimeFormat = DateFormat('h:mm a', isArabic ? 'ar' : 'en');
 
     final otherMedsTaken = adherenceProvider.logs
         .where((log) {
           if (!log.when.isAfter(startDate) || !log.taken) return false;
-          final med = medicationProvider.items.firstWhere(
-            (m) => m['name'] == log.medicationName,
-            orElse: () => {},
-          );
+          final med = medicationByName[log.medicationName] ?? const <String, String?>{};
           final disease = med.isNotEmpty ? med['chronicDisease'] : null;
           return disease != 'ارتفاع ضغط الدم' && disease != 'السكري';
         })
@@ -1938,16 +1947,13 @@ class _HealthReportPageState extends State<HealthReportPage> {
                   AppTranslations.translate('medication_type_col', lang),
                 ],
                 data: otherMedsTaken.map((log) {
-                  final med = medicationProvider.items.firstWhere(
-                    (m) => m['name'] == log.medicationName,
-                    orElse: () => {},
-                  );
+                  final med = medicationByName[log.medicationName] ?? const <String, String?>{};
                   final disease = med.isNotEmpty && med['chronicDisease'] != null
                       ? med['chronicDisease']
                       : AppTranslations.translate('no_medication_type', lang);
                   return [
-                    DateFormat('d/M/yyyy', isArabic ? 'ar' : 'en').format(log.when),
-                    DateFormat('h:mm a', isArabic ? 'ar' : 'en').format(log.when),
+                    rowDateFormat.format(log.when),
+                    rowTimeFormat.format(log.when),
                     log.medicationName,
                     log.dose,
                     _getMedicationTypeText(disease, lang),

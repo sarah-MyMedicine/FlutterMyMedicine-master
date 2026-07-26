@@ -117,6 +117,14 @@ class _SettingsPageState extends State<SettingsPage> {
     return int.tryParse(normalized);
   }
 
+  void _selectAllOnFocus(TextEditingController controller) {
+    if (controller.text.isEmpty) return;
+    controller.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: controller.text.length,
+    );
+  }
+
   bool _isRequiredProfileComplete() {
     final name = _nameCtrl.text.trim();
     final age = _parseLocalizedInt(_ageCtrl.text);
@@ -629,6 +637,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                   controller: _ageCtrl,
                                   hint: '',
                                   keyboardType: TextInputType.number,
+                                  replaceOnType: true,
                                   onChanged: (_) {},
                                 ),
                               ),
@@ -1080,6 +1089,7 @@ class _SettingsPageState extends State<SettingsPage> {
     required TextEditingController controller,
     required String hint,
     TextInputType? keyboardType,
+    bool replaceOnType = false,
     required Function(String) onChanged,
   }) {
     final theme = Theme.of(context);
@@ -1095,23 +1105,30 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ),
         const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          keyboardType: keyboardType,
-          decoration: InputDecoration(
-            hintText: hint,
-            filled: true,
-            fillColor: isDark ? const Color(0xFF1E1E1E) : Colors.grey[100],
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide.none,
+        Focus(
+          onFocusChange: (hasFocus) {
+            if (hasFocus && replaceOnType) {
+              _selectAllOnFocus(controller);
+            }
+          },
+          child: TextField(
+            controller: controller,
+            keyboardType: keyboardType,
+            decoration: InputDecoration(
+              hintText: hint,
+              filled: true,
+              fillColor: isDark ? const Color(0xFF1E1E1E) : Colors.grey[100],
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 12,
+              ),
             ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 12,
-            ),
+            onChanged: onChanged,
           ),
-          onChanged: onChanged,
         ),
       ],
     );

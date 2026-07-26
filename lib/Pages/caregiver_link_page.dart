@@ -318,6 +318,9 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
     final userProvider = Provider.of<UserProvider>(context);
     final sp = Provider.of<SettingsProvider>(context);
     final lang = sp.language;
+    final headerIsDark =
+        ThemeData.estimateBrightnessForColor(sp.themeColor) == Brightness.dark;
+    final unselectedTabColor = headerIsDark ? Colors.white : Colors.black;
     
     return Scaffold(
       appBar: AppBar(
@@ -327,6 +330,14 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
         bottom: userProvider.isCaregiver
             ? TabBar(
                 controller: _tabController,
+                labelColor: Colors.black,
+                unselectedLabelColor: unselectedTabColor,
+                indicator: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                indicatorSize: TabBarIndicatorSize.label,
+                dividerColor: Colors.transparent,
                 indicatorColor: Colors.white,
                 tabs: [
                   Tab(text: AppTranslations.translate('invitations', lang)),
@@ -403,8 +414,8 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                           const SizedBox(height: 8),
                           Text(
                             AppTranslations.translate('code_valid_24_hours', lang),
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurface,
+                            style: const TextStyle(
+                              color: Colors.black87,
                               fontSize: 12,
                             ),
                           ),

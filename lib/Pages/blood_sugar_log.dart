@@ -208,6 +208,13 @@ class BloodSugarPage extends StatelessWidget {
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.number,
+          onTap: () {
+            if (controller.text.isEmpty) return;
+            controller.selection = TextSelection(
+              baseOffset: 0,
+              extentOffset: controller.text.length,
+            );
+          },
           decoration: InputDecoration(
             labelText: AppTranslations.translate('target_blood_sugar_level', lang),
             filled: true,

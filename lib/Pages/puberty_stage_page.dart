@@ -23,7 +23,9 @@ class PubertyStageInfoPage extends StatelessWidget {
                 onPressed: () => Navigator.pop(context),
               ),
             ),
-            backgroundColor: const Color(0xFFF5F5F5),
+            backgroundColor: Theme.of(context).brightness == Brightness.dark
+                ? Theme.of(context).scaffoldBackgroundColor
+                : const Color(0xFFF5F5F5),
             body: SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Column(

@@ -30,6 +30,14 @@ class _PatientProfileEditorPageState extends State<PatientProfileEditorPage> {
   bool _isLoading = true;
   bool _isSaving = false;
 
+  void _selectAllOnFocus(TextEditingController controller) {
+    if (controller.text.isEmpty) return;
+    controller.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: controller.text.length,
+    );
+  }
+
   static const List<_DiseaseOption> _diseaseOptions = [
     _DiseaseOption('ارتفاع ضغط الدم', 'chronic_disease_hypertension'),
     _DiseaseOption('السكري', 'chronic_disease_diabetes'),
@@ -192,6 +200,7 @@ class _PatientProfileEditorPageState extends State<PatientProfileEditorPage> {
               controller: _ageController,
               hint: lang == 'ar' ? 'أدخل العمر' : 'Enter age',
               keyboardType: TextInputType.number,
+              replaceOnType: true,
             ),
             const SizedBox(height: 12),
             Text(
@@ -273,6 +282,7 @@ class _PatientProfileEditorPageState extends State<PatientProfileEditorPage> {
     required TextEditingController controller,
     required String hint,
     TextInputType? keyboardType,
+    bool replaceOnType = false,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
@@ -280,14 +290,21 @@ class _PatientProfileEditorPageState extends State<PatientProfileEditorPage> {
       children: [
         Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          keyboardType: keyboardType,
-          decoration: InputDecoration(
-            hintText: hint,
-            filled: true,
-            fillColor: isDark ? const Color(0xFF1E1E1E) : Colors.grey[100],
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        Focus(
+          onFocusChange: (hasFocus) {
+            if (hasFocus && replaceOnType) {
+              _selectAllOnFocus(controller);
+            }
+          },
+          child: TextField(
+            controller: controller,
+            keyboardType: keyboardType,
+            decoration: InputDecoration(
+              hintText: hint,
+              filled: true,
+              fillColor: isDark ? const Color(0xFF1E1E1E) : Colors.grey[100],
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            ),
           ),
         ),
       ],

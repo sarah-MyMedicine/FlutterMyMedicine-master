@@ -287,6 +287,13 @@ class _RegisterPageState extends State<RegisterPage> {
                     child: TextField(
                       controller: _ageController,
                       keyboardType: TextInputType.number,
+                      onTap: () {
+                        if (_ageController.text.isEmpty) return;
+                        _ageController.selection = TextSelection(
+                          baseOffset: 0,
+                          extentOffset: _ageController.text.length,
+                        );
+                      },
                       decoration: InputDecoration(
                         labelText: AppTranslations.translate('age', sp.language),
                         prefixIcon: const Icon(Icons.cake_outlined),

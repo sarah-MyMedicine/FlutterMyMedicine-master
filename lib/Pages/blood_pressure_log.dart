@@ -218,6 +218,13 @@ class BloodPressurePage extends StatelessWidget {
             TextField(
               controller: sysController,
               keyboardType: TextInputType.number,
+              onTap: () {
+                if (sysController.text.isEmpty) return;
+                sysController.selection = TextSelection(
+                  baseOffset: 0,
+                  extentOffset: sysController.text.length,
+                );
+              },
               decoration: InputDecoration(
                 labelText: AppTranslations.translate('target_systolic_bp', lang),
                 filled: true,
@@ -228,6 +235,13 @@ class BloodPressurePage extends StatelessWidget {
             TextField(
               controller: diaController,
               keyboardType: TextInputType.number,
+              onTap: () {
+                if (diaController.text.isEmpty) return;
+                diaController.selection = TextSelection(
+                  baseOffset: 0,
+                  extentOffset: diaController.text.length,
+                );
+              },
               decoration: InputDecoration(
                 labelText: AppTranslations.translate('target_diastolic_bp', lang),
                 filled: true,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/medication_provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/symptom_log_provider.dart';
 import '../utils/translations.dart';
 
 class SymptomLogPage extends StatefulWidget {
@@ -12,10 +13,9 @@ class SymptomLogPage extends StatefulWidget {
 }
 
 class _SymptomLogPageState extends State<SymptomLogPage> {
-  final List<_SymptomEntry> _entries = [];
-
   void _openEntryDialog(String lang, {int? editIndex}) {
-    final existingEntry = editIndex != null ? _entries[editIndex] : null;
+    final symptomProvider = context.read<SymptomLogProvider>();
+    final existingEntry = editIndex != null ? symptomProvider.entries[editIndex] : null;
 
     showDialog(
       context: context,
@@ -23,14 +23,12 @@ class _SymptomLogPageState extends State<SymptomLogPage> {
       builder: (_) => _SymptomDialog(
         lang: lang,
         initialEntry: existingEntry,
-        onSave: (entry) {
-          setState(() {
-            if (editIndex != null) {
-              _entries[editIndex] = entry;
-            } else {
-              _entries.add(entry);
-            }
-          });
+        onSave: (entry) async {
+          if (editIndex != null) {
+            await symptomProvider.update(editIndex, entry);
+          } else {
+            await symptomProvider.add(entry);
+          }
         },
       ),
     );
@@ -41,6 +39,7 @@ class _SymptomLogPageState extends State<SymptomLogPage> {
     return Consumer<SettingsProvider>(
       builder: (context, sp, child) {
         final lang = sp.language;
+        final entries = context.watch<SymptomLogProvider>().entries;
         
         return Directionality(
           textDirection: lang == 'ar' ? TextDirection.rtl : TextDirection.ltr,
@@ -79,7 +78,7 @@ class _SymptomLogPageState extends State<SymptomLogPage> {
                   ),
                 ),
                 const SizedBox(height: 36),
-                if (_entries.isEmpty) _buildEmptyState(lang) else _buildList(lang),
+                if (entries.isEmpty) _buildEmptyState(lang) else _buildList(lang, entries),
               ],
             ),
           ),
@@ -117,12 +116,12 @@ class _SymptomLogPageState extends State<SymptomLogPage> {
     );
   }
 
-  Widget _buildList(String lang) {
+  Widget _buildList(String lang, List<SymptomEntry> entries) {
     return Expanded(
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         itemBuilder: (context, index) {
-          final e = _entries[index];
+          final e = entries[index];
           return Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -165,9 +164,7 @@ class _SymptomLogPageState extends State<SymptomLogPage> {
                         if (value == 'edit') {
                           _openEntryDialog(lang, editIndex: index);
                         } else if (value == 'delete') {
-                          setState(() {
-                            _entries.removeAt(index);
-                          });
+                          context.read<SymptomLogProvider>().remove(index);
                         }
                       },
                       itemBuilder: (context) => [
@@ -227,7 +224,7 @@ class _SymptomLogPageState extends State<SymptomLogPage> {
           );
         },
         separatorBuilder: (_, _) => const SizedBox(height: 12),
-        itemCount: _entries.length,
+        itemCount: entries.length,
       ),
     );
   }
@@ -239,8 +236,8 @@ class _SymptomLogPageState extends State<SymptomLogPage> {
 
 class _SymptomDialog extends StatefulWidget {
   final String lang;
-  final _SymptomEntry? initialEntry;
-  final void Function(_SymptomEntry entry) onSave;
+  final SymptomEntry? initialEntry;
+  final Future<void> Function(SymptomEntry entry) onSave;
   const _SymptomDialog({
     required this.lang,
     required this.onSave,
@@ -377,9 +374,9 @@ class _SymptomDialogState extends State<_SymptomDialog> {
                         backgroundColor: sp.themeColor,
                         foregroundColor: Colors.white,
                       ),
-                      onPressed: () {
-                        widget.onSave(
-                          _SymptomEntry(
+                      onPressed: () async {
+                        await widget.onSave(
+                          SymptomEntry(
                             title: _symptomCtrl.text.isEmpty 
                               ? AppTranslations.translate('symptom_without_name', lang)
                               : _symptomCtrl.text,
@@ -389,7 +386,8 @@ class _SymptomDialogState extends State<_SymptomDialog> {
                             dateLabel: AppTranslations.translate('today', lang),
                           ),
                         );
-                        Navigator.pop(context);
+                        if (!context.mounted) return;
+                        Navigator.of(context).pop();
                       },
                       child: Text(AppTranslations.translate('save', lang)),
                     ),
@@ -506,6 +504,7 @@ class _SymptomDialogState extends State<_SymptomDialog> {
   }
 
   Widget _buildMultilineField(String label, String hint, TextEditingController controller) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -517,7 +516,7 @@ class _SymptomDialogState extends State<_SymptomDialog> {
           decoration: InputDecoration(
             hintText: hint,
             filled: true,
-            fillColor: Colors.grey[100],
+            fillColor: isDark ? Colors.grey[800] : Colors.grey[100],
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
@@ -583,18 +582,3 @@ class _SymptomDialogState extends State<_SymptomDialog> {
   }
 }
 
-class _SymptomEntry {
-  final String title;
-  final String potentialDrug;
-  final String notes;
-  final String severity;
-  final String dateLabel;
-
-  _SymptomEntry({
-    required this.title,
-    required this.potentialDrug,
-    required this.notes,
-    required this.severity,
-    required this.dateLabel,
-  });
-}

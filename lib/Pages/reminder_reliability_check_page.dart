@@ -244,7 +244,7 @@ class _ReminderReliabilityCheckPageState
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isOk

@@ -187,6 +187,9 @@ class _CaregiverHomePageState extends State<CaregiverHomePage>
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
           tabs: <Widget>[
             Tab(text: AppTranslations.translate('my_menu', lang)),
             ..._linkedPatients.map((patient) {
