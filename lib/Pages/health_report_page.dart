@@ -38,6 +38,11 @@ class _HealthReportPageState extends State<HealthReportPage> {
   int _selectedDays = 7;
   bool _isLocaleInitialized = false;
   int _selectedTab = 0;
+  bool _isExporting = false;
+
+  static const int _maxPdfRowsPerTableSingle = 100;
+  static const int _maxPdfRowsPerTableAll = 60;
+  static const Duration _pdfFontTimeout = Duration(seconds: 5);
 
   static Future<pw.Font>? _cachedArabicFont;
   static Future<pw.Font>? _cachedArabicFontBold;
@@ -77,6 +82,45 @@ class _HealthReportPageState extends State<HealthReportPage> {
   Color get _chartGridColor => _isDarkMode ? Colors.white10 : Colors.black12;
 
   Color get _chartAxisTextColor => _isDarkMode ? Colors.white70 : Colors.black87;
+
+  int _rowLimitForExportType(String exportType) {
+    return exportType == 'all'
+        ? _maxPdfRowsPerTableAll
+        : _maxPdfRowsPerTableSingle;
+  }
+
+  List<T> _limitPdfRows<T>(List<T> rows, int maxRows) {
+    if (rows.length <= maxRows) return rows;
+    return rows.take(maxRows).toList();
+  }
+
+  Future<({pw.Font base, pw.Font bold, bool fallbackUsed})> _resolvePdfFonts(
+    String lang,
+  ) async {
+    if (lang != 'ar') {
+      return (
+        base: pw.Font.helvetica(),
+        bold: pw.Font.helveticaBold(),
+        fallbackUsed: false,
+      );
+    }
+
+    try {
+      _cachedArabicFont ??= PdfGoogleFonts.cairoRegular().timeout(_pdfFontTimeout);
+      _cachedArabicFontBold ??= PdfGoogleFonts.cairoBold().timeout(_pdfFontTimeout);
+      final base = await _cachedArabicFont!;
+      final bold = await _cachedArabicFontBold!;
+      return (base: base, bold: bold, fallbackUsed: false);
+    } catch (_) {
+      _cachedArabicFont = null;
+      _cachedArabicFontBold = null;
+      return (
+        base: pw.Font.helvetica(),
+        bold: pw.Font.helveticaBold(),
+        fallbackUsed: true,
+      );
+    }
+  }
 
   int _parseIntervalHours(dynamic value) {
     if (value is int && value > 0) return value;
@@ -579,21 +623,32 @@ class _HealthReportPageState extends State<HealthReportPage> {
                 ],
               ),
               IconButton(
-                icon: const Icon(Icons.picture_as_pdf),
+                icon: _isExporting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.picture_as_pdf),
                 tooltip: AppTranslations.translate('print_save_pdf', lang),
-                onPressed: () async {
-                  await _showExportDialog(
-                    context,
-                    settingsProvider,
-                    medicationProvider,
-                    adherenceProvider,
-                    bloodPressureProvider,
-                    bloodSugarProvider,
-                    startDate,
-                    now,
-                    lang,
-                  );
-                },
+                onPressed: _isExporting
+                    ? null
+                    : () async {
+                        await _showExportDialog(
+                          context,
+                          settingsProvider,
+                          medicationProvider,
+                          adherenceProvider,
+                          bloodPressureProvider,
+                          bloodSugarProvider,
+                          startDate,
+                          now,
+                          lang,
+                        );
+                      },
               ),
             ],
           ),
@@ -1417,56 +1472,89 @@ class _HealthReportPageState extends State<HealthReportPage> {
     String exportType,
     String lang,
   ) async {
-    final doc = pw.Document();
-    final dateFormat = DateFormat('d MMMM yyyy', lang == 'ar' ? 'ar' : 'en');
-    final medicationByName = <String, Map<String, String?>>{
-      for (final medication in medicationProvider.items)
-        (medication['name'] ?? '').trim(): medication,
-    };
-    
-    final bloodPressureEnabled = settingsProvider.chronicDiseases.contains('ارتفاع ضغط الدم');
-    final bloodSugarEnabled = settingsProvider.chronicDiseases.contains('السكري');
+    if (_isExporting) return;
+    setState(() {
+      _isExporting = true;
+    });
 
-    // Cache fonts across exports to avoid repeated expensive loading.
-    _cachedArabicFont ??= PdfGoogleFonts.cairoRegular();
-    _cachedArabicFontBold ??= PdfGoogleFonts.cairoBold();
-    final arabicFont = await _cachedArabicFont!;
-    final arabicFontBold = await _cachedArabicFontBold!;
+    try {
+      final doc = pw.Document();
+      final dateFormat = DateFormat('d MMMM yyyy', lang == 'ar' ? 'ar' : 'en');
+      final medicationByName = <String, Map<String, String?>>{
+        for (final medication in medicationProvider.items)
+          (medication['name'] ?? '').trim(): medication,
+      };
 
-    if (exportType == 'all') {
-      // Export all three types in separate pages
-      if (bloodPressureEnabled) {
-        await _addBloodPressurePage(doc, settingsProvider, medicationByName, adherenceProvider, bloodPressureProvider, startDate, now, arabicFont, arabicFontBold, dateFormat, lang);
+      final bloodPressureEnabled = settingsProvider.chronicDiseases.contains('ارتفاع ضغط الدم');
+      final bloodSugarEnabled = settingsProvider.chronicDiseases.contains('السكري');
+      final fonts = await _resolvePdfFonts(lang);
+      final rowLimit = _rowLimitForExportType(exportType);
+
+      if (exportType == 'all') {
+        if (bloodPressureEnabled) {
+          await _addBloodPressurePage(doc, settingsProvider, medicationByName, adherenceProvider, bloodPressureProvider, startDate, now, fonts.base, fonts.bold, dateFormat, lang, rowLimit);
+        }
+        if (bloodSugarEnabled) {
+          await _addBloodSugarPage(doc, settingsProvider, medicationByName, adherenceProvider, bloodSugarProvider, startDate, now, fonts.base, fonts.bold, dateFormat, lang, rowLimit);
+        }
+        await _addMedicationsPage(doc, settingsProvider, medicationByName, adherenceProvider, startDate, now, fonts.base, fonts.bold, dateFormat, lang, rowLimit);
+      } else if (exportType == 'bloodPressure') {
+        await _addBloodPressurePage(doc, settingsProvider, medicationByName, adherenceProvider, bloodPressureProvider, startDate, now, fonts.base, fonts.bold, dateFormat, lang, rowLimit);
+      } else if (exportType == 'bloodSugar') {
+        await _addBloodSugarPage(doc, settingsProvider, medicationByName, adherenceProvider, bloodSugarProvider, startDate, now, fonts.base, fonts.bold, dateFormat, lang, rowLimit);
+      } else if (exportType == 'medications') {
+        await _addMedicationsPage(doc, settingsProvider, medicationByName, adherenceProvider, startDate, now, fonts.base, fonts.bold, dateFormat, lang, rowLimit);
       }
-      if (bloodSugarEnabled) {
-        await _addBloodSugarPage(doc, settingsProvider, medicationByName, adherenceProvider, bloodSugarProvider, startDate, now, arabicFont, arabicFontBold, dateFormat, lang);
+
+      String fileName = lang == 'ar' ? 'تقرير_صحي' : 'health_report';
+      if (exportType == 'bloodPressure') {
+        fileName = lang == 'ar' ? 'تقرير_ضغط_الدم' : 'blood_pressure_report';
+      } else if (exportType == 'bloodSugar') {
+        fileName = lang == 'ar' ? 'تقرير_سكر_الدم' : 'blood_sugar_report';
+      } else if (exportType == 'medications') {
+        fileName = lang == 'ar' ? 'تقرير_الأدوية' : 'medications_report';
       }
-      await _addMedicationsPage(doc, settingsProvider, medicationByName, adherenceProvider, startDate, now, arabicFont, arabicFontBold, dateFormat, lang);
-    } else if (exportType == 'bloodPressure') {
-      await _addBloodPressurePage(doc, settingsProvider, medicationByName, adherenceProvider, bloodPressureProvider, startDate, now, arabicFont, arabicFontBold, dateFormat, lang);
-    } else if (exportType == 'bloodSugar') {
-      await _addBloodSugarPage(doc, settingsProvider, medicationByName, adherenceProvider, bloodSugarProvider, startDate, now, arabicFont, arabicFontBold, dateFormat, lang);
-    } else if (exportType == 'medications') {
-      await _addMedicationsPage(doc, settingsProvider, medicationByName, adherenceProvider, startDate, now, arabicFont, arabicFontBold, dateFormat, lang);
-    }
 
-    // Show print/save dialog
-    String fileName = lang == 'ar' ? 'تقرير_صحي' : 'health_report';
-    if (exportType == 'bloodPressure') {
-      fileName = lang == 'ar' ? 'تقرير_ضغط_الدم' : 'blood_pressure_report';
-    } else if (exportType == 'bloodSugar') {
-      fileName = lang == 'ar' ? 'تقرير_سكر_الدم' : 'blood_sugar_report';
-    } else if (exportType == 'medications') {
-      fileName = lang == 'ar' ? 'تقرير_الأدوية' : 'medications_report';
-    }
-    
-    // Save once and reuse bytes; Printing may call onLayout multiple times.
-    final pdfBytes = await doc.save();
+      final pdfBytes = await doc.save();
 
-    await Printing.layoutPdf(
-      onLayout: (pdflib.PdfPageFormat format) async => pdfBytes,
-      name: '${fileName}_${DateFormat('yyyy-MM-dd').format(now)}.pdf',
-    );
+      if (!context.mounted) return;
+      if (fonts.fallbackUsed) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              lang == 'ar'
+                  ? 'تم التصدير بخط بديل لتسريع المعاينة.'
+                  : 'Export used a fallback font for faster preview.',
+            ),
+          ),
+        );
+      }
+
+      await Printing.layoutPdf(
+        onLayout: (pdflib.PdfPageFormat format) async => pdfBytes,
+        name: '${fileName}_${DateFormat('yyyy-MM-dd').format(now)}.pdf',
+      );
+    } catch (e) {
+      debugPrint('[HealthReport] PDF export failed: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              lang == 'ar'
+                  ? 'فشل تصدير التقرير. حاول مرة أخرى.'
+                  : 'Failed to export report. Please try again.',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isExporting = false;
+        });
+      }
+    }
   }
 
   Future<void> _addBloodPressurePage(
@@ -1481,6 +1569,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
     pw.Font arabicFontBold,
     DateFormat dateFormat,
     String lang,
+    int rowLimit,
   ) async {
     final isArabic = lang == 'ar';
     final pdfTextDirection = isArabic ? pw.TextDirection.rtl : pw.TextDirection.ltr;
@@ -1491,6 +1580,8 @@ class _HealthReportPageState extends State<HealthReportPage> {
         .where((r) => r.when.isAfter(startDate))
         .toList()
       ..sort((a, b) => b.when.compareTo(a.when));
+    final limitedBpReadings = _limitPdfRows(bpReadings, rowLimit);
+    final bpReadingsTruncated = bpReadings.length > limitedBpReadings.length;
 
     final bpMedsTaken = adherenceProvider.logs
         .where((log) {
@@ -1500,6 +1591,8 @@ class _HealthReportPageState extends State<HealthReportPage> {
         })
         .toList()
       ..sort((a, b) => b.when.compareTo(a.when));
+    final limitedBpMedsTaken = _limitPdfRows(bpMedsTaken, rowLimit);
+    final bpMedsTakenTruncated = bpMedsTaken.length > limitedBpMedsTaken.length;
 
     doc.addPage(
       pw.MultiPage(
@@ -1550,7 +1643,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
               textDirection: pdfTextDirection,
             ),
             pw.SizedBox(height: 12),
-            if (bpReadings.isEmpty)
+            if (limitedBpReadings.isEmpty)
               pw.Padding(
                 padding: const pw.EdgeInsets.all(16),
                 child: pw.Text(
@@ -1578,7 +1671,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
                   AppTranslations.translate('systolic', lang),
                   AppTranslations.translate('diastolic', lang),
                 ],
-                data: bpReadings.map((reading) {
+                data: limitedBpReadings.map((reading) {
                   return [
                     rowDateFormat.format(reading.when),
                     rowTimeFormat.format(reading.when),
@@ -1586,6 +1679,15 @@ class _HealthReportPageState extends State<HealthReportPage> {
                     '${reading.diastolic}',
                   ];
                 }).toList(),
+              ),
+            if (bpReadingsTruncated)
+              pw.Padding(
+                padding: const pw.EdgeInsets.only(top: 8),
+                child: pw.Text(
+                  '${AppTranslations.translate('showing_first_records', lang)}: ${limitedBpReadings.length}/${bpReadings.length}',
+                  style: const pw.TextStyle(color: pdflib.PdfColors.grey700, fontSize: 10),
+                  textDirection: pdfTextDirection,
+                ),
               ),
             pw.SizedBox(height: 24),
 
@@ -1596,7 +1698,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
               textDirection: pdfTextDirection,
             ),
             pw.SizedBox(height: 12),
-            if (bpMedsTaken.isEmpty)
+            if (limitedBpMedsTaken.isEmpty)
               pw.Padding(
                 padding: const pw.EdgeInsets.all(16),
                 child: pw.Text(
@@ -1624,7 +1726,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
                   AppTranslations.translate('medication_name', lang),
                   AppTranslations.translate('dose', lang),
                 ],
-                data: bpMedsTaken.map((log) {
+                data: limitedBpMedsTaken.map((log) {
                   return [
                     rowDateFormat.format(log.when),
                     rowTimeFormat.format(log.when),
@@ -1632,6 +1734,15 @@ class _HealthReportPageState extends State<HealthReportPage> {
                     log.dose,
                   ];
                 }).toList(),
+              ),
+            if (bpMedsTakenTruncated)
+              pw.Padding(
+                padding: const pw.EdgeInsets.only(top: 8),
+                child: pw.Text(
+                  '${AppTranslations.translate('showing_first_records', lang)}: ${limitedBpMedsTaken.length}/${bpMedsTaken.length}',
+                  style: const pw.TextStyle(color: pdflib.PdfColors.grey700, fontSize: 10),
+                  textDirection: pdfTextDirection,
+                ),
               ),
             pw.SizedBox(height: 24),
 
@@ -1668,6 +1779,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
     pw.Font arabicFontBold,
     DateFormat dateFormat,
     String lang,
+    int rowLimit,
   ) async {
     final isArabic = lang == 'ar';
     final pdfTextDirection = isArabic ? pw.TextDirection.rtl : pw.TextDirection.ltr;
@@ -1678,6 +1790,8 @@ class _HealthReportPageState extends State<HealthReportPage> {
         .where((r) => r.when.isAfter(startDate))
         .toList()
       ..sort((a, b) => b.when.compareTo(a.when));
+    final limitedSugarReadings = _limitPdfRows(sugarReadings, rowLimit);
+    final sugarReadingsTruncated = sugarReadings.length > limitedSugarReadings.length;
 
     final sugarMedsTaken = adherenceProvider.logs
         .where((log) {
@@ -1687,6 +1801,8 @@ class _HealthReportPageState extends State<HealthReportPage> {
         })
         .toList()
       ..sort((a, b) => b.when.compareTo(a.when));
+    final limitedSugarMedsTaken = _limitPdfRows(sugarMedsTaken, rowLimit);
+    final sugarMedsTakenTruncated = sugarMedsTaken.length > limitedSugarMedsTaken.length;
 
     doc.addPage(
       pw.MultiPage(
@@ -1737,7 +1853,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
               textDirection: pdfTextDirection,
             ),
             pw.SizedBox(height: 12),
-            if (sugarReadings.isEmpty)
+            if (limitedSugarReadings.isEmpty)
               pw.Padding(
                 padding: const pw.EdgeInsets.all(16),
                 child: pw.Text(
@@ -1763,13 +1879,22 @@ class _HealthReportPageState extends State<HealthReportPage> {
                   AppTranslations.translate('time_col', lang),
                   AppTranslations.translate('reading_mg_dl', lang),
                 ],
-                data: sugarReadings.map((reading) {
+                data: limitedSugarReadings.map((reading) {
                   return [
                     rowDateFormat.format(reading.when),
                     rowTimeFormat.format(reading.when),
                     '${reading.value}',
                   ];
                 }).toList(),
+              ),
+            if (sugarReadingsTruncated)
+              pw.Padding(
+                padding: const pw.EdgeInsets.only(top: 8),
+                child: pw.Text(
+                  '${AppTranslations.translate('showing_first_records', lang)}: ${limitedSugarReadings.length}/${sugarReadings.length}',
+                  style: const pw.TextStyle(color: pdflib.PdfColors.grey700, fontSize: 10),
+                  textDirection: pdfTextDirection,
+                ),
               ),
             pw.SizedBox(height: 24),
 
@@ -1780,7 +1905,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
               textDirection: pdfTextDirection,
             ),
             pw.SizedBox(height: 12),
-            if (sugarMedsTaken.isEmpty)
+            if (limitedSugarMedsTaken.isEmpty)
               pw.Padding(
                 padding: const pw.EdgeInsets.all(16),
                 child: pw.Text(
@@ -1808,7 +1933,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
                   AppTranslations.translate('medication_name', lang),
                   AppTranslations.translate('dose', lang),
                 ],
-                data: sugarMedsTaken.map((log) {
+                data: limitedSugarMedsTaken.map((log) {
                   return [
                     rowDateFormat.format(log.when),
                     rowTimeFormat.format(log.when),
@@ -1816,6 +1941,15 @@ class _HealthReportPageState extends State<HealthReportPage> {
                     log.dose,
                   ];
                 }).toList(),
+              ),
+            if (sugarMedsTakenTruncated)
+              pw.Padding(
+                padding: const pw.EdgeInsets.only(top: 8),
+                child: pw.Text(
+                  '${AppTranslations.translate('showing_first_records', lang)}: ${limitedSugarMedsTaken.length}/${sugarMedsTaken.length}',
+                  style: const pw.TextStyle(color: pdflib.PdfColors.grey700, fontSize: 10),
+                  textDirection: pdfTextDirection,
+                ),
               ),
             pw.SizedBox(height: 24),
 
@@ -1851,6 +1985,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
     pw.Font arabicFontBold,
     DateFormat dateFormat,
     String lang,
+    int rowLimit,
   ) async {
     final isArabic = lang == 'ar';
     final pdfTextDirection = isArabic ? pw.TextDirection.rtl : pw.TextDirection.ltr;
@@ -1866,6 +2001,8 @@ class _HealthReportPageState extends State<HealthReportPage> {
         })
         .toList()
       ..sort((a, b) => b.when.compareTo(a.when));
+    final limitedOtherMedsTaken = _limitPdfRows(otherMedsTaken, rowLimit);
+    final otherMedsTakenTruncated = otherMedsTaken.length > limitedOtherMedsTaken.length;
 
     doc.addPage(
       pw.MultiPage(
@@ -1916,7 +2053,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
               textDirection: pdfTextDirection,
             ),
             pw.SizedBox(height: 12),
-            if (otherMedsTaken.isEmpty)
+            if (limitedOtherMedsTaken.isEmpty)
               pw.Padding(
                 padding: const pw.EdgeInsets.all(16),
                 child: pw.Text(
@@ -1946,7 +2083,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
                   AppTranslations.translate('dose', lang),
                   AppTranslations.translate('medication_type_col', lang),
                 ],
-                data: otherMedsTaken.map((log) {
+                data: limitedOtherMedsTaken.map((log) {
                   final med = medicationByName[log.medicationName] ?? const <String, String?>{};
                   final disease = med.isNotEmpty && med['chronicDisease'] != null
                       ? med['chronicDisease']
@@ -1959,6 +2096,15 @@ class _HealthReportPageState extends State<HealthReportPage> {
                     _getMedicationTypeText(disease, lang),
                   ];
                 }).toList(),
+              ),
+            if (otherMedsTakenTruncated)
+              pw.Padding(
+                padding: const pw.EdgeInsets.only(top: 8),
+                child: pw.Text(
+                  '${AppTranslations.translate('showing_first_records', lang)}: ${limitedOtherMedsTaken.length}/${otherMedsTaken.length}',
+                  style: const pw.TextStyle(color: pdflib.PdfColors.grey700, fontSize: 10),
+                  textDirection: pdfTextDirection,
+                ),
               ),
             pw.SizedBox(height: 24),
 
