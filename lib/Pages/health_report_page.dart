@@ -1516,6 +1516,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
       }
 
       final pdfBytes = await doc.save();
+      final exportFileName = '${fileName}_${DateFormat('yyyy-MM-dd').format(now)}.pdf';
 
       if (!context.mounted) return;
       if (fonts.fallbackUsed) {
@@ -1530,10 +1531,29 @@ class _HealthReportPageState extends State<HealthReportPage> {
         );
       }
 
-      await Printing.layoutPdf(
-        onLayout: (pdflib.PdfPageFormat format) async => pdfBytes,
-        name: '${fileName}_${DateFormat('yyyy-MM-dd').format(now)}.pdf',
-      );
+      var usedShareFallback = false;
+      try {
+        await Printing.layoutPdf(
+          onLayout: (pdflib.PdfPageFormat format) async => pdfBytes,
+          name: exportFileName,
+        ).timeout(const Duration(seconds: 12));
+      } catch (previewError) {
+        debugPrint('[HealthReport] Preview failed, using share fallback: $previewError');
+        usedShareFallback = true;
+        await Printing.sharePdf(bytes: pdfBytes, filename: exportFileName);
+      }
+
+      if (usedShareFallback && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              lang == 'ar'
+                  ? 'تم حفظ/مشاركة التقرير مباشرة لأن معاينة الطباعة غير متاحة.'
+                  : 'Report was shared directly because print preview was unavailable.',
+            ),
+          ),
+        );
+      }
     } catch (e) {
       debugPrint('[HealthReport] PDF export failed: $e');
       if (context.mounted) {
