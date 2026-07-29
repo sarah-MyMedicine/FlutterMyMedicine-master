@@ -483,52 +483,60 @@ class AdherenceProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool? getLatestMedicationTakenStatus({
+  int _findLatestMedicationLogIndex({
     required String medicationName,
     String? dose,
   }) {
-    final normalizedName = medicationName.trim();
-    final normalizedDose = dose?.trim();
-    if (normalizedName.isEmpty) return null;
-
-    AdherenceLog? latest;
-    for (final log in _logs) {
-      final sameMedication = log.medicationName.trim() == normalizedName;
-      final sameDose =
-          normalizedDose == null || normalizedDose.isEmpty || log.dose.trim() == normalizedDose;
-      if (!sameMedication || !sameDose) continue;
-
-      if (latest == null || log.when.isAfter(latest.when)) {
-        latest = log;
-      }
-    }
-
-    return latest?.taken;
-  }
-
-  Future<bool?> toggleLatestMedicationStatus({
-    required String medicationName,
-    String? dose,
-  }) async {
-    final normalizedName = medicationName.trim();
-    final normalizedDose = dose?.trim();
-    if (normalizedName.isEmpty) return null;
+    final normalizedName = medicationName.trim().toLowerCase();
+    final normalizedDose = dose?.trim().toLowerCase();
+    if (normalizedName.isEmpty) return -1;
 
     var latestIndex = -1;
     DateTime? latestWhen;
 
     for (var i = 0; i < _logs.length; i++) {
       final log = _logs[i];
-      final sameMedication = log.medicationName.trim() == normalizedName;
-      final sameDose =
-          normalizedDose == null || normalizedDose.isEmpty || log.dose.trim() == normalizedDose;
+      final sameMedication =
+          log.medicationName.trim().toLowerCase() == normalizedName;
+      final sameDose = normalizedDose == null ||
+          normalizedDose.isEmpty ||
+          log.dose.trim().toLowerCase() == normalizedDose;
       if (!sameMedication || !sameDose) continue;
 
-      if (latestWhen == null || log.when.isAfter(latestWhen)) {
+      final isMoreRecent = latestWhen == null || log.when.isAfter(latestWhen);
+      final sameTimeAsLatest =
+          latestWhen != null && log.when.isAtSameMomentAs(latestWhen);
+
+      // If timestamps tie, prefer the later index (most recently appended).
+      if (isMoreRecent || (sameTimeAsLatest && i > latestIndex)) {
         latestWhen = log.when;
         latestIndex = i;
       }
     }
+
+    return latestIndex;
+  }
+
+  bool? getLatestMedicationTakenStatus({
+    required String medicationName,
+    String? dose,
+  }) {
+    final latestIndex = _findLatestMedicationLogIndex(
+      medicationName: medicationName,
+      dose: dose,
+    );
+    if (latestIndex == -1) return null;
+    return _logs[latestIndex].taken;
+  }
+
+  Future<bool?> toggleLatestMedicationStatus({
+    required String medicationName,
+    String? dose,
+  }) async {
+    final latestIndex = _findLatestMedicationLogIndex(
+      medicationName: medicationName,
+      dose: dose,
+    );
 
     if (latestIndex == -1) return null;
 

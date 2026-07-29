@@ -6,6 +6,7 @@ import '../providers/user_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/api_service.dart';
 import '../utils/translations.dart';
+import 'patient_profile_editor_page.dart';
 import 'dart:async';
 
 class CaregiverLinkPage extends StatefulWidget {
@@ -808,11 +809,22 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
                       ),
                     ),
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      // TODO: Navigate to patient details
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(AppTranslations.translate('view_patient_details', lang)),
+                    onTap: () async {
+                      final patientUsername = (patient['username'] ?? '').toString().trim();
+                      final patientName = (patient['name'] ?? '').toString().trim();
+
+                      if (patientUsername.isEmpty) {
+                        if (!context.mounted) return;
+                        Navigator.of(context).pop();
+                        return;
+                      }
+
+                      await Navigator.of(context).push<bool>(
+                        MaterialPageRoute(
+                          builder: (_) => PatientProfileEditorPage(
+                            patientUsername: patientUsername,
+                            patientDisplayName: patientName.isEmpty ? null : patientName,
+                          ),
                         ),
                       );
                     },

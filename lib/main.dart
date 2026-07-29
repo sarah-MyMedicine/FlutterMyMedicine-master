@@ -100,6 +100,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   final AppLinks _appLinks = AppLinks();
   StreamSubscription<Uri>? _linkSubscription;
   Timer? _patientLiveSyncTimer;
+  Timer? _caregiverAlertsPollingTimer;
+  final Set<String> _seenCaregiverAlertIds = <String>{};
+  bool _caregiverAlertCacheInitialized = false;
+  bool _isPollingCaregiverAlerts = false;
   bool _isFirstTime = false;
   bool _isLanguageSelected = false;
   bool _isUserLoggedIn = false;
@@ -114,6 +118,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     _initializePushNotificationsAfterMount();
     _initializeDeepLinks();
     _startPatientLiveSync();
+    _startCaregiverAlertsPolling();
   }
 
   void _startPatientLiveSync() {
@@ -137,6 +142,82 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       );
     } catch (e) {
       debugPrint('[main] Patient live sync failed: $e');
+    }
+  }
+
+  void _startCaregiverAlertsPolling() {
+    _caregiverAlertsPollingTimer?.cancel();
+    _caregiverAlertsPollingTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      _pollCaregiverAlertsOnce();
+    });
+
+    // Trigger an immediate poll so caregivers don't wait for the first interval.
+    unawaited(_pollCaregiverAlertsOnce());
+  }
+
+  Future<void> _pollCaregiverAlertsOnce() async {
+    if (!mounted || _isPollingCaregiverAlerts) return;
+
+    _isPollingCaregiverAlerts = true;
+    try {
+      final lang = context.read<SettingsProvider>().language;
+      final userProvider = context.read<UserProvider>();
+      if (!userProvider.isLoggedIn || !userProvider.isCaregiver) {
+        _seenCaregiverAlertIds.clear();
+        _caregiverAlertCacheInitialized = false;
+        return;
+      }
+
+      final caregiverUsername = userProvider.username;
+      if (caregiverUsername == null || caregiverUsername.isEmpty) return;
+      if (!ApiService().isAuthenticated()) return;
+
+      final alerts = await ApiService().getCaregiverAlerts(caregiverUsername);
+      final currentAlertIds = alerts
+          .map((alert) => (alert['_id'] ?? '').toString())
+          .where((id) => id.isNotEmpty)
+          .toSet();
+
+      // Seed cache on first read to avoid replaying old alerts as new.
+      if (!_caregiverAlertCacheInitialized) {
+        _seenCaregiverAlertIds
+          ..clear()
+          ..addAll(currentAlertIds);
+        _caregiverAlertCacheInitialized = true;
+        return;
+      }
+
+      final newUnreadAlerts = alerts.where((alert) {
+        final id = (alert['_id'] ?? '').toString();
+        final status = (alert['status'] ?? 'unread').toString().toLowerCase();
+        return id.isNotEmpty && !_seenCaregiverAlertIds.contains(id) && status == 'unread';
+      }).toList();
+
+      for (final alert in newUnreadAlerts) {
+        final classification = (alert['classification'] ?? '').toString().toLowerCase();
+        final patientName = (alert['patientName'] ?? alert['patientUsername'] ?? '').toString();
+        final message = (alert['message'] ?? '').toString();
+
+        if (classification == 'siren') {
+          await NotificationService().showSosAlarmNotification(
+            title: lang == 'ar' ? 'تنبيه طارئ من المريض' : 'Patient Emergency Alert',
+            body: patientName.isEmpty ? message : '$patientName: $message',
+          );
+        } else {
+          await NotificationService().showMissedDoseAlarmNotification(
+            title: lang == 'ar' ? 'تنبيه جرعة فائتة' : 'Missed Dose Alert',
+            body: patientName.isEmpty ? message : '$patientName: $message',
+          );
+        }
+      }
+
+      _seenCaregiverAlertIds
+        ..clear()
+        ..addAll(currentAlertIds);
+    } catch (e) {
+      debugPrint('[main] Caregiver alerts poll failed: $e');
+    } finally {
+      _isPollingCaregiverAlerts = false;
     }
   }
 
@@ -200,6 +281,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void dispose() {
     _linkSubscription?.cancel();
     _patientLiveSyncTimer?.cancel();
+    _caregiverAlertsPollingTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -213,6 +295,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         return NotificationService().maybeShowDueMedicationPopupOnAppOpen();
       });
       _syncPatientDataFromCloud();
+      _pollCaregiverAlertsOnce();
     }
   }
   
