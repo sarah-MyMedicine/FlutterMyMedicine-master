@@ -94,6 +94,12 @@ class _HealthReportPageState extends State<HealthReportPage> {
     return rows.take(maxRows).toList();
   }
 
+  String _pdfCell(String? value, {int maxChars = 28}) {
+    final normalized = (value ?? '').replaceAll('\n', ' ').trim();
+    if (normalized.length <= maxChars) return normalized;
+    return '${normalized.substring(0, maxChars)}...';
+  }
+
   Future<({pw.Font base, pw.Font bold, bool fallbackUsed})> _resolvePdfFonts(
     String lang,
   ) async {
@@ -1524,36 +1530,14 @@ class _HealthReportPageState extends State<HealthReportPage> {
           SnackBar(
             content: Text(
               lang == 'ar'
-                  ? 'تم التصدير بخط بديل لتسريع المعاينة.'
-                  : 'Export used a fallback font for faster preview.',
+                  ? 'تم التصدير بخط بديل لتسريع التصدير.'
+                  : 'Export used a fallback font for faster export.',
             ),
           ),
         );
       }
 
-      var usedShareFallback = false;
-      try {
-        await Printing.layoutPdf(
-          onLayout: (pdflib.PdfPageFormat format) async => pdfBytes,
-          name: exportFileName,
-        ).timeout(const Duration(seconds: 12));
-      } catch (previewError) {
-        debugPrint('[HealthReport] Preview failed, using share fallback: $previewError');
-        usedShareFallback = true;
-        await Printing.sharePdf(bytes: pdfBytes, filename: exportFileName);
-      }
-
-      if (usedShareFallback && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              lang == 'ar'
-                  ? 'تم حفظ/مشاركة التقرير مباشرة لأن معاينة الطباعة غير متاحة.'
-                  : 'Report was shared directly because print preview was unavailable.',
-            ),
-          ),
-        );
-      }
+      await Printing.sharePdf(bytes: pdfBytes, filename: exportFileName);
     } catch (e) {
       debugPrint('[HealthReport] PDF export failed: $e');
       if (context.mounted) {
@@ -1675,8 +1659,10 @@ class _HealthReportPageState extends State<HealthReportPage> {
             else
               pw.TableHelper.fromTextArray(
                 context: context,
+                tableWidth: pw.TableWidth.max,
                 border: pw.TableBorder.all(color: pdflib.PdfColors.grey300),
                 headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                cellStyle: const pw.TextStyle(fontSize: 9),
                 headerDecoration: const pw.BoxDecoration(color: pdflib.PdfColors.red100),
                 cellHeight: 25,
                 cellAlignments: {
@@ -1730,8 +1716,10 @@ class _HealthReportPageState extends State<HealthReportPage> {
             else
               pw.TableHelper.fromTextArray(
                 context: context,
+                tableWidth: pw.TableWidth.max,
                 border: pw.TableBorder.all(color: pdflib.PdfColors.grey300),
                 headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                cellStyle: const pw.TextStyle(fontSize: 9),
                 headerDecoration: const pw.BoxDecoration(color: pdflib.PdfColors.blue100),
                 cellHeight: 25,
                 cellAlignments: {
@@ -1750,8 +1738,8 @@ class _HealthReportPageState extends State<HealthReportPage> {
                   return [
                     rowDateFormat.format(log.when),
                     rowTimeFormat.format(log.when),
-                    log.medicationName,
-                    log.dose,
+                    _pdfCell(log.medicationName, maxChars: 24),
+                    _pdfCell(log.dose, maxChars: 20),
                   ];
                 }).toList(),
               ),
@@ -1885,8 +1873,10 @@ class _HealthReportPageState extends State<HealthReportPage> {
             else
               pw.TableHelper.fromTextArray(
                 context: context,
+                tableWidth: pw.TableWidth.max,
                 border: pw.TableBorder.all(color: pdflib.PdfColors.grey300),
                 headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                cellStyle: const pw.TextStyle(fontSize: 9),
                 headerDecoration: const pw.BoxDecoration(color: pdflib.PdfColors.orange100),
                 cellHeight: 25,
                 cellAlignments: {
@@ -1937,8 +1927,10 @@ class _HealthReportPageState extends State<HealthReportPage> {
             else
               pw.TableHelper.fromTextArray(
                 context: context,
+                tableWidth: pw.TableWidth.max,
                 border: pw.TableBorder.all(color: pdflib.PdfColors.grey300),
                 headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                cellStyle: const pw.TextStyle(fontSize: 9),
                 headerDecoration: const pw.BoxDecoration(color: pdflib.PdfColors.orange100),
                 cellHeight: 25,
                 cellAlignments: {
@@ -1957,8 +1949,8 @@ class _HealthReportPageState extends State<HealthReportPage> {
                   return [
                     rowDateFormat.format(log.when),
                     rowTimeFormat.format(log.when),
-                    log.medicationName,
-                    log.dose,
+                    _pdfCell(log.medicationName, maxChars: 24),
+                    _pdfCell(log.dose, maxChars: 20),
                   ];
                 }).toList(),
               ),
@@ -2085,8 +2077,10 @@ class _HealthReportPageState extends State<HealthReportPage> {
             else
               pw.TableHelper.fromTextArray(
                 context: context,
+                tableWidth: pw.TableWidth.max,
                 border: pw.TableBorder.all(color: pdflib.PdfColors.grey300),
                 headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                cellStyle: const pw.TextStyle(fontSize: 9),
                 headerDecoration: const pw.BoxDecoration(color: pdflib.PdfColors.green100),
                 cellHeight: 25,
                 cellAlignments: {
@@ -2111,9 +2105,9 @@ class _HealthReportPageState extends State<HealthReportPage> {
                   return [
                     rowDateFormat.format(log.when),
                     rowTimeFormat.format(log.when),
-                    log.medicationName,
-                    log.dose,
-                    _getMedicationTypeText(disease, lang),
+                    _pdfCell(log.medicationName, maxChars: 22),
+                    _pdfCell(log.dose, maxChars: 16),
+                    _pdfCell(_getMedicationTypeText(disease, lang), maxChars: 18),
                   ];
                 }).toList(),
               ),
