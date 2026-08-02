@@ -17,6 +17,22 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         options: DefaultFirebaseOptions.currentPlatform,
       );
     }
+
+    await NotificationService().init();
+
+    final title = message.notification?.title ?? 'Care Alert';
+    final body = message.notification?.body ?? message.data['body']?.toString() ?? '';
+    final type = (message.data['type'] ?? '').toString().toLowerCase();
+
+    if (body.isNotEmpty) {
+      if (type == 'emergency_siren') {
+        await NotificationService().showSosAlarmNotification(title: title, body: body);
+      } else if (type == 'missed_dose') {
+        await NotificationService().showMissedDoseAlarmNotification(title: title, body: body);
+      } else {
+        await NotificationService().showAlertNotification(title: title, body: body);
+      }
+    }
   } catch (_) {
     // If Firebase is not configured yet, we keep the handler safe and silent.
   }

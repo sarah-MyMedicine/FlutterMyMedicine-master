@@ -252,7 +252,8 @@ router.post('/clear-fcm-token', authMiddleware, async (req, res) => {
 router.post('/notify-missed-dose', authMiddleware, async (req, res) => {
   try {
     const { patientUsername, consecutiveMissed, medicationName } = req.body;
-    if (!patientUsername || !consecutiveMissed || !medicationName) {
+    const missedCount = Number(consecutiveMissed);
+    if (!patientUsername || !Number.isFinite(missedCount) || missedCount <= 0 || !medicationName) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
     if (req.username !== patientUsername.toLowerCase()) {
@@ -268,20 +269,39 @@ router.post('/notify-missed-dose', authMiddleware, async (req, res) => {
     }
 
     const caregiver = patient.caregiverId ? await store.getUserById(patient.caregiverId) : null;
+    if (!caregiver) {
+      return res.status(400).json({ message: 'No linked caregiver found for this patient' });
+    }
+
+    const alertMessage = `${patient.name} missed ${missedCount} dose${missedCount === 1 ? '' : 's'} of ${medicationName}`;
+    const alert = await store.createAlert({
+      patientId: patient.id,
+      caregiverId: caregiver.id,
+      patientUsername: patient.username,
+      patientName: patient.name,
+      caregiverUsername: caregiver.username,
+      caregiverName: caregiver.name,
+      classification: 'missed_dose',
+      message: alertMessage,
+      medicationName,
+      consecutiveMissed: missedCount,
+    });
+
     let pushDelivered = false;
 
     if (caregiver?.fcmToken) {
       const pushResult = await sendPushNotification({
         token: caregiver.fcmToken,
         title: 'تنبيه: جرعات دواء مفقودة',
-        body: `${patient.name} فاته ${consecutiveMissed} جرعات من ${medicationName}`,
+        body: alertMessage,
         channelId: 'missed_dose_alarm',
         data: {
           type: 'missed_dose',
+          alertId: alert.id,
           patientUsername: patient.username,
           patientName: patient.name,
           medicationName,
-          consecutiveMissed,
+            consecutiveMissed: missedCount,
         },
       });
       pushDelivered = pushResult.delivered;
@@ -290,6 +310,7 @@ router.post('/notify-missed-dose', authMiddleware, async (req, res) => {
     res.json({
       success: true,
       message: 'Missed dose notification sent',
+      alertId: alert.id,
       caregiverNotified: caregiver != null,
       pushDelivered,
     });

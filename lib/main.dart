@@ -197,16 +197,19 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         final classification = (alert['classification'] ?? '').toString().toLowerCase();
         final patientName = (alert['patientName'] ?? alert['patientUsername'] ?? '').toString();
         final message = (alert['message'] ?? '').toString();
+        final notificationBody = message.isNotEmpty
+            ? message
+            : (patientName.isNotEmpty ? patientName : '');
 
         if (classification == 'siren') {
           await NotificationService().showSosAlarmNotification(
             title: lang == 'ar' ? 'تنبيه طارئ من المريض' : 'Patient Emergency Alert',
-            body: patientName.isEmpty ? message : '$patientName: $message',
+            body: notificationBody,
           );
         } else {
           await NotificationService().showMissedDoseAlarmNotification(
             title: lang == 'ar' ? 'تنبيه جرعة فائتة' : 'Missed Dose Alert',
-            body: patientName.isEmpty ? message : '$patientName: $message',
+            body: notificationBody,
           );
         }
       }
