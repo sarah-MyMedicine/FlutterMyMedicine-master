@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
@@ -563,6 +564,292 @@ class _HealthReportPageState extends State<HealthReportPage> {
         ),
       ),
     );
+  }
+
+  void _drawPdfText(
+    Canvas canvas,
+    String text,
+    Offset offset, {
+    required double width,
+    double fontSize = 12,
+    Color color = Colors.black,
+    FontWeight fontWeight = FontWeight.normal,
+    TextAlign textAlign = TextAlign.left,
+  }) {
+    final builder = ui.ParagraphBuilder(
+      ui.ParagraphStyle(
+        textAlign: textAlign,
+        fontSize: fontSize,
+      ),
+    )
+      ..pushStyle(
+        ui.TextStyle(
+            color: ui.Color.fromARGB(color.a.toInt(), color.r.toInt(), color.g.toInt(), color.b.toInt()),
+          fontSize: fontSize,
+          fontWeight: fontWeight == FontWeight.bold ? ui.FontWeight.bold : ui.FontWeight.normal,
+        ),
+      )
+      ..addText(text);
+    final paragraph = builder.build()..layout(ui.ParagraphConstraints(width: width));
+    canvas.drawParagraph(paragraph, offset);
+  }
+
+  Future<Uint8List?> _buildBloodPressureChartImage(
+    List<BloodPressureReading> readings,
+    String lang,
+  ) async {
+    if (readings.isEmpty) return null;
+
+    final sorted = [...readings]..sort((a, b) => a.when.compareTo(b.when));
+    final trend = sorted.length > 14 ? sorted.sublist(sorted.length - 14) : sorted;
+    if (trend.isEmpty) return null;
+
+    final width = 1200.0;
+    final height = 420.0;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, width, height));
+    final bgPaint = Paint()..color = Colors.white;
+    canvas.drawRect(Rect.fromLTWH(0, 0, width, height), bgPaint);
+
+    const leftPad = 84.0;
+    const rightPad = 28.0;
+    const topPad = 36.0;
+    const bottomPad = 82.0;
+    final chartRect = Rect.fromLTWH(
+      leftPad,
+      topPad,
+      width - leftPad - rightPad,
+      height - topPad - bottomPad,
+    );
+
+    final systolicMax = trend.map((r) => r.systolic).fold<int>(1, math.max).toDouble();
+    final diastolicMin = trend.map((r) => r.diastolic).fold<int>(999, math.min).toDouble();
+    final minY = math.max(0.0, diastolicMin - 10);
+    final maxY = systolicMax + 10;
+    final yRange = math.max(1.0, maxY - minY);
+    final stepY = yRange / 4;
+    final gridPaint = Paint()
+      ..color = const Color(0xFFE5E7EB)
+      ..strokeWidth = 1;
+    final axisPaint = Paint()
+      ..color = const Color(0xFF9CA3AF)
+      ..strokeWidth = 1.2;
+    final redPaint = Paint()
+      ..color = Colors.red
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final bluePaint = Paint()
+      ..color = Colors.blue
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final redFill = Paint()..color = Colors.red;
+    final blueFill = Paint()..color = Colors.blue;
+
+    for (var i = 0; i <= 4; i++) {
+      final dy = chartRect.bottom - (chartRect.height / 4) * i;
+      canvas.drawLine(Offset(chartRect.left, dy), Offset(chartRect.right, dy), gridPaint);
+      final value = (minY + stepY * i).round();
+      _drawPdfText(
+        canvas,
+        '$value',
+        Offset(12, dy - 10),
+        width: 60,
+        fontSize: 12,
+        color: Colors.black87,
+        textAlign: TextAlign.right,
+      );
+    }
+
+    canvas.drawLine(chartRect.bottomLeft, chartRect.topLeft, axisPaint);
+    canvas.drawLine(chartRect.bottomLeft, chartRect.bottomRight, axisPaint);
+
+    final topLegendY = 10.0;
+    canvas.drawRect(const Rect.fromLTWH(88, 10, 14, 14), redPaint);
+    canvas.drawRect(const Rect.fromLTWH(260, 10, 14, 14), bluePaint);
+    _drawPdfText(
+      canvas,
+      AppTranslations.translate('systolic', lang),
+      Offset(110, topLegendY - 2),
+      width: 140,
+      fontSize: 12,
+      color: Colors.black87,
+    );
+    _drawPdfText(
+      canvas,
+      AppTranslations.translate('diastolic', lang),
+      Offset(284, topLegendY - 2),
+      width: 160,
+      fontSize: 12,
+      color: Colors.black87,
+    );
+
+    Offset pointFor(double value, int index) {
+      final x = trend.length == 1
+          ? chartRect.center.dx
+          : chartRect.left + (chartRect.width * index / (trend.length - 1));
+      final y = chartRect.bottom - ((value - minY) / yRange) * chartRect.height;
+      return Offset(x, y);
+    }
+
+    void drawSeries(List<Offset> points, Paint paint, Paint fill) {
+      if (points.isEmpty) return;
+      final path = Path()..moveTo(points.first.dx, points.first.dy);
+      for (var i = 1; i < points.length; i++) {
+        path.lineTo(points[i].dx, points[i].dy);
+      }
+      canvas.drawPath(path, paint);
+      for (final point in points) {
+        canvas.drawCircle(point, 5.5, fill);
+        canvas.drawCircle(point, 5.5, Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = 1.5);
+      }
+    }
+
+    drawSeries(trend.asMap().entries.map((entry) => pointFor(entry.value.systolic.toDouble(), entry.key)).toList(), redPaint, redFill);
+    drawSeries(trend.asMap().entries.map((entry) => pointFor(entry.value.diastolic.toDouble(), entry.key)).toList(), bluePaint, blueFill);
+
+    for (var i = 0; i < trend.length; i++) {
+      if (trend.length > 8 && i % 2 == 1) continue;
+      final x = trend.length == 1
+          ? chartRect.center.dx
+          : chartRect.left + (chartRect.width * i / (trend.length - 1));
+      final label = DateFormat('M/d', lang == 'ar' ? 'ar' : 'en').format(trend[i].when);
+      _drawPdfText(
+        canvas,
+        label,
+        Offset(x - 30, chartRect.bottom + 14),
+        width: 60,
+        fontSize: 11,
+        color: Colors.black87,
+        textAlign: TextAlign.center,
+      );
+    }
+
+    final image = await recorder.endRecording().toImage(width.toInt(), height.toInt());
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+    return bytes?.buffer.asUint8List();
+  }
+
+  Future<Uint8List?> _buildBloodSugarChartImage(
+    List<BloodSugarReading> readings,
+    String lang,
+  ) async {
+    if (readings.isEmpty) return null;
+
+    final sorted = [...readings]..sort((a, b) => a.when.compareTo(b.when));
+    final trend = sorted.length > 14 ? sorted.sublist(sorted.length - 14) : sorted;
+    if (trend.isEmpty) return null;
+
+    final width = 1200.0;
+    final height = 320.0;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, width, height));
+    canvas.drawRect(Rect.fromLTWH(0, 0, width, height), Paint()..color = Colors.white);
+
+    const leftPad = 84.0;
+    const rightPad = 28.0;
+    const topPad = 30.0;
+    const bottomPad = 72.0;
+    final chartRect = Rect.fromLTWH(
+      leftPad,
+      topPad,
+      width - leftPad - rightPad,
+      height - topPad - bottomPad,
+    );
+
+    final maxValue = trend.map((r) => r.value).fold<int>(1, math.max).toDouble();
+    final minValue = trend.map((r) => r.value).fold<int>(999, math.min).toDouble();
+    final minY = math.max(0.0, minValue - 10);
+    final maxY = maxValue + 10;
+    final yRange = math.max(1.0, maxY - minY);
+    final stepY = yRange / 4;
+
+    final gridPaint = Paint()
+      ..color = const Color(0xFFE5E7EB)
+      ..strokeWidth = 1;
+    final axisPaint = Paint()
+      ..color = const Color(0xFF9CA3AF)
+      ..strokeWidth = 1.2;
+    final linePaint = Paint()
+      ..color = Colors.orange
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final fillPaint = Paint()..color = Colors.orange;
+
+    for (var i = 0; i <= 4; i++) {
+      final dy = chartRect.bottom - (chartRect.height / 4) * i;
+      canvas.drawLine(Offset(chartRect.left, dy), Offset(chartRect.right, dy), gridPaint);
+      final value = (minY + stepY * i).round();
+      _drawPdfText(
+        canvas,
+        '$value',
+        Offset(12, dy - 10),
+        width: 60,
+        fontSize: 12,
+        color: Colors.black87,
+        textAlign: TextAlign.right,
+      );
+    }
+
+    canvas.drawLine(chartRect.bottomLeft, chartRect.topLeft, axisPaint);
+    canvas.drawLine(chartRect.bottomLeft, chartRect.bottomRight, axisPaint);
+
+    _drawPdfText(
+      canvas,
+      AppTranslations.translate('blood_sugar', lang),
+      const Offset(88, 8),
+      width: 240,
+      fontSize: 12,
+      color: Colors.black87,
+      fontWeight: FontWeight.bold,
+    );
+
+    Offset pointFor(double value, int index) {
+      final x = trend.length == 1
+          ? chartRect.center.dx
+          : chartRect.left + (chartRect.width * index / (trend.length - 1));
+      final y = chartRect.bottom - ((value - minY) / yRange) * chartRect.height;
+      return Offset(x, y);
+    }
+
+    final points = trend.asMap().entries.map((entry) => pointFor(entry.value.value.toDouble(), entry.key)).toList();
+    if (points.isNotEmpty) {
+      final path = Path()..moveTo(points.first.dx, points.first.dy);
+      for (var i = 1; i < points.length; i++) {
+        path.lineTo(points[i].dx, points[i].dy);
+      }
+      canvas.drawPath(path, linePaint);
+      for (final point in points) {
+        canvas.drawCircle(point, 5.5, fillPaint);
+        canvas.drawCircle(point, 5.5, Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = 1.5);
+      }
+    }
+
+    for (var i = 0; i < trend.length; i++) {
+      if (trend.length > 8 && i % 2 == 1) continue;
+      final x = trend.length == 1
+          ? chartRect.center.dx
+          : chartRect.left + (chartRect.width * i / (trend.length - 1));
+      final label = DateFormat('M/d', lang == 'ar' ? 'ar' : 'en').format(trend[i].when);
+      _drawPdfText(
+        canvas,
+        label,
+        Offset(x - 30, chartRect.bottom + 14),
+        width: 60,
+        fontSize: 11,
+        color: Colors.black87,
+        textAlign: TextAlign.center,
+      );
+    }
+
+    final image = await recorder.endRecording().toImage(width.toInt(), height.toInt());
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+    return bytes?.buffer.asUint8List();
   }
 
   @override
@@ -1597,6 +1884,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
       ..sort((a, b) => b.when.compareTo(a.when));
     final limitedBpMedsTaken = _limitPdfRows(bpMedsTaken, rowLimit);
     final bpMedsTakenTruncated = bpMedsTaken.length > limitedBpMedsTaken.length;
+    final bpChartBytes = await _buildBloodPressureChartImage(bpReadings, lang);
 
     doc.addPage(
       pw.MultiPage(
@@ -1639,6 +1927,33 @@ class _HealthReportPageState extends State<HealthReportPage> {
               ),
             ),
             pw.SizedBox(height: 24),
+
+            if (bpChartBytes != null) ...[
+              pw.Container(
+                padding: const pw.EdgeInsets.all(12),
+                decoration: pw.BoxDecoration(
+                  color: pdflib.PdfColors.white,
+                  border: pw.Border.all(color: pdflib.PdfColors.red200),
+                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      AppTranslations.translate('bp_trend_chart_title', lang),
+                      style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: pdflib.PdfColors.red900),
+                      textDirection: pdfTextDirection,
+                    ),
+                    pw.SizedBox(height: 10),
+                    pw.Image(
+                      pw.MemoryImage(bpChartBytes),
+                      fit: pw.BoxFit.contain,
+                    ),
+                  ],
+                ),
+              ),
+              pw.SizedBox(height: 24),
+            ],
 
             // Blood Pressure Readings
             pw.Text(
@@ -1811,6 +2126,7 @@ class _HealthReportPageState extends State<HealthReportPage> {
       ..sort((a, b) => b.when.compareTo(a.when));
     final limitedSugarMedsTaken = _limitPdfRows(sugarMedsTaken, rowLimit);
     final sugarMedsTakenTruncated = sugarMedsTaken.length > limitedSugarMedsTaken.length;
+    final sugarChartBytes = await _buildBloodSugarChartImage(sugarReadings, lang);
 
     doc.addPage(
       pw.MultiPage(
@@ -1853,6 +2169,33 @@ class _HealthReportPageState extends State<HealthReportPage> {
               ),
             ),
             pw.SizedBox(height: 24),
+
+            if (sugarChartBytes != null) ...[
+              pw.Container(
+                padding: const pw.EdgeInsets.all(12),
+                decoration: pw.BoxDecoration(
+                  color: pdflib.PdfColors.white,
+                  border: pw.Border.all(color: pdflib.PdfColors.orange200),
+                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      AppTranslations.translate('bs_trend_chart_title', lang),
+                      style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: pdflib.PdfColors.orange900),
+                      textDirection: pdfTextDirection,
+                    ),
+                    pw.SizedBox(height: 10),
+                    pw.Image(
+                      pw.MemoryImage(sugarChartBytes),
+                      fit: pw.BoxFit.contain,
+                    ),
+                  ],
+                ),
+              ),
+              pw.SizedBox(height: 24),
+            ],
 
             // Blood Sugar Readings
             pw.Text(
