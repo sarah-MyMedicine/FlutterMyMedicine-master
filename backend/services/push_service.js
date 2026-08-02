@@ -29,11 +29,13 @@ async function sendPushNotification({ token, title, body, data = {}, channelId =
     apns: {
       headers: {
         'apns-priority': '10',
+        'apns-push-type': 'alert',
       },
       payload: {
         aps: {
           sound: 'default',
           contentAvailable: true,
+          mutableContent: true,
         },
       },
     },

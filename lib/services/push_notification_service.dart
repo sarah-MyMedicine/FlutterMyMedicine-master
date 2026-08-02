@@ -25,7 +25,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     final type = (message.data['type'] ?? '').toString().toLowerCase();
 
     if (body.isNotEmpty) {
-      if (type == 'emergency_siren') {
+      if (type == 'emergency_siren' || type == 'siren' || type == 'emergency') {
         await NotificationService().showSosAlarmNotification(title: title, body: body);
       } else if (type == 'missed_dose') {
         await NotificationService().showMissedDoseAlarmNotification(title: title, body: body);
@@ -109,7 +109,7 @@ class PushNotificationService {
       final type = (message.data['type'] ?? '').toString().toLowerCase();
 
       if (body.isNotEmpty) {
-        if (type == 'emergency_siren') {
+        if (type == 'emergency_siren' || type == 'siren' || type == 'emergency') {
           await NotificationService().showSosAlarmNotification(title: title, body: body);
         } else if (type == 'missed_dose') {
           await NotificationService().showMissedDoseAlarmNotification(title: title, body: body);

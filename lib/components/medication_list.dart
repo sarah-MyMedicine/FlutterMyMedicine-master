@@ -617,6 +617,9 @@ class _MedicationListState extends State<MedicationList> {
                                 .toggleLatestMedicationStatus(
                                   medicationName: medicationName,
                                   dose: medicationDose,
+                                  startTime: item['startTime'],
+                                  startDate: item['startDate'],
+                                  intervalHours: int.tryParse(item['intervalHours'] ?? '24') ?? 24,
                                 );
 
                             if (!context.mounted) return;

@@ -75,6 +75,18 @@ class _ScheduledDoseResult {
   const _ScheduledDoseResult({required this.scheduledAt, required this.taken});
 }
 
+class _ScheduledDoseStatus {
+  final int? logIndex;
+  final DateTime scheduledAt;
+  final bool taken;
+
+  const _ScheduledDoseStatus({
+    required this.logIndex,
+    required this.scheduledAt,
+    required this.taken,
+  });
+}
+
 class AdherenceProvider extends ChangeNotifier {
   List<AdherenceLog> _logs = [];
   static const String _rankMilestoneNotifiedKey =
@@ -162,6 +174,97 @@ class AdherenceProvider extends ChangeNotifier {
   }
 
   String _medicationKey(String name, String dose) => '$name::$dose';
+
+  DateTime? _resolveLatestScheduledOccurrence({
+    required String medicationName,
+    required String dose,
+    required int intervalHours,
+    required String? startTime,
+    required String? startDate,
+  }) {
+    final normalizedStartTime = startTime?.trim() ?? '';
+    if (normalizedStartTime.isEmpty) return null;
+
+    final parts = normalizedStartTime.split(':');
+    if (parts.length != 2) return null;
+
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return null;
+
+    final now = DateTime.now();
+    final safeIntervalHours = intervalHours <= 0 ? 24 : intervalHours;
+    final parsedStartDate = _parseStartDate(startDate);
+    final baseDate = parsedStartDate != null
+        ? DateTime(parsedStartDate.year, parsedStartDate.month, parsedStartDate.day)
+        : DateTime(now.year, now.month, now.day);
+
+    var scheduledAt = DateTime(baseDate.year, baseDate.month, baseDate.day, hour, minute);
+    if (scheduledAt.isAfter(now)) {
+      while (scheduledAt.isAfter(now)) {
+        scheduledAt = scheduledAt.subtract(Duration(hours: safeIntervalHours));
+      }
+    }
+
+    if (parsedStartDate != null) {
+      final startBoundary = DateTime(parsedStartDate.year, parsedStartDate.month, parsedStartDate.day, hour, minute);
+      while (scheduledAt.isBefore(startBoundary)) {
+        scheduledAt = scheduledAt.add(Duration(hours: safeIntervalHours));
+      }
+    }
+
+    return scheduledAt.isAfter(now) ? null : scheduledAt;
+  }
+
+  _ScheduledDoseStatus? _resolveLatestScheduledDoseStatus({
+    required String medicationName,
+    required String? dose,
+    required int intervalHours,
+    required String? startTime,
+    required String? startDate,
+  }) {
+    final normalizedName = medicationName.trim().toLowerCase();
+    final normalizedDose = dose?.trim().toLowerCase() ?? '';
+    if (normalizedName.isEmpty) return null;
+
+    final scheduledAt = _resolveLatestScheduledOccurrence(
+      medicationName: medicationName,
+      dose: normalizedDose,
+      intervalHours: intervalHours,
+      startTime: startTime,
+      startDate: startDate,
+    );
+    if (scheduledAt == null) return null;
+
+    final nextOccurrence = scheduledAt.add(Duration(hours: intervalHours <= 0 ? 24 : intervalHours));
+    final matchWindowStart = scheduledAt.subtract(const Duration(hours: 1));
+
+    int? matchedIndex;
+    bool matchedTaken = false;
+    DateTime? matchedWhen;
+
+    for (var i = 0; i < _logs.length; i++) {
+      final log = _logs[i];
+      final sameMedication = log.medicationName.trim().toLowerCase() == normalizedName;
+      final sameDose = normalizedDose.isEmpty || log.dose.trim().toLowerCase() == normalizedDose;
+      if (!sameMedication || !sameDose) continue;
+      if (log.when.isBefore(matchWindowStart) || !log.when.isBefore(nextOccurrence)) continue;
+
+      final isMoreRecent = matchedWhen == null || log.when.isAfter(matchedWhen);
+      final sameTimeAsLatest = matchedWhen != null && log.when.isAtSameMomentAs(matchedWhen);
+      if (isMoreRecent || (sameTimeAsLatest && (matchedIndex == null || i > matchedIndex))) {
+        matchedIndex = i;
+        matchedTaken = log.taken;
+        matchedWhen = log.when;
+      }
+    }
+
+    return _ScheduledDoseStatus(
+      logIndex: matchedIndex,
+      scheduledAt: scheduledAt,
+      taken: matchedTaken,
+    );
+  }
 
   DateTime? _resolveFirstOccurrence({
     required Map<String, dynamic> medication,
@@ -520,7 +623,19 @@ class AdherenceProvider extends ChangeNotifier {
   bool? getLatestMedicationTakenStatus({
     required String medicationName,
     String? dose,
+    String? startTime,
+    String? startDate,
+    int? intervalHours,
   }) {
+    final resolved = _resolveLatestScheduledDoseStatus(
+      medicationName: medicationName,
+      dose: dose,
+      intervalHours: intervalHours ?? 24,
+      startTime: startTime,
+      startDate: startDate,
+    );
+    if (resolved != null) return resolved.taken;
+
     final latestIndex = _findLatestMedicationLogIndex(
       medicationName: medicationName,
       dose: dose,
@@ -532,7 +647,45 @@ class AdherenceProvider extends ChangeNotifier {
   Future<bool?> toggleLatestMedicationStatus({
     required String medicationName,
     String? dose,
+    String? startTime,
+    String? startDate,
+    int? intervalHours,
   }) async {
+    final resolved = _resolveLatestScheduledDoseStatus(
+      medicationName: medicationName,
+      dose: dose,
+      intervalHours: intervalHours ?? 24,
+      startTime: startTime,
+      startDate: startDate,
+    );
+
+    if (resolved != null) {
+      if (resolved.logIndex != null) {
+        final latest = _logs[resolved.logIndex!];
+        final updated = AdherenceLog(
+          medicationName: latest.medicationName,
+          dose: latest.dose,
+          when: latest.when,
+          taken: !latest.taken,
+        );
+        _logs[resolved.logIndex!] = updated;
+        await _saveToPrefs();
+        notifyListeners();
+        return updated.taken;
+      }
+
+      final inserted = AdherenceLog(
+        medicationName: medicationName.trim(),
+        dose: (dose ?? '').trim(),
+        when: resolved.scheduledAt,
+        taken: true,
+      );
+      _logs.add(inserted);
+      await _saveToPrefs();
+      notifyListeners();
+      return inserted.taken;
+    }
+
     final latestIndex = _findLatestMedicationLogIndex(
       medicationName: medicationName,
       dose: dose,

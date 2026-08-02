@@ -266,6 +266,9 @@ class MedicationItem extends StatelessWidget {
                       final latestStatus = adherenceProvider.getLatestMedicationTakenStatus(
                         medicationName: name,
                         dose: dose,
+                        startTime: startTime,
+                        startDate: startDate,
+                        intervalHours: int.tryParse(intervalHours ?? '24') ?? 24,
                       );
                       final hasAnyStatus = latestStatus != null;
                       final toggleTitle = !hasAnyStatus
