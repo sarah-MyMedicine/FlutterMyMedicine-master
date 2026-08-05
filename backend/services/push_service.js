@@ -1,6 +1,13 @@
 const { admin, initializeFirebaseAdmin } = require('./firebase_admin_service');
 
-async function sendPushNotification({ token, title, body, data = {}, channelId = 'caregiver_alerts' }) {
+async function sendPushNotification({
+  token,
+  title,
+  body,
+  data = {},
+  channelId = 'caregiver_alerts',
+  includeNotificationPayload = true,
+}) {
   if (!token) {
     return { delivered: false, reason: 'missing-token' };
   }
@@ -9,33 +16,57 @@ async function sendPushNotification({ token, title, body, data = {}, channelId =
     return { delivered: false, reason: 'not-configured' };
   }
 
-  const message = {
-    token,
-    notification: {
-      title,
-      body,
-    },
-    data: Object.entries(data).reduce((acc, [key, value]) => {
+  const normalizedData = Object.entries({
+    ...data,
+    title,
+    body,
+    channelId,
+  }).reduce((acc, [key, value]) => {
       acc[key] = value == null ? '' : String(value);
       return acc;
-    }, {}),
+    }, {});
+
+  const message = {
+    token,
+    ...(includeNotificationPayload
+        ? {
+            notification: {
+              title,
+              body,
+            },
+          }
+        : {}),
+    data: normalizedData,
     android: {
       priority: 'high',
-      notification: {
-        channelId,
-        sound: 'default',
-      },
+      ...(includeNotificationPayload
+          ? {
+              notification: {
+                channelId,
+                sound: 'default',
+              },
+            }
+          : {}),
     },
     apns: {
       headers: {
         'apns-priority': '10',
-        'apns-push-type': 'alert',
+        'apns-push-type': includeNotificationPayload ? 'alert' : 'background',
       },
       payload: {
         aps: {
-          sound: 'default',
           contentAvailable: true,
-          mutableContent: true,
+          ...(includeNotificationPayload
+              ? {
+                  alert: {
+                    title,
+                    body,
+                  },
+                  sound: 'default',
+                  'interruption-level': 'time-sensitive',
+                  mutableContent: true,
+                }
+              : {}),
         },
       },
     },

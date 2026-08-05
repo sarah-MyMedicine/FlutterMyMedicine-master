@@ -123,8 +123,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   void _startPatientLiveSync() {
     _patientLiveSyncTimer?.cancel();
-    _patientLiveSyncTimer = Timer.periodic(const Duration(seconds: 20), (_) {
-      _syncPatientDataFromCloud();
+    _patientLiveSyncTimer = Timer.periodic(const Duration(seconds: 20), (_) async {
+      await _checkMissedDoses();
+      await _syncPatientDataFromCloud();
     });
   }
 

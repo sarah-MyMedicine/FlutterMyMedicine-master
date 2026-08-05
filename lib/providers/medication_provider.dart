@@ -763,9 +763,9 @@ class MedicationProvider extends ChangeNotifier {
         // Dose was missed!
         final currentMissedCount = _consecutiveMissedDoses[prefix] ?? 0;
         
-        // Calculate how many doses were missed
+        // Count the currently overdue scheduled dose as the first miss.
         final hoursSinceMissed = now.difference(expectedDoseTime).inHours;
-        final dosesMissed = (hoursSinceMissed / interval).floor();
+        final dosesMissed = 1 + (hoursSinceMissed / interval).floor();
         
         if (dosesMissed > currentMissedCount) {
           // Update missed count
@@ -774,8 +774,8 @@ class MedicationProvider extends ChangeNotifier {
           
           debugPrint('[MedicationProvider] $name: $dosesMissed consecutive doses missed');
           
-          // Notify caregiver if 2 or more doses missed and we haven't notified yet
-          if (dosesMissed >= 2 && _hasNotifiedForCurrentMissed[prefix] != true) {
+          // Notify caregiver as soon as the first scheduled dose is missed.
+          if (dosesMissed >= 1 && _hasNotifiedForCurrentMissed[prefix] != true) {
             try {
               await ApiService().notifyMissedDoses(
                 patientUsername: patientUsername,
