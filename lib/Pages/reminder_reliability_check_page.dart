@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../providers/settings_provider.dart';
 import '../services/notification_service.dart';
+import '../services/push_notification_service.dart';
 import '../utils/translations.dart';
 
 class ReminderReliabilityCheckPage extends StatefulWidget {
@@ -18,11 +21,16 @@ class _ReminderReliabilityCheckPageState
   bool _isChecking = false;
   bool? _notificationsEnabled;
   bool? _exactAlarmsEnabled;
+  bool? _pushPermissionAuthorized;
+  bool? _pushTokenAvailable;
   String? _error;
 
   bool _batteryUnrestricted = false;
   bool _autostartEnabled = false;
   bool _lockScreenAllowed = false;
+  bool _backgroundRefreshAllowed = false;
+
+  bool get _isApplePlatform => !kIsWeb && (Platform.isIOS || Platform.isMacOS);
 
   @override
   void initState() {
@@ -38,9 +46,12 @@ class _ReminderReliabilityCheckPageState
 
     try {
       final status = await NotificationService().getReminderReliabilityStatus();
+      final pushStatus = await PushNotificationService().getPushReadinessStatus();
       setState(() {
         _notificationsEnabled = status['notificationsEnabled'];
         _exactAlarmsEnabled = status['exactAlarmsEnabled'];
+        _pushPermissionAuthorized = pushStatus['permissionAuthorized'];
+        _pushTokenAvailable = pushStatus['tokenAvailable'];
       });
     } catch (_) {
       setState(() {
@@ -82,9 +93,15 @@ class _ReminderReliabilityCheckPageState
       builder: (context, sp, _) {
         final lang = sp.language;
         final technicalReady =
-            (_notificationsEnabled != false) && (_exactAlarmsEnabled != false);
+          (_notificationsEnabled != false) &&
+          (_exactAlarmsEnabled != false) &&
+          (_pushPermissionAuthorized != false) &&
+          (_pushTokenAvailable != false);
         final manualReady =
-            _batteryUnrestricted && _autostartEnabled && _lockScreenAllowed;
+          _batteryUnrestricted &&
+          _autostartEnabled &&
+          _lockScreenAllowed &&
+          (!_isApplePlatform || _backgroundRefreshAllowed);
         final allReady = technicalReady && manualReady;
 
         return Directionality(
@@ -133,6 +150,24 @@ class _ReminderReliabilityCheckPageState
                   status: _exactAlarmsEnabled,
                   onFix: _enableExactAlarms,
                   fixLabelKey: 'enable_exact_alarms',
+                ),
+                const SizedBox(height: 10),
+                _buildStatusTile(
+                  context: context,
+                  lang: lang,
+                  titleKey: 'push_delivery_permission',
+                  status: _pushPermissionAuthorized,
+                  onFix: _enableNotifications,
+                  fixLabelKey: 'enable_notifications',
+                ),
+                const SizedBox(height: 10),
+                _buildStatusTile(
+                  context: context,
+                  lang: lang,
+                  titleKey: 'fcm_token_status',
+                  status: _pushTokenAvailable,
+                  onFix: _runCheck,
+                  fixLabelKey: 'run_reliability_check',
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
@@ -194,6 +229,19 @@ class _ReminderReliabilityCheckPageState
                   ),
                   contentPadding: EdgeInsets.zero,
                 ),
+                if (_isApplePlatform)
+                  CheckboxListTile(
+                    value: _backgroundRefreshAllowed,
+                    onChanged: (value) {
+                      setState(() {
+                        _backgroundRefreshAllowed = value ?? false;
+                      });
+                    },
+                    title: Text(
+                      AppTranslations.translate('background_refresh_allowed', lang),
+                    ),
+                    contentPadding: EdgeInsets.zero,
+                  ),
                 const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.all(12),

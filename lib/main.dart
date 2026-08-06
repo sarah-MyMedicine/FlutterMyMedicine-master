@@ -173,6 +173,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       if (caregiverUsername == null || caregiverUsername.isEmpty) return;
       if (!ApiService().isAuthenticated()) return;
 
+      await PushNotificationService().syncTokenToBackend();
+
       final alerts = await ApiService().getCaregiverAlerts(caregiverUsername);
       final currentAlertIds = alerts
           .map((alert) => (alert['_id'] ?? '').toString())

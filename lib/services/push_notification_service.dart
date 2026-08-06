@@ -141,7 +141,19 @@ class PushNotificationService {
   }
 
   Future<void> syncTokenToBackend() async {
-    if (!_firebaseReady) return;
+    if (!_firebaseReady) {
+      try {
+        if (Firebase.apps.isEmpty) {
+          await Firebase.initializeApp(
+            options: DefaultFirebaseOptions.currentPlatform,
+          );
+        }
+        _firebaseReady = true;
+      } catch (e) {
+        debugPrint('[Push] Firebase not ready for token sync: $e');
+        return;
+      }
+    }
     if (!ApiService().isAuthenticated()) return;
 
     try {
@@ -151,6 +163,38 @@ class PushNotificationService {
     } catch (e) {
       debugPrint('[Push] Failed to sync token: $e');
     }
+  }
+
+  Future<Map<String, bool?>> getPushReadinessStatus() async {
+    bool? permissionAuthorized;
+    bool? tokenAvailable;
+
+    try {
+      if (!_firebaseReady) {
+        if (Firebase.apps.isEmpty) {
+          await Firebase.initializeApp(
+            options: DefaultFirebaseOptions.currentPlatform,
+          );
+        }
+        _firebaseReady = true;
+      }
+
+      final settings = await FirebaseMessaging.instance.getNotificationSettings();
+      final status = settings.authorizationStatus;
+      permissionAuthorized =
+          status == AuthorizationStatus.authorized ||
+          status == AuthorizationStatus.provisional;
+
+      final token = await FirebaseMessaging.instance.getToken();
+      tokenAvailable = token != null && token.isNotEmpty;
+    } catch (e) {
+      debugPrint('[Push] Failed to read push readiness: $e');
+    }
+
+    return {
+      'permissionAuthorized': permissionAuthorized,
+      'tokenAvailable': tokenAvailable,
+    };
   }
 
   Future<void> clearTokenFromBackend() async {
