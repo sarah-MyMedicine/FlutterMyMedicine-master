@@ -194,6 +194,56 @@ class _SettingsPageState extends State<SettingsPage> {
     super.dispose();
   }
 
+  Future<void> _unlinkCaregiverFromSettings(String lang) async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    if (!userProvider.isPatient || userProvider.username == null || _linkedCaregiver == null) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(AppTranslations.translate('confirm_unlink', lang)),
+        content: Text(AppTranslations.translate('confirm_unlink_caregiver', lang)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(AppTranslations.translate('cancel', lang)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: Text(AppTranslations.translate('confirm', lang)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await ApiService().unlinkCaregiver(
+        patientUsername: userProvider.username!,
+        caregiverUsername: _linkedCaregiver!['username']?.toString() ?? '',
+      );
+
+      if (!mounted) return;
+      await _loadLinkedCaregiver();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppTranslations.translate('caregiver_unlinked', lang))),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppTranslations.translate('failed_to_unlink', lang)),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _linkPatientWithCode(String lang) async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     if (!userProvider.isCaregiver || userProvider.username == null) return;
@@ -547,6 +597,23 @@ class _SettingsPageState extends State<SettingsPage> {
                                             style: TextStyle(
                                               fontSize: 13,
                                               color: subtleText,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 10),
+                                          SizedBox(
+                                            width: double.infinity,
+                                            child: OutlinedButton.icon(
+                                              onPressed: () => _unlinkCaregiverFromSettings(lang),
+                                              icon: const Icon(Icons.link_off, size: 18),
+                                              label: Text(AppTranslations.translate('unlink_caregiver', lang)),
+                                              style: OutlinedButton.styleFrom(
+                                                foregroundColor: Colors.red,
+                                                side: const BorderSide(color: Colors.red),
+                                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                              ),
                                             ),
                                           ),
                                         ],

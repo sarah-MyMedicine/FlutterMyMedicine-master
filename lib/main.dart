@@ -26,6 +26,7 @@ import 'providers/settings_provider.dart';
 import 'providers/appointment_provider.dart';
 import 'providers/adherence_provider.dart';
 import 'providers/symptom_log_provider.dart';
+import 'providers/lab_results_provider.dart';
 import 'providers/user_provider.dart';
 import 'theme/app_theme.dart';
 
@@ -59,6 +60,7 @@ void main() async {
   final bloodPressureProvider = BloodPressureProvider();
   final bloodSugarProvider = BloodSugarProvider();
   final symptomLogProvider = SymptomLogProvider();
+  final labResultsProvider = LabResultsProvider();
   final userProvider = UserProvider();
 
   await Future.wait([
@@ -67,6 +69,7 @@ void main() async {
     _safeInit('BloodPressureProvider', () => bloodPressureProvider.load()),
     _safeInit('BloodSugarProvider', () => bloodSugarProvider.load()),
     _safeInit('SymptomLogProvider', () => symptomLogProvider.load()),
+    _safeInit('LabResultsProvider', () => labResultsProvider.load()),
     _safeInit('UserProvider', () => userProvider.loadUserFromStorage()),
   ]);
 
@@ -79,6 +82,7 @@ void main() async {
         ChangeNotifierProvider.value(value: bloodPressureProvider),
         ChangeNotifierProvider.value(value: bloodSugarProvider),
         ChangeNotifierProvider.value(value: symptomLogProvider),
+        ChangeNotifierProvider.value(value: labResultsProvider),
         ChangeNotifierProvider.value(value: settingsProvider),
         ChangeNotifierProvider(create: (_) => AppointmentProvider()),
         ChangeNotifierProvider(create: (_) => AdherenceProvider()),

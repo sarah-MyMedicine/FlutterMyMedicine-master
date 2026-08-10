@@ -3,35 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../providers/settings_provider.dart';
+import '../providers/lab_results_provider.dart';
 import '../utils/translations.dart';
 import '../services/patient_data_sync_service.dart';
-
-class LabResult {
-  final String imagePath;
-  final String description;
-  final String? imageBase64;
-
-  LabResult({
-    required this.imagePath,
-    required this.description,
-    this.imageBase64,
-  });
-
-  Map<String, dynamic> toJson() => {
-    'imagePath': imagePath,
-    'description': description,
-    'imageBase64': imageBase64,
-  };
-
-  factory LabResult.fromJson(Map<String, dynamic> json) => LabResult(
-    imagePath: json['imagePath'] ?? '',
-    description: json['description'] ?? '',
-    imageBase64: json['imageBase64']?.toString(),
-  );
-}
 
 class LabResultsPage extends StatefulWidget {
   const LabResultsPage({super.key});
@@ -41,42 +17,29 @@ class LabResultsPage extends StatefulWidget {
 }
 
 class _LabResultsPageState extends State<LabResultsPage> {
-  static const String _labResultsKey = 'lab_results';
-  final List<LabResult> _labResults = [];
   final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
     super.initState();
-    _loadImages();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadImages();
+    });
   }
 
   Future<void> _loadImages() async {
-    final prefs = await SharedPreferences.getInstance();
-    final resultsJson = prefs.getString(_labResultsKey);
-    if (resultsJson == null || resultsJson.isEmpty) return;
+    final provider = context.read<LabResultsProvider>();
+    await provider.load();
 
-    try {
-      final List<dynamic> decoded = jsonDecode(resultsJson);
-      final parsed = decoded
-          .whereType<Map>()
-          .map((item) => LabResult.fromJson(Map<String, dynamic>.from(item)))
-          .where((item) => item.imagePath.isNotEmpty || (item.imageBase64?.isNotEmpty ?? false))
-          .toList();
-
-      final hydrated = <LabResult>[];
-      for (final result in parsed) {
-        hydrated.add(await _ensureLocalImageAvailability(result));
+    if (!mounted) return;
+    for (var index = 0; index < provider.entries.length; index++) {
+      final entry = provider.entries[index];
+      final hydratedEntry = await _ensureLocalImageAvailability(entry);
+      if (hydratedEntry.imagePath != entry.imagePath ||
+          hydratedEntry.description != entry.description ||
+          hydratedEntry.imageBase64 != entry.imageBase64) {
+        await provider.update(index, hydratedEntry);
       }
-
-      if (!mounted) return;
-      setState(() {
-        _labResults
-          ..clear()
-          ..addAll(hydrated);
-      });
-    } catch (e) {
-      debugPrint('Failed to load lab results: $e');
     }
   }
 
@@ -115,8 +78,6 @@ class _LabResultsPageState extends State<LabResultsPage> {
   }
 
   Future<void> _saveImages() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_labResultsKey, jsonEncode(_labResults.map((r) => r.toJson()).toList()));
     await PatientDataSyncService().syncLocalToCloudIfAuthenticated();
   }
 
@@ -139,6 +100,8 @@ class _LabResultsPageState extends State<LabResultsPage> {
 
   Future<void> _pickImage(ImageSource source) async {
     final lang = context.read<SettingsProvider>().language;
+    final provider = context.read<LabResultsProvider>();
+    final messenger = ScaffoldMessenger.maybeOf(context);
     try {
       final XFile? image = await _picker.pickImage(
         source: source,
@@ -153,18 +116,18 @@ class _LabResultsPageState extends State<LabResultsPage> {
         final imageBase64 = base64Encode(imageBytes);
 
         // Show dialog to add description
-        final description = await _showDescriptionDialog(context);
+        final dialogContext = context;
+        final description = await _showDescriptionDialog(dialogContext);
+        if (!mounted) return;
         if (description != null) {
-          setState(() {
-            _labResults.add(LabResult(
-              imagePath: persistentPath,
-              description: description,
-              imageBase64: imageBase64,
-            ));
-          });
+          await provider.add(LabResult(
+            imagePath: persistentPath,
+            description: description,
+            imageBase64: imageBase64,
+          ));
           await _saveImages();
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
+          if (mounted && messenger != null) {
+            messenger.showSnackBar(
               SnackBar(content: Text(AppTranslations.translate('image_added_success', lang))),
             );
           }
@@ -180,8 +143,8 @@ class _LabResultsPageState extends State<LabResultsPage> {
         }
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted && messenger != null) {
+        messenger.showSnackBar(
           SnackBar(content: Text('${AppTranslations.translate('error_adding_image', lang)}: $e')),
         );
       }
@@ -221,8 +184,11 @@ class _LabResultsPageState extends State<LabResultsPage> {
 
   Future<void> _deleteImage(int index) async {
     final lang = context.read<SettingsProvider>().language;
+    final provider = context.read<LabResultsProvider>();
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final dialogContext = context;
     final shouldDelete = await showDialog<bool>(
-      context: context,
+      context: dialogContext,
       builder: (context) => AlertDialog(
         title: Text(AppTranslations.translate('delete_image_title', lang)),
         content: Text(AppTranslations.translate('confirm_delete_image', lang)),
@@ -241,10 +207,8 @@ class _LabResultsPageState extends State<LabResultsPage> {
     );
 
     if (shouldDelete == true) {
-      final removedPath = _labResults[index].imagePath;
-      setState(() {
-        _labResults.removeAt(index);
-      });
+      final removedPath = provider.entries[index].imagePath;
+      await provider.remove(index);
 
       try {
         final removedFile = File(removedPath);
@@ -256,8 +220,8 @@ class _LabResultsPageState extends State<LabResultsPage> {
       }
 
       await _saveImages();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted && messenger != null) {
+        messenger.showSnackBar(
           SnackBar(content: Text(AppTranslations.translate('image_deleted_success', lang))),
         );
       }
@@ -266,19 +230,26 @@ class _LabResultsPageState extends State<LabResultsPage> {
 
   Future<void> _editDescription(int index) async {
     final lang = context.read<SettingsProvider>().language;
-    final currentDescription = _labResults[index].description;
-    final newDescription = await _showDescriptionDialog(context, initialDescription: currentDescription);
+    final provider = context.read<LabResultsProvider>();
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final currentDescription = provider.entries[index].description;
+    final dialogContext = context;
+    final newDescription = await _showDescriptionDialog(dialogContext, initialDescription: currentDescription);
+    if (!mounted) return;
     if (newDescription != null) {
-      setState(() {
-        _labResults[index] = LabResult(
-          imagePath: _labResults[index].imagePath,
+      final provider = context.read<LabResultsProvider>();
+      final currentEntry = provider.entries[index];
+      await provider.update(
+        index,
+        LabResult(
+          imagePath: currentEntry.imagePath,
           description: newDescription,
-          imageBase64: _labResults[index].imageBase64,
-        );
-      });
+          imageBase64: currentEntry.imageBase64,
+        ),
+      );
       await _saveImages();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted && messenger != null) {
+        messenger.showSnackBar(
           SnackBar(content: Text(AppTranslations.translate('description_updated_success', lang))),
         );
       }
@@ -317,7 +288,7 @@ class _LabResultsPageState extends State<LabResultsPage> {
 
   void _viewImage(int index) {
     final lang = context.read<SettingsProvider>().language;
-    final result = _labResults[index];
+    final result = context.read<LabResultsProvider>().entries[index];
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => Scaffold(
@@ -380,6 +351,7 @@ class _LabResultsPageState extends State<LabResultsPage> {
         final lang = sp.language;
         final theme = Theme.of(context);
         final isDark = theme.brightness == Brightness.dark;
+        final labResults = context.watch<LabResultsProvider>().entries;
         return Directionality(
           textDirection: lang == 'ar' ? TextDirection.rtl : TextDirection.ltr,
           child: Scaffold(
@@ -390,7 +362,7 @@ class _LabResultsPageState extends State<LabResultsPage> {
               ),
               title: Text(AppTranslations.translate('lab_results_title', lang)),
             ),
-            body: _labResults.isEmpty
+            body: labResults.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -427,9 +399,9 @@ class _LabResultsPageState extends State<LabResultsPage> {
                       mainAxisSpacing: 12,
                       childAspectRatio: 0.75,
                     ),
-                    itemCount: _labResults.length,
+                    itemCount: labResults.length,
                     itemBuilder: (context, index) {
-                      final result = _labResults[index];
+                      final result = labResults[index];
                       return Card(
                         clipBehavior: Clip.antiAlias,
                         color: theme.cardColor,

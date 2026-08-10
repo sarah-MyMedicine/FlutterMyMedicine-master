@@ -8,6 +8,7 @@ import '../providers/medication_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/user_provider.dart';
 import '../services/api_service.dart';
+import '../services/emergency_action_service.dart';
 import '../services/patient_data_sync_service.dart';
 import '../utils/translations.dart';
 import 'adherence_log_page.dart';
@@ -522,17 +523,87 @@ class _PatientMenuTab extends StatelessWidget {
                             highlight: true,
                             backgroundImageAsset:
                                 'assets/button_backgrounds/emergency_button.png',
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    AppTranslations.translate(
-                                      'patient_menu_preview_medication_monitor_only',
-                                      lang,
+                            onTap: () async {
+                              final userProvider = Provider.of<UserProvider>(context, listen: false);
+                              final targetUsername = EmergencyActionService.resolveTargetUsername(
+                                isPatient: userProvider.isPatient,
+                                currentUsername: userProvider.username,
+                                selectedPatientUsername: username,
+                              );
+
+                              if (targetUsername == null || targetUsername.isEmpty) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        AppTranslations.translate(
+                                          'no_linked_caregiver',
+                                          lang,
+                                        ),
+                                      ),
+                                      backgroundColor: Colors.red,
                                     ),
-                                  ),
+                                  );
+                                }
+                                return;
+                              }
+
+                              final shouldSend = await showDialog<bool>(
+                                context: context,
+                                builder: (dialogContext) => AlertDialog(
+                                  title: Text(AppTranslations.translate('send_siren_alert', lang)),
+                                  content: Text(AppTranslations.translate('send_siren_alert_desc', lang)),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.of(dialogContext).pop(false),
+                                      child: Text(AppTranslations.translate('cancel', lang)),
+                                    ),
+                                    ElevatedButton(
+                                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                                      onPressed: () => Navigator.of(dialogContext).pop(true),
+                                      child: Text(AppTranslations.translate('send_alert', lang)),
+                                    ),
+                                  ],
                                 ),
                               );
+
+                              if (shouldSend != true) return;
+
+                              try {
+                                final response = await ApiService().sendEmergencyAlert(
+                                  patientUsername: targetUsername,
+                                  classification: 'siren',
+                                  message: AppTranslations.translate('siren_alert_message', lang),
+                                );
+
+                                final caregiverName = (response['caregiver'] as Map<String, dynamic>?)?['name']?.toString();
+                                final successMessage = caregiverName != null && caregiverName.isNotEmpty
+                                    ? '${AppTranslations.translate('emergency_alert_sent_to', lang)} $caregiverName'
+                                    : AppTranslations.translate('emergency_alert_sent', lang);
+
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(successMessage),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                final raw = e.toString().replaceFirst('Exception: ', '').trim();
+                                final msg = raw.contains('No linked caregiver')
+                                    ? AppTranslations.translate('no_linked_caregiver', lang)
+                                    : AppTranslations.translate('emergency_alert_failed', lang);
+
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(msg),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              }
                             },
                           ),
                           _MenuTile(
