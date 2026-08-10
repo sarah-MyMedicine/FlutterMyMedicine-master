@@ -29,6 +29,7 @@ import 'providers/symptom_log_provider.dart';
 import 'providers/lab_results_provider.dart';
 import 'providers/user_provider.dart';
 import 'theme/app_theme.dart';
+import 'utils/alert_utils.dart';
 
 Future<void> _safeInit(String label, Future<void> Function() task) async {
   try {
@@ -181,7 +182,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
       final alerts = await ApiService().getCaregiverAlerts(caregiverUsername);
       final currentAlertIds = alerts
-          .map((alert) => (alert['_id'] ?? '').toString())
+          .map((alert) => extractAlertId(alert))
           .where((id) => id.isNotEmpty)
           .toSet();
 
@@ -195,7 +196,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       }
 
       final newUnreadAlerts = alerts.where((alert) {
-        final id = (alert['_id'] ?? '').toString();
+        final id = extractAlertId(alert);
         final status = (alert['status'] ?? 'unread').toString().toLowerCase();
         return id.isNotEmpty && !_seenCaregiverAlertIds.contains(id) && status == 'unread';
       }).toList();

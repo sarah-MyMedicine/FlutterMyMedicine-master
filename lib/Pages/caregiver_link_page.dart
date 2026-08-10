@@ -5,6 +5,7 @@ import 'package:share_plus/share_plus.dart';
 import '../providers/user_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/api_service.dart';
+import '../utils/alert_utils.dart';
 import '../utils/translations.dart';
 import 'patient_profile_editor_page.dart';
 import 'dart:async';
@@ -941,16 +942,17 @@ class _CaregiverLinkPageState extends State<CaregiverLinkPage> with SingleTicker
               trailing: isUnread
                   ? TextButton(
                       onPressed: () async {
-                        final alertId = alert['_id']?.toString();
-                        if (alertId == null || alertId.isEmpty) return;
+                        final alertId = extractAlertId(alert);
+                        if (alertId.isEmpty) return;
 
+                        final currentContext = context;
                         try {
                           await ApiService().markEmergencyAlertAsRead(alertId);
                           if (!mounted) return;
                           await _loadData();
                         } catch (_) {
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          if (!currentContext.mounted) return;
+                          ScaffoldMessenger.of(currentContext).showSnackBar(
                             SnackBar(
                               content: Text(AppTranslations.translate('failed_update_alert_status', lang)),
                               backgroundColor: Colors.red,
