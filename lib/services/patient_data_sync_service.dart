@@ -33,11 +33,15 @@ class PatientDataSyncService {
     'settings_gender',
     'settings_vibration',
     'settings_language',
+    'settings_notification_vibration_pattern',
+    'settings_notification_channel',
+    'settings_notification_mode',
   ];
 
   static const List<String> _stringListKeys = [
     'appointments',
     'settings_chronic_diseases',
+    'settings_notification_channels',
   ];
 
   static const List<String> _intKeys = [
@@ -46,10 +50,14 @@ class PatientDataSyncService {
     'settings_target_systolic',
     'settings_target_diastolic',
     'settings_target_blood_sugar',
+    'settings_notification_reminder_lead_time',
   ];
 
   static const List<String> _boolKeys = [
     'settings_drug_knowledge',
+    'settings_notifications_enabled',
+    'settings_push_notifications_enabled',
+    'settings_critical_alerts_enabled',
   ];
 
   bool _isMeaningfulData(Map<String, dynamic> snapshot) {

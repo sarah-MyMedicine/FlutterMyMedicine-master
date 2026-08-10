@@ -18,6 +18,14 @@ class SettingsProvider extends ChangeNotifier {
   int _targetDiastolic = 80;
   int _targetBloodSugar = 100;
   String _language = 'ar'; // 'ar' for Arabic, 'en' for English
+  bool _notificationsEnabled = true;
+  bool _pushNotificationsEnabled = true;
+  bool _criticalAlertsEnabled = true;
+  String _notificationVibrationPattern = 'default';
+  String _notificationChannel = 'default';
+  String _notificationMode = 'balanced';
+  int _notificationReminderLeadTime = 15;
+  List<String> _notificationChannels = const <String>['medication', 'caregiver'];
 
   String get name => _name;
   int? get age => _age;
@@ -30,6 +38,14 @@ class SettingsProvider extends ChangeNotifier {
   int get targetDiastolic => _targetDiastolic;
   int get targetBloodSugar => _targetBloodSugar;
   String get language => _language;
+  bool get notificationsEnabled => _notificationsEnabled;
+  bool get pushNotificationsEnabled => _pushNotificationsEnabled;
+  bool get criticalAlertsEnabled => _criticalAlertsEnabled;
+  String get notificationVibrationPattern => _notificationVibrationPattern;
+  String get notificationChannel => _notificationChannel;
+  String get notificationMode => _notificationMode;
+  int get notificationReminderLeadTime => _notificationReminderLeadTime;
+  List<String> get notificationChannels => List.unmodifiable(_notificationChannels);
 
   void _syncCloudInBackground() {
     unawaited(
@@ -67,6 +83,14 @@ class SettingsProvider extends ChangeNotifier {
     _targetDiastolic = prefs.getInt('settings_target_diastolic') ?? 80;
     _targetBloodSugar = prefs.getInt('settings_target_blood_sugar') ?? 100;
     _language = prefs.getString('settings_language') ?? 'ar';
+    _notificationsEnabled = prefs.getBool('settings_notifications_enabled') ?? true;
+    _pushNotificationsEnabled = prefs.getBool('settings_push_notifications_enabled') ?? true;
+    _criticalAlertsEnabled = prefs.getBool('settings_critical_alerts_enabled') ?? true;
+    _notificationVibrationPattern = prefs.getString('settings_notification_vibration_pattern') ?? 'default';
+    _notificationChannel = prefs.getString('settings_notification_channel') ?? 'default';
+    _notificationMode = prefs.getString('settings_notification_mode') ?? 'balanced';
+    _notificationReminderLeadTime = prefs.getInt('settings_notification_reminder_lead_time') ?? 15;
+    _notificationChannels = prefs.getStringList('settings_notification_channels') ?? const <String>['medication', 'caregiver'];
     
     notifyListeners();
   }
@@ -106,7 +130,7 @@ class SettingsProvider extends ChangeNotifier {
   Future<void> setThemeColor(Color c) async {
     _themeColor = c;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('settings_theme_color', c.value);
+    await prefs.setInt('settings_theme_color', c.toARGB32());
     notifyListeners();
     _syncCloudInBackground();
   }
@@ -176,6 +200,70 @@ class SettingsProvider extends ChangeNotifier {
     _language = lang;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('settings_language', lang);
+    notifyListeners();
+    _syncCloudInBackground();
+  }
+
+  Future<void> setNotificationsEnabled(bool v) async {
+    _notificationsEnabled = v;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('settings_notifications_enabled', v);
+    notifyListeners();
+    _syncCloudInBackground();
+  }
+
+  Future<void> setPushNotificationsEnabled(bool v) async {
+    _pushNotificationsEnabled = v;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('settings_push_notifications_enabled', v);
+    notifyListeners();
+    _syncCloudInBackground();
+  }
+
+  Future<void> setCriticalAlertsEnabled(bool v) async {
+    _criticalAlertsEnabled = v;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('settings_critical_alerts_enabled', v);
+    notifyListeners();
+    _syncCloudInBackground();
+  }
+
+  Future<void> setNotificationVibrationPattern(String v) async {
+    _notificationVibrationPattern = v;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('settings_notification_vibration_pattern', v);
+    notifyListeners();
+    _syncCloudInBackground();
+  }
+
+  Future<void> setNotificationChannel(String v) async {
+    _notificationChannel = v;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('settings_notification_channel', v);
+    notifyListeners();
+    _syncCloudInBackground();
+  }
+
+  Future<void> setNotificationMode(String v) async {
+    _notificationMode = v;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('settings_notification_mode', v);
+    notifyListeners();
+    _syncCloudInBackground();
+  }
+
+  Future<void> setNotificationReminderLeadTime(int v) async {
+    _notificationReminderLeadTime = v;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('settings_notification_reminder_lead_time', v);
+    notifyListeners();
+    _syncCloudInBackground();
+  }
+
+  Future<void> setNotificationChannels(List<String> channels) async {
+    _notificationChannels = List<String>.from(channels);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('settings_notification_channels', _notificationChannels);
     notifyListeners();
     _syncCloudInBackground();
   }
