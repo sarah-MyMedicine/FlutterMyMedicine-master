@@ -26,6 +26,11 @@ async function sendPushNotification({
       return acc;
     }, {});
 
+  const isAlarmChannel =
+    channelId === 'medication_monitor_alarm' ||
+    channelId === 'sos_alarm' ||
+    channelId === 'missed_dose_alarm';
+
   const message = {
     token,
     ...(includeNotificationPayload
@@ -44,6 +49,10 @@ async function sendPushNotification({
               notification: {
                 channelId,
                 sound: 'default',
+                priority: isAlarmChannel ? 'max' : 'high',
+                visibility: 'public',
+                defaultSound: true,
+                defaultVibrateTimings: true,
               },
             }
           : {}),
@@ -72,10 +81,31 @@ async function sendPushNotification({
     },
   };
 
+  const shouldRetry = (error) => {
+    const code = String(error?.code || '').toLowerCase();
+    return (
+      code.includes('unavailable') ||
+      code.includes('internal') ||
+      code.includes('deadline-exceeded')
+    );
+  };
+
+  const sendOnce = async () => admin.messaging().send(message);
+
   try {
-    const messageId = await admin.messaging().send(message);
+    const messageId = await sendOnce();
     return { delivered: true, messageId };
   } catch (error) {
+    if (shouldRetry(error)) {
+      try {
+        const retryMessageId = await sendOnce();
+        return { delivered: true, messageId: retryMessageId, retried: true };
+      } catch (retryError) {
+        console.error('[Push] Retry failed:', retryError.message || retryError);
+        return { delivered: false, reason: retryError.message || 'send-failed' };
+      }
+    }
+
     console.error('[Push] Failed to send push notification:', error.message || error);
     return { delivered: false, reason: error.message || 'send-failed' };
   }

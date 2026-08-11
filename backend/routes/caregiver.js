@@ -251,7 +251,7 @@ router.post('/clear-fcm-token', authMiddleware, async (req, res) => {
 
 router.post('/notify-missed-dose', authMiddleware, async (req, res) => {
   try {
-    const { patientUsername, consecutiveMissed, medicationName } = req.body;
+    const { patientUsername, consecutiveMissed, medicationName, notifPrefix } = req.body;
     const missedCount = Number(consecutiveMissed);
     if (!patientUsername || !Number.isFinite(missedCount) || missedCount <= 0 || !medicationName) {
       return res.status(400).json({ message: 'Missing required fields' });
@@ -294,7 +294,7 @@ router.post('/notify-missed-dose', authMiddleware, async (req, res) => {
         token: caregiver.fcmToken,
         title: 'تنبيه: جرعات دواء مفقودة',
         body: alertMessage,
-        channelId: 'missed_dose_alarm',
+        channelId: 'medication_monitor_alarm',
         data: {
           type: 'missed_dose',
           alertId: alert.id,
@@ -305,6 +305,37 @@ router.post('/notify-missed-dose', authMiddleware, async (req, res) => {
         },
       });
       pushDelivered = pushResult.delivered;
+    }
+
+    const normalizedPrefix = String(notifPrefix || '').trim();
+    if (normalizedPrefix) {
+      const patientData =
+        patient.patientData && typeof patient.patientData === 'object' && !Array.isArray(patient.patientData)
+          ? { ...patient.patientData }
+          : {};
+
+      const stateRaw =
+        patientData.backend_missed_dose_state &&
+        typeof patientData.backend_missed_dose_state === 'object' &&
+        !Array.isArray(patientData.backend_missed_dose_state)
+          ? { ...patientData.backend_missed_dose_state }
+          : {};
+
+      const entryRaw =
+        stateRaw[normalizedPrefix] &&
+        typeof stateRaw[normalizedPrefix] === 'object' &&
+        !Array.isArray(stateRaw[normalizedPrefix])
+          ? stateRaw[normalizedPrefix]
+          : {};
+
+      stateRaw[normalizedPrefix] = {
+        ...entryRaw,
+        lastNotifiedMissed: Math.max(Number(entryRaw.lastNotifiedMissed) || 0, missedCount),
+        lastAlertAt: new Date().toISOString(),
+      };
+
+      patientData.backend_missed_dose_state = stateRaw;
+      await store.updateUser(patient.id, { patientData });
     }
 
     res.json({
@@ -363,7 +394,7 @@ router.post('/notify-emergency', authMiddleware, async (req, res) => {
         token: caregiver.fcmToken,
         title: '🚨 Siren Emergency Alert',
         body: resolvedMessage,
-        channelId: 'sos_alarm',
+        channelId: 'medication_monitor_alarm',
         data: {
           type: 'emergency_siren',
           alertId: alert.id,

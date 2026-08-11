@@ -45,6 +45,9 @@ const config = {
   keepAliveTimeoutMs: readNumber('KEEP_ALIVE_TIMEOUT_MS', 65000),
   headersTimeoutMs: readNumber('HEADERS_TIMEOUT_MS', 66000),
   requestTimeoutMs: readNumber('REQUEST_TIMEOUT_MS', 30000),
+  missedDoseMonitorEnabled: process.env.MISSED_DOSE_MONITOR_ENABLED !== 'false',
+  missedDoseMonitorIntervalMs: readNumber('MISSED_DOSE_MONITOR_INTERVAL_MS', 60000),
+  missedDoseGraceHours: readNumber('MISSED_DOSE_GRACE_HOURS', 1),
   appVersion: process.env.APP_VERSION || '1.0.0',
   releaseId: process.env.RELEASE_ID || crypto.randomUUID(),
   // SMTP (nodemailer) — used for sending password-reset emails

@@ -158,29 +158,21 @@ class MedicationProvider extends ChangeNotifier {
     return next;
   }
 
-  Future<void> _restoreMedicationSchedules() async {
-    await NotificationService().resetTrackedMedicationSchedules();
-
+  Future<String> _notificationPrefix(String rawPrefix) async {
     final prefs = await SharedPreferences.getInstance();
-    final userType = (prefs.getString('userType') ?? '').trim().toLowerCase();
-    final loggedInUsername =
-        (prefs.getString('username') ?? '').trim().toLowerCase();
-    final activeOwner = (prefs.getString(_ownerKey) ?? loggedInUsername)
+    final activeOwner = (prefs.getString(_ownerKey) ?? prefs.getString('username') ?? '')
         .trim()
         .toLowerCase();
+    if (activeOwner.isEmpty) return rawPrefix;
+    return '$activeOwner::$rawPrefix';
+  }
 
-    final isCaregiverViewingPatientData =
-        userType == 'caregiver' &&
-        loggedInUsername.isNotEmpty &&
-        activeOwner.isNotEmpty &&
-        activeOwner != loggedInUsername;
-
-    if (isCaregiverViewingPatientData) {
-      debugPrint(
-        '[MedicationProvider] Skipping local reminder scheduling for caregiver when viewing patient owner=$activeOwner',
-      );
-      return;
-    }
+  Future<void> _restoreMedicationSchedules() async {
+    final prefs = await SharedPreferences.getInstance();
+    final activeOwner =
+        (prefs.getString(_ownerKey) ?? prefs.getString('username') ?? '')
+            .trim()
+            .toLowerCase();
 
     final schedulableItems = _items.where((item) {
       final prefix = item['notifPrefix'];
@@ -207,10 +199,11 @@ class MedicationProvider extends ChangeNotifier {
       final intervalHours = int.tryParse(item['intervalHours'] ?? '24') ?? 24;
       final firstOccurrence = _calculateNextDoseFromItem(item, now);
       if (firstOccurrence == null) continue;
+      final scopedPrefix = await _notificationPrefix(prefix);
 
       try {
         await NotificationService().scheduleRepeatedOccurrences(
-          prefix: prefix,
+          prefix: scopedPrefix,
           title: 'موعد تناول $name',
           body: '$dose · كل $intervalHours ساعة',
           firstOccurrence: firstOccurrence,
@@ -221,6 +214,10 @@ class MedicationProvider extends ChangeNotifier {
         debugPrint('[MedicationProvider] Failed to restore schedule for $name: $e');
       }
     }
+
+    debugPrint(
+      '[MedicationProvider] Restored ${schedulableItems.length} medication schedule(s) for owner=$activeOwner',
+    );
   }
 
   Future<void> load() async {
@@ -424,8 +421,9 @@ class MedicationProvider extends ChangeNotifier {
 
             // schedule next 30 occurrences starting at the next due time
             debugPrint('[MedicationProvider.add] About to schedule ${intervalHours}h recurring notifications starting at $firstDue');
+            final scopedPrefix = await _notificationPrefix(prefix);
             await NotificationService().scheduleRepeatedOccurrences(
-              prefix: prefix,
+              prefix: scopedPrefix,
               title: 'موعد تناول $name',
               body: '$dose · كل $intervalHours ساعة',
               firstOccurrence: firstDue,
@@ -498,11 +496,12 @@ class MedicationProvider extends ChangeNotifier {
     }
 
     // Cancel existing scheduled notifs and reschedule starting from now+interval
-    await NotificationService().cancelForPrefix(prefix);
+    final scopedPrefix = await _notificationPrefix(prefix);
+    await NotificationService().cancelForPrefix(scopedPrefix);
     final now = DateTime.now();
     final first = now.add(Duration(hours: interval));
     await NotificationService().scheduleRepeatedOccurrences(
-      prefix: prefix,
+      prefix: scopedPrefix,
       title: 'موعد تناول ${item['name']}',
       body: '${item['dose']} · كل $interval ساعة',
       firstOccurrence: first,
@@ -573,7 +572,8 @@ class MedicationProvider extends ChangeNotifier {
     final item = _items[index];
     final prefix = item['notifPrefix'];
     if (prefix != null) {
-      await NotificationService().cancelForPrefix(prefix);
+      final scopedPrefix = await _notificationPrefix(prefix);
+      await NotificationService().cancelForPrefix(scopedPrefix);
     }
 
     _items.removeAt(index);
@@ -659,14 +659,15 @@ class MedicationProvider extends ChangeNotifier {
 
     // Reschedule notifications only for this same medication entry.
     try {
-      await NotificationService().cancelForPrefix(prefix);
+      final scopedPrefix = await _notificationPrefix(prefix);
+      await NotificationService().cancelForPrefix(scopedPrefix);
 
       final now = DateTime.now();
       final firstDue = _calculateNextDoseFromItem(_items[index], now);
 
       if (firstDue != null) {
         await NotificationService().scheduleRepeatedOccurrences(
-          prefix: prefix,
+          prefix: scopedPrefix,
           title: 'موعد تناول $name',
           body: '$dose · كل $intervalHours ساعة',
           firstOccurrence: firstDue,
@@ -781,6 +782,7 @@ class MedicationProvider extends ChangeNotifier {
                 patientUsername: patientUsername,
                 consecutiveMissed: dosesMissed,
                 medicationName: name,
+                notifPrefix: prefix,
               );
               
               _hasNotifiedForCurrentMissed[prefix] = true;

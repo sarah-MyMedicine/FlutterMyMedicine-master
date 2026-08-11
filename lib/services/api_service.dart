@@ -1225,6 +1225,7 @@ class ApiService {
     required String patientUsername,
     required int consecutiveMissed,
     required String medicationName,
+    String? notifPrefix,
   }) async {
     if (!isAuthenticated()) throw Exception('Not authenticated');
 
@@ -1235,6 +1236,8 @@ class ApiService {
           'patientUsername': patientUsername,
           'consecutiveMissed': consecutiveMissed,
           'medicationName': medicationName,
+          if (notifPrefix != null && notifPrefix.trim().isNotEmpty)
+            'notifPrefix': notifPrefix.trim(),
         },
       );
 

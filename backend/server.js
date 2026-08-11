@@ -11,6 +11,7 @@ dotenv.config();
 
 const { config, assertValidConfig, corsOptionsDelegate } = require('./config/env');
 const { initializeFirebaseAdmin } = require('./services/firebase_admin_service');
+const { startMissedDoseMonitor, stopMissedDoseMonitor } = require('./services/missed_dose_monitor');
 
 assertValidConfig();
 
@@ -129,10 +130,17 @@ server.listen(PORT, HOST, () => {
       console.log(`  http://${ip}:${PORT}/api`);
     });
   }
+
+  if (firebaseConfigured) {
+    startMissedDoseMonitor();
+  } else {
+    console.warn('[MissedDoseMonitor] Not started because Firebase Admin is not configured');
+  }
 });
 
 const shutdown = (signal) => {
   console.log(`[Server] Received ${signal}, shutting down`);
+  stopMissedDoseMonitor();
   server.close(() => {
     process.exit(0);
   });

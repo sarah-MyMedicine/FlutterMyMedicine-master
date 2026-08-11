@@ -311,10 +311,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
   
   Future<void> _checkMissedDosesOnStartup() async {
-    // Wait a bit for providers to fully initialize
-    await Future.delayed(const Duration(seconds: 2));
-    await _checkMissedDoses();
-    await NotificationService().maybeShowDueMedicationPopupOnAppOpen();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await _checkMissedDoses();
+      if (!mounted) return;
+      await NotificationService().maybeShowDueMedicationPopupOnAppOpen();
+    });
   }
   
   Future<void> _checkMissedDoses() async {

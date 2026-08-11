@@ -41,6 +41,24 @@ async function resolvePatientContext(req, res, patientUsernameParam) {
   return { actor, targetUser };
 }
 
+function mergeBackendManagedFields(existingData, incomingData) {
+  const existing = existingData && typeof existingData === 'object' && !Array.isArray(existingData)
+    ? existingData
+    : {};
+  const incoming = incomingData && typeof incomingData === 'object' && !Array.isArray(incomingData)
+    ? incomingData
+    : {};
+
+  const merged = { ...incoming };
+  Object.keys(existing).forEach((key) => {
+    if (key.startsWith('backend_') && !(key in merged)) {
+      merged[key] = existing[key];
+    }
+  });
+
+  return merged;
+}
+
 router.get('/', authMiddleware, async (req, res) => {
   try {
     const context = await resolvePatientContext(req, res, req.query.patientUsername);
@@ -84,8 +102,13 @@ router.put('/', authMiddleware, async (req, res) => {
     const context = await resolvePatientContext(req, res, patientUsername);
     if (!context) return;
 
+    const mergedData = mergeBackendManagedFields(
+      context.targetUser.patientData,
+      data,
+    );
+
     const updated = await store.updateUser(context.targetUser.id, {
-      patientData: data,
+      patientData: mergedData,
     });
 
     res.json({
@@ -110,8 +133,13 @@ router.put('/:patientUsername', authMiddleware, async (req, res) => {
     const context = await resolvePatientContext(req, res, req.params.patientUsername);
     if (!context) return;
 
+    const mergedData = mergeBackendManagedFields(
+      context.targetUser.patientData,
+      data,
+    );
+
     const updated = await store.updateUser(context.targetUser.id, {
-      patientData: data,
+      patientData: mergedData,
     });
 
     res.json({
