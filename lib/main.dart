@@ -104,8 +104,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   final AppLinks _appLinks = AppLinks();
   StreamSubscription<Uri>? _linkSubscription;
-  Timer? _patientLiveSyncTimer;
-  Timer? _caregiverAlertsPollingTimer;
   final Set<String> _seenCaregiverAlertIds = <String>{};
   bool _caregiverAlertCacheInitialized = false;
   bool _isPollingCaregiverAlerts = false;
@@ -122,16 +120,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     _checkMissedDosesOnStartup();
     _initializePushNotificationsAfterMount();
     _initializeDeepLinks();
-    _startPatientLiveSync();
-    _startCaregiverAlertsPolling();
-  }
-
-  void _startPatientLiveSync() {
-    _patientLiveSyncTimer?.cancel();
-    _patientLiveSyncTimer = Timer.periodic(const Duration(seconds: 20), (_) async {
-      await _checkMissedDoses();
-      await _syncPatientDataFromCloud();
-    });
+    unawaited(_checkMissedDoses());
+    unawaited(_syncPatientDataFromCloud());
+    unawaited(_pollCaregiverAlertsOnce());
   }
 
   Future<void> _syncPatientDataFromCloud() async {
@@ -149,16 +140,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     } catch (e) {
       debugPrint('[main] Patient live sync failed: $e');
     }
-  }
-
-  void _startCaregiverAlertsPolling() {
-    _caregiverAlertsPollingTimer?.cancel();
-    _caregiverAlertsPollingTimer = Timer.periodic(const Duration(seconds: 20), (_) {
-      _pollCaregiverAlertsOnce();
-    });
-
-    // Trigger an immediate poll so caregivers don't wait for the first interval.
-    unawaited(_pollCaregiverAlertsOnce());
   }
 
   Future<void> _pollCaregiverAlertsOnce() async {
@@ -296,8 +277,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void dispose() {
     _linkSubscription?.cancel();
-    _patientLiveSyncTimer?.cancel();
-    _caregiverAlertsPollingTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -310,8 +289,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       _checkMissedDoses().then((_) {
         return NotificationService().maybeShowDueMedicationPopupOnAppOpen();
       });
-      _syncPatientDataFromCloud();
-      _pollCaregiverAlertsOnce();
+      unawaited(_syncPatientDataFromCloud());
+      unawaited(_pollCaregiverAlertsOnce());
     }
   }
   

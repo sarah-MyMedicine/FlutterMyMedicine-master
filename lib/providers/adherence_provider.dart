@@ -88,6 +88,21 @@ class _ScheduledDoseStatus {
 }
 
 class AdherenceProvider extends ChangeNotifier {
+  static final AdherenceProvider _instance = AdherenceProvider._internal();
+  factory AdherenceProvider() => _instance;
+
+  AdherenceProvider._internal() {
+    unawaited(_safeLoad());
+  }
+
+  Future<void> _safeLoad() async {
+    try {
+      await load();
+    } catch (_) {
+      debugPrint('[AdherenceProvider] Initial load skipped before platform initialization.');
+    }
+  }
+
   List<AdherenceLog> _logs = [];
   static const String _rankMilestoneNotifiedKey =
       'adherence_rank_last_notified_milestone';
@@ -532,10 +547,6 @@ class AdherenceProvider extends ChangeNotifier {
         .toList();
   }
 
-  AdherenceProvider() {
-    load();
-  }
-
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString('adherence_records');
@@ -583,6 +594,22 @@ class AdherenceProvider extends ChangeNotifier {
       );
     }
 
+    notifyListeners();
+  }
+
+  Future<void> recordMissed({
+    required String medicationName,
+    required String dose,
+    DateTime? missedAt,
+  }) async {
+    final timestamp = missedAt ?? DateTime.now();
+    _logs.add(AdherenceLog(
+      medicationName: medicationName,
+      dose: dose,
+      when: timestamp,
+      taken: false,
+    ));
+    await _saveToPrefs();
     notifyListeners();
   }
 

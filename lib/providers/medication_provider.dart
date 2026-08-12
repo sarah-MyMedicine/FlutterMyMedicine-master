@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'dart:math';
+import 'adherence_provider.dart';
 import '../services/notification_service.dart';
 import '../services/api_service.dart';
 import '../services/patient_data_sync_service.dart';
@@ -772,9 +773,20 @@ class MedicationProvider extends ChangeNotifier {
           // Update missed count
           _consecutiveMissedDoses[prefix] = dosesMissed;
           await _saveMissedDosesTracking();
-          
+
+          try {
+            final adherence = AdherenceProvider();
+            await adherence.recordMissed(
+              medicationName: name,
+              dose: item['dose']?.toString() ?? '',
+              missedAt: expectedDoseTime,
+            );
+          } catch (e) {
+            debugPrint('[MedicationProvider] Failed to record missed dose for adherence log: $e');
+          }
+
           debugPrint('[MedicationProvider] $name: $dosesMissed consecutive doses missed');
-          
+
           // Notify caregiver as soon as the first scheduled dose is missed.
           if (dosesMissed >= 1 && _hasNotifiedForCurrentMissed[prefix] != true) {
             try {
@@ -784,10 +796,10 @@ class MedicationProvider extends ChangeNotifier {
                 medicationName: name,
                 notifPrefix: prefix,
               );
-              
+
               _hasNotifiedForCurrentMissed[prefix] = true;
               anyNotificationsSent = true;
-              
+
               debugPrint('[MedicationProvider] Notified caregiver about $dosesMissed missed doses for $name');
             } catch (e) {
               debugPrint('[MedicationProvider] Failed to notify caregiver: $e');

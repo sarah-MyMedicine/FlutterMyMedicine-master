@@ -39,7 +39,6 @@ class _CaregiverHomePageState extends State<CaregiverHomePage>
   bool _isSwitchingProfile = false;
   int _activeTabIndex = 0;
   bool _isHandlingTabChange = false;
-  Timer? _liveRefreshTimer;
 
   @override
   void initState() {
@@ -49,7 +48,6 @@ class _CaregiverHomePageState extends State<CaregiverHomePage>
 
   @override
   void dispose() {
-    _liveRefreshTimer?.cancel();
     _tabController?.removeListener(_handleTabChange);
     _tabController?.dispose();
     super.dispose();
@@ -70,26 +68,20 @@ class _CaregiverHomePageState extends State<CaregiverHomePage>
   }
 
   void _configureLiveRefreshForActiveTab() {
-    _liveRefreshTimer?.cancel();
     if (_activeTabIndex == 0) return;
 
-    _liveRefreshTimer = Timer.periodic(const Duration(seconds: 20), (_) async {
-      if (!mounted || _isHandlingTabChange) return;
-      final currentIndex = _tabController?.index ?? 0;
-      if (currentIndex != _activeTabIndex) return;
+    final currentIndex = _tabController?.index ?? 0;
+    final username = _targetUsernameForTab(currentIndex);
+    if (username == null || username.isEmpty) return;
 
-      final username = _targetUsernameForTab(currentIndex);
-      if (username == null || username.isEmpty) return;
-
-      try {
-        await PatientDataSyncService().syncAfterAuthentication(
-          context: context,
-          username: username,
-        );
-      } catch (e) {
+    unawaited(
+      PatientDataSyncService().syncAfterAuthentication(
+        context: context,
+        username: username,
+      ).catchError((e) {
         debugPrint('Live refresh failed for $username: $e');
-      }
-    });
+      }),
+    );
   }
 
   Future<void> _switchProfileForTab(int index) async {

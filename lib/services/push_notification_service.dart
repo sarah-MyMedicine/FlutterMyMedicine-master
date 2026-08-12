@@ -113,23 +113,23 @@ class PushNotificationService {
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
       final type = (message.data['type'] ?? '').toString().toLowerCase();
       final patientName = (message.data['patientName'] ?? message.data['patientUsername'] ?? '').toString();
-      final title = message.notification?.title?.trim().isNotEmpty == true
-          ? message.notification!.title!
+      final rawTitle = message.notification?.title ?? message.data['title']?.toString() ?? '';
+      final rawBody = message.notification?.body ?? message.data['body']?.toString() ?? '';
+      final title = rawTitle.trim().isNotEmpty
+          ? rawTitle
           : NotificationService.buildPatientAlertTitle(
               patientName: patientName,
               isEmergency: type == 'emergency_siren' || type == 'siren' || type == 'emergency',
               lang: 'en',
             );
-      final body = message.notification?.body ?? message.data['body']?.toString() ?? '';
+      final body = rawBody.trim().isNotEmpty ? rawBody : 'Care alert';
 
-      if (body.isNotEmpty) {
-        if (type == 'emergency_siren' || type == 'siren' || type == 'emergency') {
-          await NotificationService().showSosAlarmNotification(title: title, body: body);
-        } else if (type == 'missed_dose') {
-          await NotificationService().showMissedDoseAlarmNotification(title: title, body: body);
-        } else {
-          await NotificationService().showAlertNotification(title: title, body: body);
-        }
+      if (type == 'emergency_siren' || type == 'siren' || type == 'emergency') {
+        await NotificationService().showSosAlarmNotification(title: title, body: body);
+      } else if (type == 'missed_dose') {
+        await NotificationService().showMissedDoseAlarmNotification(title: title, body: body);
+      } else {
+        await NotificationService().showAlertNotification(title: title, body: body);
       }
     });
 
