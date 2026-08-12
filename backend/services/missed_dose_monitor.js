@@ -170,7 +170,7 @@ async function processPatientMissedDoses(patient, now, graceHours) {
         if (caregiver.fcmToken) {
           const pushResult = await sendPushNotification({
             token: caregiver.fcmToken,
-            title: 'تنبيه: جرعات دواء مفقودة',
+            title: `${patient.name || patient.username || 'Patient'} missed dose alert`,
             body: alertMessage,
             channelId: 'missed_dose_alarm',
             data: {

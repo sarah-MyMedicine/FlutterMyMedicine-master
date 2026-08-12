@@ -292,16 +292,16 @@ router.post('/notify-missed-dose', authMiddleware, async (req, res) => {
     if (caregiver?.fcmToken) {
       const pushResult = await sendPushNotification({
         token: caregiver.fcmToken,
-        title: 'تنبيه: جرعات دواء مفقودة',
+        title: `${patient.name || patient.username || 'Patient'} missed dose alert`,
         body: alertMessage,
-        channelId: 'medication_monitor_alarm',
+        channelId: 'missed_dose_alarm',
         data: {
           type: 'missed_dose',
           alertId: alert.id,
           patientUsername: patient.username,
           patientName: patient.name,
           medicationName,
-            consecutiveMissed: missedCount,
+          consecutiveMissed: missedCount,
         },
       });
       pushDelivered = pushResult.delivered;
@@ -392,9 +392,9 @@ router.post('/notify-emergency', authMiddleware, async (req, res) => {
     if (caregiver.fcmToken) {
       const pushResult = await sendPushNotification({
         token: caregiver.fcmToken,
-        title: '🚨 Siren Emergency Alert',
+        title: `🚨 Emergency alert for ${patient.name || patient.username || 'Patient'}`,
         body: resolvedMessage,
-        channelId: 'medication_monitor_alarm',
+        channelId: 'sos_alarm',
         data: {
           type: 'emergency_siren',
           alertId: alert.id,

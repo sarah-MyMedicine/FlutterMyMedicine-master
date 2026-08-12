@@ -20,9 +20,16 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
     await NotificationService().init();
 
-    final title = message.notification?.title ?? 'Care Alert';
-    final body = message.notification?.body ?? message.data['body']?.toString() ?? '';
     final type = (message.data['type'] ?? '').toString().toLowerCase();
+    final patientName = (message.data['patientName'] ?? message.data['patientUsername'] ?? '').toString();
+    final title = message.notification?.title?.trim().isNotEmpty == true
+        ? message.notification!.title!
+        : NotificationService.buildPatientAlertTitle(
+            patientName: patientName,
+            isEmergency: type == 'emergency_siren' || type == 'siren' || type == 'emergency',
+            lang: 'en',
+          );
+    final body = message.notification?.body ?? message.data['body']?.toString() ?? '';
 
     if (body.isNotEmpty) {
       if (type == 'emergency_siren' || type == 'siren' || type == 'emergency') {
@@ -104,9 +111,16 @@ class PushNotificationService {
     }
 
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
-      final title = message.notification?.title ?? 'Care Alert';
-      final body = message.notification?.body ?? message.data['body']?.toString() ?? '';
       final type = (message.data['type'] ?? '').toString().toLowerCase();
+      final patientName = (message.data['patientName'] ?? message.data['patientUsername'] ?? '').toString();
+      final title = message.notification?.title?.trim().isNotEmpty == true
+          ? message.notification!.title!
+          : NotificationService.buildPatientAlertTitle(
+              patientName: patientName,
+              isEmergency: type == 'emergency_siren' || type == 'siren' || type == 'emergency',
+              lang: 'en',
+            );
+      final body = message.notification?.body ?? message.data['body']?.toString() ?? '';
 
       if (body.isNotEmpty) {
         if (type == 'emergency_siren' || type == 'siren' || type == 'emergency') {

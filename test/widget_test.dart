@@ -11,9 +11,30 @@ import 'package:mymedicineapp/main.dart';
 import 'package:mymedicineapp/providers/medication_provider.dart';
 import 'package:mymedicineapp/providers/settings_provider.dart';
 import 'package:mymedicineapp/providers/user_provider.dart';
+import 'package:mymedicineapp/services/notification_service.dart';
 import 'package:provider/provider.dart';
 
 void main() {
+  test('patient-specific alert titles include the patient name', () {
+    expect(
+      NotificationService.buildPatientAlertTitle(
+        patientName: 'Ahmed',
+        isEmergency: false,
+        lang: 'en',
+      ),
+      'Missed dose alert for Ahmed',
+    );
+
+    expect(
+      NotificationService.buildPatientAlertTitle(
+        patientName: 'Ahmed',
+        isEmergency: true,
+        lang: 'ar',
+      ),
+      'تنبيه طارئ: Ahmed',
+    );
+  });
+
   testWidgets('app builds without crashing and shows a material app', (
     WidgetTester tester,
   ) async {

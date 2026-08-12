@@ -208,15 +208,20 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         final notificationBody = message.isNotEmpty
             ? message
             : (patientName.isNotEmpty ? patientName : '');
+        final effectiveTitle = NotificationService.buildPatientAlertTitle(
+          patientName: patientName,
+          isEmergency: classification == 'siren',
+          lang: lang,
+        );
 
         if (classification == 'siren') {
           await NotificationService().showSosAlarmNotification(
-            title: lang == 'ar' ? 'تنبيه طارئ من المريض' : 'Patient Emergency Alert',
+            title: effectiveTitle,
             body: notificationBody,
           );
         } else {
           await NotificationService().showMissedDoseAlarmNotification(
-            title: lang == 'ar' ? 'تنبيه جرعة فائتة' : 'Missed Dose Alert',
+            title: effectiveTitle,
             body: notificationBody,
           );
         }

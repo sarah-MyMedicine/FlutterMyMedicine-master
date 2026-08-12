@@ -1305,6 +1305,29 @@ class NotificationService {
   }
 
   /// Show an immediate alert-style notification (used for health warnings)
+  static String buildPatientAlertTitle({
+    required String patientName,
+    required bool isEmergency,
+    required String lang,
+  }) {
+    final cleanName = patientName.trim();
+    if (cleanName.isEmpty) {
+      return isEmergency
+          ? (lang == 'ar' ? 'تنبيه طارئ' : 'Emergency Alert')
+          : (lang == 'ar' ? 'تنبيه جرعة فائتة' : 'Missed Dose Alert');
+    }
+
+    if (isEmergency) {
+      return lang == 'ar'
+          ? 'تنبيه طارئ: $cleanName'
+          : 'Emergency alert for $cleanName';
+    }
+
+    return lang == 'ar'
+        ? 'تنبيه جرعة فائتة: $cleanName'
+        : 'Missed dose alert for $cleanName';
+  }
+
   Future<void> showAlertNotification({required String title, required String body}) async {
     await init();
     await _ensureDarwinPermissions();
