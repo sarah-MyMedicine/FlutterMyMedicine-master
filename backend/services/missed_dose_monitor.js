@@ -173,6 +173,7 @@ async function processPatientMissedDoses(patient, now, graceHours) {
             title: `${patient.name || patient.username || 'Patient'} missed dose alert`,
             body: alertMessage,
             channelId: 'missed_dose_alarm',
+            includeNotificationPayload: false,
             data: {
               type: 'missed_dose',
               alertId: alert.id,

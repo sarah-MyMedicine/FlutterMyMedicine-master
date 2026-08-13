@@ -503,6 +503,7 @@ class NotificationService {
     int scheduledCount = 0;
     bool isFirstOccurrence = true;
     final hasHeartAndHypertension = await _hasHeartAndHypertensionConditions();
+    final displayTitle = await _withPatientName(title);
 
     for (var i = 0; i < safeOccurrences; i++) {
       final scheduled = firstOccurrence.add(Duration(hours: intervalHours * i));
@@ -555,7 +556,7 @@ class NotificationService {
         // Attempt zonedSchedule (system scheduling)
         await _plugin.zonedSchedule(
           id: id,
-          title: title,
+          title: displayTitle,
           body: contextualBody,
           scheduledDate: tzDateTime,
           notificationDetails: const NotificationDetails(
@@ -589,7 +590,7 @@ class NotificationService {
         // FALLBACK: For the first occurrence, also set a Timer as a safety net
         // This ensures at least one test fires reliably on emulator
         if (isFirstOccurrence) {
-          _scheduleTimerFallback(id, title, body, scheduled, payload);
+          _scheduleTimerFallback(id, displayTitle, body, scheduled, payload);
           isFirstOccurrence = false;
         }
       } on PlatformException catch (e) {
@@ -597,7 +598,7 @@ class NotificationService {
         if (_isAlarmLimitException(e)) {
           debugPrint('[NotificationService] Alarm limit reached while scheduling prefix=$prefix. Stopping further schedules for this medication.');
           if (isFirstOccurrence) {
-            _scheduleTimerFallback(id, title, body, scheduled, payload);
+            _scheduleTimerFallback(id, displayTitle, body, scheduled, payload);
             isFirstOccurrence = false;
           }
           break;
@@ -606,7 +607,7 @@ class NotificationService {
           debugPrint('[NotificationService] Retrying with inexactAllowWhileIdle for id=$id');
           await _plugin.zonedSchedule(
             id: id,
-            title: title,
+            title: displayTitle,
             body: contextualBody,
             scheduledDate: tz.TZDateTime(
               tz.local,
@@ -1179,6 +1180,7 @@ class NotificationService {
     
     final id = DateTime.now().millisecondsSinceEpoch & 0x7fffffff;
     final payload = jsonEncode({'prefix': prefix, 'name': title.replaceFirst('موعد تناول ', ''), 'dose': body, 'id': id, 'scheduled': when.millisecondsSinceEpoch});
+    final displayTitle = await _withPatientName(title);
     
     final tzDateTime = tz.TZDateTime.from(when, tz.local);
     final nowTz = tz.TZDateTime.now(tz.local);
@@ -1190,7 +1192,7 @@ class NotificationService {
     try {
       await _plugin.zonedSchedule(
         id: id,
-        title: title,
+        title: displayTitle,
         body: body,
         scheduledDate: tzDateTime,
         notificationDetails: const NotificationDetails(
@@ -1222,7 +1224,7 @@ class NotificationService {
     } on PlatformException catch (e) {
       if (_isAlarmLimitException(e)) {
         debugPrint('[NotificationService] Alarm limit reached for one-off schedule. Using in-memory timer fallback for id=$id');
-        _scheduleTimerFallback(id, title, body, when, payload);
+        _scheduleTimerFallback(id, displayTitle, body, when, payload);
         return id;
       }
       rethrow;
@@ -1251,11 +1253,12 @@ class NotificationService {
     }
     
     final id = when.millisecondsSinceEpoch & 0x7fffffff;
+    final displayTitle = await _withPatientName('تذكير: $medicationName');
     
     try {
       await _plugin.zonedSchedule(
         id: id,
-        title: 'تذكير: $medicationName',
+        title: displayTitle,
         body: message,
         scheduledDate: scheduledDate,
         notificationDetails: NotificationDetails(
@@ -1285,7 +1288,7 @@ class NotificationService {
         debugPrint('[NotificationService] Alarm limit reached for skipped reminder. Using in-memory timer fallback for id=$id');
         _scheduleTimerFallback(
           id,
-          'تذكير: $medicationName',
+          displayTitle,
           message,
           when,
           jsonEncode({
@@ -1302,6 +1305,13 @@ class NotificationService {
     }
     
     debugPrint('[NotificationService] Scheduled motivational reminder for $medicationName in 1 hour');
+  }
+
+  Future<String> _withPatientName(String title) async {
+    final prefs = await SharedPreferences.getInstance();
+    final name = (prefs.getString('settings_name') ?? '').trim();
+    if (name.isEmpty || name == 'زائر') return title;
+    return '$title - $name';
   }
 
   /// Show an immediate alert-style notification (used for health warnings)

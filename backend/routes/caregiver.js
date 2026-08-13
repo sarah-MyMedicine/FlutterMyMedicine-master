@@ -295,6 +295,7 @@ router.post('/notify-missed-dose', authMiddleware, async (req, res) => {
         title: `${patient.name || patient.username || 'Patient'} missed dose alert`,
         body: alertMessage,
         channelId: 'missed_dose_alarm',
+        includeNotificationPayload: false,
         data: {
           type: 'missed_dose',
           alertId: alert.id,
@@ -395,6 +396,7 @@ router.post('/notify-emergency', authMiddleware, async (req, res) => {
         title: `🚨 Emergency alert for ${patient.name || patient.username || 'Patient'}`,
         body: resolvedMessage,
         channelId: 'sos_alarm',
+        includeNotificationPayload: false,
         data: {
           type: 'emergency_siren',
           alertId: alert.id,
