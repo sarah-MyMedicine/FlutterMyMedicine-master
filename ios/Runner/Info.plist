@@ -30,6 +30,12 @@
 	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>AL-Munqith</string>
+	<key>FacebookAppID</key>
+	<string>$(FACEBOOK_APP_ID)</string>
+	<key>FacebookClientToken</key>
+	<string>$(FACEBOOK_CLIENT_TOKEN)</string>
+	<key>FacebookDisplayName</key>
+	<string>AL-Munqith</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -47,6 +53,7 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
+				<string>fb$(FACEBOOK_APP_ID)</string>
 				<string>com.googleusercontent.apps.203573212812-2pju0m9fgob0683ar560j9a879fvp6r2</string>
 			</array>
 		</dict>

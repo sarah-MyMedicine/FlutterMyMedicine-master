@@ -18,6 +18,7 @@ import 'services/api_service.dart';
 import 'services/auth_service.dart';
 import 'services/push_notification_service.dart';
 import 'services/patient_data_sync_service.dart';
+import 'services/facebook_app_events_service.dart';
 import 'firebase_options.dart';
 import 'providers/medication_provider.dart';
 import 'providers/blood_pressure_provider.dart';
@@ -54,6 +55,7 @@ void main() async {
 
   await _safeInit('ApiService', () => ApiService().init());
   await _safeInit('NotificationService', () => NotificationService().init());
+  await _safeInit('FacebookAppEvents', () => FacebookAppEventsService().activateApp());
 
   // Initialize providers
   final settingsProvider = SettingsProvider();
