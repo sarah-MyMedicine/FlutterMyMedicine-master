@@ -59,7 +59,7 @@ dependencies:
   app_links: ^6.4.0
   share_plus: ^10.0.2
   fl_chart: ^0.69.0
-  facebook_app_events: ^0.19.3
+  facebook_app_events: ^0.30.5
 
 dev_dependencies:
   flutter_test:
